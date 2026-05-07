@@ -1,0 +1,57 @@
+from datetime import datetime
+from typing import List, Dict, Any
+
+from db.session import SessionLocal, init_db
+from db.models import Comparable
+
+
+def save_comparables(listings: List[Dict[str, Any]]) -> int:
+    """
+    Sauvegarde une liste d'annonces comparables en base de données.
+
+    Retourne le nombre d'annonces effectivement enregistrées.
+    """
+
+    if not listings:
+        return 0
+
+    # S'assurer que la DB est initialisée
+    init_db()
+
+    db = SessionLocal()
+    saved_count = 0
+
+    for ad in listings:
+        try:
+            surface = ad.get("surface_m2")
+            price = ad.get("price_total")
+
+            if not surface or not price or surface <= 0:
+                continue
+
+            price_m2 = price / surface
+
+            comparable = Comparable(
+                id=ad["id"],
+                source=ad["source"],
+                city=ad["city"],
+                district=ad.get("district"),
+                property_type=ad["property_type"],
+                surface_m2=surface,
+                price_total=price,
+                price_m2=price_m2,
+                collected_at=datetime.utcnow()
+            )
+
+            # merge = insert ou update si déjà existant
+            db.merge(comparable)
+            saved_count += 1
+
+        except Exception:
+            # MVP : on ignore silencieusement les erreurs individuelles
+            continue
+
+    db.commit()
+    db.close()
+
+    return saved_count

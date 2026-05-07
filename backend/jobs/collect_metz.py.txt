@@ -1,0 +1,25 @@
+from scrapers.site_local import scrape_site_local_metz
+from ingestion.save import save_comparables
+
+
+def run():
+    """
+    Lance la collecte des annonces comparables pour Metz
+    et les enregistre en base de données.
+    """
+
+    print("🔎 Démarrage de la collecte des comparables (Metz)...")
+
+    listings = scrape_site_local_metz()
+
+    if not listings:
+        print("⚠️ Aucune annonce récupérée.")
+        return
+
+    saved = save_comparables(listings)
+
+    print(f"✅ {saved} annonces comparables enregistrées en base.")
+
+
+if __name__ == "__main__":
+    run()

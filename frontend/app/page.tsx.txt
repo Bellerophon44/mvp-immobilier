@@ -1,0 +1,57 @@
+"use client";
+
+import { useState } from "react";
+import { analyzeListing } from "../lib/api";
+import ScoreResult from "../components/ScoreResult";
+import Pillars from "../components/Pillars";
+import Actions from "../components/Actions";
+
+export default function HomePage() {
+  const [text, setText] = useState("");
+  const [result, setResult] = useState<any | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleAnalyze() {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await analyzeListing(text);
+      setResult(res);
+    } catch {
+      setError("Erreur lors de l'analyse.");
+    }
+    setLoading(false);
+  }
+
+  return (
+    <main style={{ maxWidth: "700px", margin: "40px auto", fontFamily: "Arial" }}>
+      <h1>Analyse d’annonce immobilière</h1>
+
+      {!result && (
+        <>
+          <textarea
+            placeholder="Collez ici le texte ou l’URL d’une annonce immobilière"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            rows={8}
+            style={{ width: "100%", padding: "10px" }}
+          />
+          <button onClick={handleAnalyze} disabled={loading || !text}>
+            {loading ? "Analyse en cours..." : "Analyser"}
+          </button>
+          {error && <p style={{ color: "red" }}>{error}</p>}
+        </>
+      )}
+
+      {result && (
+        <>
+          <ScoreResult result={result} />
+          <Pillars pillars={result.pillars} />
+          <Actions actions={result.actions} />
+          <button onClick={() => setResult(null)}>Analyser une autre annonce</button>
+        </>
+      )}
+    </main>
+  );
+}

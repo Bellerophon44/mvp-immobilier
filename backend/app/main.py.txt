@@ -1,0 +1,68 @@
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+from typing import Optional, Dict, Any
+
+from app.analysis import run_full_analysis
+
+app = FastAPI(
+    title="MVP Analyse Immobilière",
+    description="API d’analyse de cohérence d’une annonce immobilière",
+    version="1.0"
+)
+
+# ---------
+# Modèle d’entrée
+# ---------
+
+class AnalyzeRequest(BaseModel):
+    raw_text: Optional[str] = None
+    url: Optional[str] = None
+
+
+# ---------
+# Modèle de sortie
+# ---------
+
+class AnalyzeResponse(BaseModel):
+    global_score: int
+    verdict: str
+    confidence: str
+    pillars: list
+    actions: Dict[str, list]
+
+
+# ---------
+# Endpoint principal
+# ---------
+
+@app.post("/analyze", response_model=AnalyzeResponse)
+def analyze(payload: AnalyzeRequest):
+    """
+    Analyse une annonce immobilière et retourne :
+    - un score de cohérence
+    - des diagnostics explicables
+    - des actions concrètes pour l’acheteur
+    """
+
+    # Sécurité minimale
+    if not payload.raw_text and not payload.url:
+        raise HTTPException(
+            status_code=400,
+            detail="Veuillez fournir soit le texte de l’annonce, soit une URL."
+        )
+
+    # Pour le MVP :
+    # - on privilégie le texte collé
+    # - si URL seule, elle est traitée comme texte brut
+    raw_content = payload.raw_text or payload.url
+
+    try:
+        result = run_full_analysis(raw_content)
+        return result
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Erreur lors de l’analyse : {str(e)}"
+        )
+``
