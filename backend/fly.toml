@@ -1,10 +1,19 @@
 app = "backend-frosty-sound-441"
 
+primary_region = "cdg"
+
 [build]
   builder = "paketobuildpacks/builder:base"
 
 [processes]
-  web = "uvicorn app.main:app --host 0.0.0.0 --port ${PORT}"
+  web = "uvicorn app.main:app --host 0.0.0.0 --port 8000"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_start_machines = true
+  auto_stop_machines = false
+  min_machines_running = 1
 
 [env]
   PYTHONUNBUFFERED = "1"
