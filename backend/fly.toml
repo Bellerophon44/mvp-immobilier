@@ -17,3 +17,4 @@ primary_region = "cdg"
 
 [env]
   PYTHONUNBUFFERED = "1"
+  FASTAPI_APP = "app.main:app"
