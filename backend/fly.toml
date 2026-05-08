@@ -1,7 +1,16 @@
 app = "backend-frosty-sound-441-docker"
-
+build = { }
 primary_region = "cdg"
 
 [http_service]
-  internal_port = 8000
-  force
+auto_start_machines = true
+auto_stop_machines = true
+force_https = true
+internal_port = 8_080
+min_machines_running = 0
+processes = [ "app" ]
+
+[[vm]]
+cpus = 1
+memory = "1gb"
+memory_mb = 1_024
