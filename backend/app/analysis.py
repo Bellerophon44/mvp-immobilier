@@ -55,4 +55,3 @@ def run_full_analysis(raw_text: str) -> dict:
         "pillars": pillars,
         "actions": actions
     }
-``
