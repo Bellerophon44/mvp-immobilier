@@ -65,4 +65,3 @@ def analyze(payload: AnalyzeRequest):
             status_code=500,
             detail=f"Erreur lors de l’analyse : {str(e)}"
         )
-``
