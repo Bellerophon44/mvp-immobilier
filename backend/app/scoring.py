@@ -38,3 +38,80 @@ def compute_global_score(price_pillar: dict, semantic_pillar: dict) -> dict:
     elif "sous" in price_verdict:
         score += 30
         explanations.append("Prix inférieur aux tendances observées localement.")
+    else:
+        score += 15
+        explanations.append("Positionnement prix incertain.")
+
+    # =========================
+    # 2. Transparence (30 pts)
+    # =========================
+
+    transparency = semantic_pillar.get("transparency_score", 50)
+
+    if transparency >= 70:
+        score += 25
+        explanations.append("Annonce claire et transparente.")
+    elif transparency >= 40:
+        score += 15
+        explanations.append("Annonce partiellement transparente.")
+    else:
+        score += 5
+        explanations.append("Annonce peu transparente.")
+
+    # =========================
+    # 3. Risques (30 pts)
+    # =========================
+
+    risk = (semantic_pillar.get("risk_level") or "").lower()
+
+    if "faible" in risk:
+        score += 25
+        explanations.append("Peu de risques identifiés.")
+    elif "modéré" in risk:
+        score += 15
+        explanations.append("Quelques incertitudes à vérifier.")
+    elif "élevé" in risk:
+        score += 5
+        explanations.append("Risques importants identifiés.")
+    else:
+        score += 10
+        explanations.append("Niveau de risque incertain.")
+
+    # =========================
+    # Bornage du score
+    # =========================
+
+    score = max(0, min(100, score))
+
+    # =========================
+    # Verdict global
+    # =========================
+
+    if score >= 80:
+        verdict = "Cohérence forte"
+    elif score >= 60:
+        verdict = "À creuser"
+    elif score >= 40:
+        verdict = "Risque élevé"
+    else:
+        verdict = "Cohérence faible"
+
+    # =========================
+    # Confiance globale
+    # =========================
+
+    price_confidence = (price_pillar.get("confidence") or "").lower()
+
+    if price_confidence == "élevée":
+        confidence = "Élevée"
+    elif price_confidence == "moyenne":
+        confidence = "Moyenne"
+    else:
+        confidence = "Faible"
+
+    return {
+        "score": score,
+        "verdict": verdict,
+        "confidence": confidence,
+        "explanations": explanations
+    }
