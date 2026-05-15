@@ -168,5 +168,50 @@ def compute_confidence(market_stats: Dict[str, Any]) -> str:
     else:
         return "Faible"
 
+# ============================
+# Fonction principale utilisée
+# ============================
+
+def compute_price_market_pillar(
+    city: str,
+    district: Optional[str],
+    property_type: str,
+    surface_m2: float,
+    listing_price_m2: float
+) -> Dict[str, Any]:
+    """
+    Fonction appelée par analysis.py
+    pour construire le pilier Prix / Marché.
+    """
+
+    market_stats = compute_market_stats(
+        city=city,
+        district=district,
+        property_type=property_type,
+        surface_m2=surface_m2
+    )
+
+    if market_stats is None:
+        return {
+            "verdict": "Indéterminé",
+            "explanation": (
+                "Données comparables insuffisantes pour établir "
+                "une référence fiable."
+            ),
+            "confidence": "Faible"
+        }
+
+    positioning = interpret_price_positioning(
+        listing_price_m2=listing_price_m2,
+        market_stats=market_stats
+    )
+
+    confidence = compute_confidence(market_stats)
+
+    return {
+        "verdict": positioning["verdict"],
+        "explanation": positioning["explanation"],
+        "confidence": confidence
+    }
 
 # ============================
