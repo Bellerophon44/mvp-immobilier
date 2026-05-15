@@ -40,4 +40,49 @@ def fetch_page(url: str) -> Optional[str]:
 
 def generate_stable_id(source: str, external_id: str) -> str:
     """
-    Génère un identifiant interne stable à partir :
+    Génère un identifiant unique pour chaque annonce.
+
+    Permet d’éviter les doublons dans la base.
+    """
+    raw = f"{source}:{external_id}"
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+# =========================
+# Normalisation des données
+# =========================
+
+def normalize_price(raw_price: str) -> Optional[float]:
+    """
+    Convertit un prix texte en float.
+
+    Exemple :
+    '680 000 €' -> 680000.0
+    """
+    try:
+        cleaned = (
+            raw_price.replace("€", "")
+            .replace(" ", "")
+            .replace("\xa0", "")
+        )
+        return float(cleaned)
+    except Exception:
+        return None
+
+
+def normalize_surface(raw_surface: str) -> Optional[float]:
+    """
+    Convertit une surface texte en float.
+
+    Exemple :
+    '193 m²' -> 193.0
+    """
+    try:
+        cleaned = (
+            raw_surface.replace("m²", "")
+            .replace(" ", "")
+            .replace("\xa0", "")
+        )
+        return float(cleaned)
+    except Exception:
+        return None
