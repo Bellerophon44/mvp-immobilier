@@ -7,19 +7,19 @@ from openai import OpenAI
 
 
 # =====================
-# Configuration OpenAI
+# CONFIGURATION OPENAI
 # =====================
 
 client = OpenAI(
     api_key=os.getenv("OPENAI_API_KEY")
 )
 
-MODEL_NAME = "gpt-4.1-mini"   # fiable, peu coûteux, suffisant pour analyse sémantique
-TEMPERATURE = 0.2            # faible créativité, forte stabilité
+MODEL_NAME = "gpt-4.1-mini"
+TEMPERATURE = 0.2
 
 
 # =====================
-# Cache simple en mémoire
+# CACHE SIMPLE EN MÉMOIRE
 # =====================
 
 _CACHE = {}
@@ -27,7 +27,6 @@ CACHE_TTL_SECONDS = 7 * 24 * 60 * 60  # 7 jours
 
 
 def _normalize_text(text: str) -> str:
-    """Nettoie le texte pour un hash stable."""
     return " ".join(text.lower().strip().split())
 
 
@@ -42,6 +41,7 @@ def _get_from_cache(key: str):
         return None
 
     timestamp, value = item
+
     if time.time() - timestamp > CACHE_TTL_SECONDS:
         del _CACHE[key]
         return None
