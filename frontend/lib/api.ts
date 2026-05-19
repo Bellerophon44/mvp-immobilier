@@ -14,4 +14,3 @@ export async function analyzeListing(rawText: string) {
 
   return response.json();
 }
-``

@@ -12,4 +12,3 @@ export default function Pillars({ pillars }: any) {
     </div>
   );
 }
-``
