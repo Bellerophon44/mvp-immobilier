@@ -1,11 +1,22 @@
+import os
+from pathlib import Path
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from db.models import Base
 
-# Connexion SQLite (MVP)
-# Le fichier comparables.db est créé automatiquement
-DATABASE_URL = "sqlite:///./comparables.db"
+
+DATABASE_PATH = os.getenv("DATABASE_PATH", "./comparables.db")
+
+db_dir = Path(DATABASE_PATH).parent
+if str(db_dir) and not db_dir.exists():
+    try:
+        db_dir.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        pass
+
+DATABASE_URL = f"sqlite:///{DATABASE_PATH}"
 
 engine = create_engine(
     DATABASE_URL,
@@ -20,8 +31,4 @@ SessionLocal = sessionmaker(
 
 
 def init_db():
-    """
-    Initialise la base de données.
-    À appeler au démarrage ou dans les jobs d’ingestion.
-    """
     Base.metadata.create_all(bind=engine)

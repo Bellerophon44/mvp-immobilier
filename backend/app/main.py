@@ -1,27 +1,44 @@
+import os
+from typing import Optional, Dict
+
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Optional, Dict, Any
 
 from app.analysis import run_full_analysis
+from db.session import init_db
+
 
 app = FastAPI(
     title="MVP Analyse Immobilière",
-    description="API d’analyse de cohérence d’une annonce immobilière",
-    version="1.0"
+    description="API d'analyse de cohérence d'une annonce immobilière",
+    version="1.0",
 )
 
-# ---------
-# Modèle d’entrée
-# ---------
+
+_default_origins = "http://localhost:3000,https://*.vercel.app"
+_origins_env = os.getenv("CORS_ORIGINS", _default_origins)
+_origins = [o.strip() for o in _origins_env.split(",") if o.strip()]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_origins,
+    allow_origin_regex=r"https://.*\.vercel\.app",
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+@app.on_event("startup")
+def _startup() -> None:
+    init_db()
+
 
 class AnalyzeRequest(BaseModel):
     raw_text: Optional[str] = None
     url: Optional[str] = None
 
-
-# ---------
-# Modèle de sortie
-# ---------
 
 class AnalyzeResponse(BaseModel):
     global_score: int
@@ -31,37 +48,30 @@ class AnalyzeResponse(BaseModel):
     actions: Dict[str, list]
 
 
-# ---------
-# Endpoint principal
-# ---------
+@app.get("/health")
+def health() -> dict:
+    return {"status": "ok"}
+
+
+@app.get("/")
+def root() -> dict:
+    return {"service": "mvp-immobilier", "docs": "/docs"}
+
 
 @app.post("/analyze", response_model=AnalyzeResponse)
 def analyze(payload: AnalyzeRequest):
-    """
-    Analyse une annonce immobilière et retourne :
-    - un score de cohérence
-    - des diagnostics explicables
-    - des actions concrètes pour l’acheteur
-    """
-
-    # Sécurité minimale
     if not payload.raw_text and not payload.url:
         raise HTTPException(
             status_code=400,
-            detail="Veuillez fournir soit le texte de l’annonce, soit une URL."
+            detail="Veuillez fournir soit le texte de l'annonce, soit une URL.",
         )
 
-    # Pour le MVP :
-    # - on privilégie le texte collé
-    # - si URL seule, elle est traitée comme texte brut
     raw_content = payload.raw_text or payload.url
 
     try:
-        result = run_full_analysis(raw_content)
-        return result
-
+        return run_full_analysis(raw_content)
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"Erreur lors de l’analyse : {str(e)}"
+            detail=f"Erreur lors de l'analyse : {str(e)}",
         )
