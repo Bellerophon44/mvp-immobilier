@@ -1,10 +1,14 @@
 import json
+import logging
 import os
 import time
 import hashlib
 from typing import Dict, Any, Optional
 
 from openai import OpenAI
+
+logger = logging.getLogger("llm_semantic")
+logging.basicConfig(level=logging.INFO)
 
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -139,7 +143,13 @@ def analyze_semantic(raw_text: str) -> Dict[str, Any]:
         )
         content = response.choices[0].message.content or "{}"
         result = json.loads(content)
-    except Exception:
+    except Exception as e:
+        logger.exception(
+            "LLM call failed (model=%s, key_set=%s): %s",
+            MODEL_NAME,
+            bool(os.getenv("OPENAI_API_KEY")),
+            e,
+        )
         return dict(_FALLBACK)
 
     raw_listing = result.get("listing") or {}
