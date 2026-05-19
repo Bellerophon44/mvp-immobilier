@@ -1,1 +1,26 @@
 .DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+
+# Env / secrets
+.env
+.env.*
+
+# Local DB
+*.db
+*.sqlite
+*.sqlite3
+
+# Editors
+.idea/
+.vscode/
