@@ -1,8 +1,13 @@
 from typing import Optional
 from urllib.parse import urlparse
+import logging
 
 import requests
 from bs4 import BeautifulSoup
+
+
+logger = logging.getLogger("url_fetch")
+logging.basicConfig(level=logging.INFO)
 
 
 HEADERS = {
@@ -48,17 +53,23 @@ def fetch_listing_text(url: str) -> Optional[str]:
     ou si l'URL n'est pas sûre.
     """
     if not _is_safe_url(url):
+        logger.warning("URL rejected (unsafe): %s", url)
         return None
 
     try:
         resp = requests.get(url, headers=HEADERS, timeout=TIMEOUT)
+        logger.info("Fetched %s -> status=%s, bytes=%d, ct=%s",
+                    url, resp.status_code, len(resp.text or ""),
+                    resp.headers.get("content-type", ""))
         resp.raise_for_status()
-    except requests.RequestException:
+    except requests.RequestException as e:
+        logger.warning("URL fetch failed for %s: %s", url, e)
         return None
 
     try:
         soup = BeautifulSoup(resp.text, "html.parser")
-    except Exception:
+    except Exception as e:
+        logger.warning("HTML parse failed for %s: %s", url, e)
         return None
 
     for tag in soup(["script", "style", "noscript", "nav", "header",
@@ -70,6 +81,8 @@ def fetch_listing_text(url: str) -> Optional[str]:
     text = " ".join(text.split())
 
     if len(text) < MIN_TEXT_LENGTH:
+        logger.warning("Extracted text too short for %s (len=%d)", url, len(text))
         return None
 
+    logger.info("Extracted %d chars from %s", len(text), url)
     return text[:MAX_TEXT_LENGTH]
