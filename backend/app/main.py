@@ -1,3 +1,4 @@
+import logging
 import os
 from typing import Optional, Dict
 
@@ -8,6 +9,10 @@ from pydantic import BaseModel
 from app.analysis import run_full_analysis
 from app.url_fetch import fetch_listing_text
 from db.session import init_db
+
+
+logging.basicConfig(level=logging.INFO, force=True)
+logger = logging.getLogger("mvp")
 
 
 app = FastAPI(
@@ -61,6 +66,16 @@ def root() -> dict:
 
 @app.post("/analyze", response_model=AnalyzeResponse)
 def analyze(payload: AnalyzeRequest):
+    raw_text_preview = (payload.raw_text or "")[:60]
+    logger.info(
+        "ANALYZE in: has_raw_text=%s (len=%d, preview=%r), has_url=%s (%r)",
+        bool(payload.raw_text and payload.raw_text.strip()),
+        len(payload.raw_text or ""),
+        raw_text_preview,
+        bool(payload.url),
+        payload.url,
+    )
+
     if not payload.raw_text and not payload.url:
         raise HTTPException(
             status_code=400,
@@ -68,8 +83,10 @@ def analyze(payload: AnalyzeRequest):
         )
 
     if payload.raw_text and payload.raw_text.strip():
+        logger.info("ANALYZE branch: using raw_text")
         raw_content = payload.raw_text
     else:
+        logger.info("ANALYZE branch: fetching URL")
         fetched = fetch_listing_text(payload.url or "")
         if not fetched:
             raise HTTPException(
