@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from app.analysis import run_full_analysis
+from app.url_fetch import fetch_listing_text
 from db.session import init_db
 
 
@@ -66,7 +67,20 @@ def analyze(payload: AnalyzeRequest):
             detail="Veuillez fournir soit le texte de l'annonce, soit une URL.",
         )
 
-    raw_content = payload.raw_text or payload.url
+    if payload.raw_text and payload.raw_text.strip():
+        raw_content = payload.raw_text
+    else:
+        fetched = fetch_listing_text(payload.url or "")
+        if not fetched:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    "Impossible de récupérer le contenu de cette URL. "
+                    "Le site bloque peut-être l'accès automatique. "
+                    "Copiez-collez directement le texte de l'annonce."
+                ),
+            )
+        raw_content = fetched
 
     try:
         return run_full_analysis(raw_content)
