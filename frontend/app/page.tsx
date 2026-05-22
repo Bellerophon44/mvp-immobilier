@@ -18,8 +18,8 @@ export default function HomePage() {
     try {
       const res = await analyzeListing(text);
       setResult(res);
-    } catch {
-      setError("Erreur lors de l'analyse.");
+    } catch (e: any) {
+      setError(e?.message || "Erreur lors de l'analyse.");
     }
     setLoading(false);
   }
