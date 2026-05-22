@@ -1,6 +1,6 @@
 import requests
 import hashlib
-from typing import Optional
+from typing import Any, Optional
 
 # -------------------------
 # Configuration HTTP
@@ -30,6 +30,24 @@ def fetch_page(url: str) -> Optional[str]:
         )
         response.raise_for_status()
         return response.text
+    except Exception:
+        return None
+
+
+def fetch_json(url: str, params: Optional[dict] = None) -> Optional[Any]:
+    """
+    Effectue une requête GET et retourne la réponse parsée en JSON.
+    Retourne None en cas d’erreur réseau ou de réponse non-JSON.
+    """
+    try:
+        response = requests.get(
+            url,
+            headers=HEADERS,
+            params=params,
+            timeout=REQUEST_TIMEOUT
+        )
+        response.raise_for_status()
+        return response.json()
     except Exception:
         return None
 

@@ -1,24 +1,24 @@
-from scrapers.site_local import scrape_site_local_metz
+import logging
+
+import scrapers.sources.site_local  # noqa: F401 — triggers @register
+from scrapers.registry import run_all
 from ingestion.save import save_comparables
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 def run():
-    """
-    Lance la collecte des annonces comparables pour Metz
-    et les enregistre en base de données.
-    """
+    logger.info("Démarrage de la collecte des comparables...")
 
-    print("🔎 Démarrage de la collecte des comparables (Metz)...")
-
-    listings = scrape_site_local_metz()
+    listings = run_all()
 
     if not listings:
-        print("⚠️ Aucune annonce récupérée.")
+        logger.warning("Aucune annonce récupérée.")
         return
 
-    saved = save_comparables(listings)
-
-    print(f"✅ {saved} annonces comparables enregistrées en base.")
+    saved = save_comparables([l.to_dict() for l in listings])
+    logger.info("%d annonces comparables enregistrées en base.", saved)
 
 
 if __name__ == "__main__":
