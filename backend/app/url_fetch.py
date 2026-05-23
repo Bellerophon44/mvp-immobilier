@@ -7,7 +7,7 @@ from bs4 import BeautifulSoup
 
 
 logger = logging.getLogger("url_fetch")
-logging.basicConfig(level=logging.INFO)
+logger.setLevel(logging.INFO)
 
 
 HEADERS = {
