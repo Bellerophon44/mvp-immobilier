@@ -1,3 +1,11 @@
+import "./globals.css";
+
+export const metadata = {
+  title: "Analyse d'annonce immobilière",
+  description:
+    "Décryptez une annonce immobilière en 30 secondes : ce qui est dit, ce qui manque, ce qu'il faut vérifier.",
+};
+
 export default function RootLayout({
   children,
 }: {
@@ -5,9 +13,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="fr">
-      <body style={{ margin: 0, fontFamily: "Arial, sans-serif" }}>
-        {children}
-      </body>
+      <body>{children}</body>
     </html>
   );
 }
