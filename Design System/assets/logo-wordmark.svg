@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 56" fill="none">
+  
+  <path d="M28 8 L48 28 L28 48 L8 28 Z" fill="#B5462F"></path>
+  <path d="M28 18 L38 28 L28 38 L18 28 Z" fill="#F5F1EA"></path>
+  
+  <text x="64" y="38" font-family="Instrument Serif, Georgia, serif" font-size="32" fill="#1A1814" letter-spacing="-0.5">Cohérence</text>
+</svg>

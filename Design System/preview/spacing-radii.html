@@ -1,0 +1,19 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Radii</title>
+<link rel="stylesheet" href="_card.css">
+<style>
+  .card { padding: 24px 28px; flex-direction: row; gap: 24px; align-items: center; justify-content: flex-start; }
+  .r { display: flex; flex-direction: column; gap: 10px; align-items: center; }
+  .box { width: 96px; height: 72px; background: var(--paper); border: 1px solid var(--stone-line); box-shadow: 0 1px 0 rgba(26,24,20,0.04); }
+  .name { font-family: var(--font-sans); font-size: 13px; font-weight: 500; color: var(--ink); }
+  .v { font-family: var(--font-mono); font-size: 11px; color: var(--stone); letter-spacing: 0.04em; }
+  .use { font-family: var(--font-sans); font-size: 11px; color: var(--ink-3); text-align: center; }
+</style>
+</head><body>
+<div class="card">
+  <div class="r"><div class="box" style="border-radius:0"></div><div class="name">none</div><div class="v">0</div><div class="use">filets, séparateurs</div></div>
+  <div class="r"><div class="box" style="border-radius:2px"></div><div class="name">sm</div><div class="v">2&nbsp;px</div><div class="use">champs, puces</div></div>
+  <div class="r"><div class="box" style="border-radius:4px"></div><div class="name">md</div><div class="v">4&nbsp;px</div><div class="use">cartes, boutons</div></div>
+  <div class="r"><div class="box" style="border-radius:8px"></div><div class="name">lg</div><div class="v">8&nbsp;px</div><div class="use">carte résultat, anneau de score</div></div>
+  <div class="r"><div class="box" style="border-radius:50%; width:72px; height:72px;"></div><div class="name">full</div><div class="v">∞</div><div class="use">uniquement le disque du score</div></div>
+</div>
+</body></html>

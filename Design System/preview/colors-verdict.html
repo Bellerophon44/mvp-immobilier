@@ -1,0 +1,36 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Verdict signals</title>
+<link rel="stylesheet" href="_card.css">
+<style>
+  .card { padding: 24px 28px; }
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .sw { border: 1px solid var(--stone-line); border-radius: 4px; overflow: hidden; background: var(--paper); }
+  .bar { height: 64px; display: flex; align-items: flex-end; padding: 10px 14px; color: var(--parchment); }
+  .bar .lbl { font-family: var(--font-serif); font-style: italic; font-size: 18px; line-height: 1; }
+  .meta { padding: 12px 14px; display: flex; flex-direction: column; gap: 2px; }
+  .meta .name { font-family: var(--font-sans); font-size: 12px; font-weight: 500; color: var(--ink); }
+  .meta .hex { font-family: var(--font-mono); font-size: 10px; color: var(--stone); text-transform: uppercase; letter-spacing: 0.04em; }
+  .meta .var { font-family: var(--font-mono); font-size: 10px; color: var(--ink-3); }
+  .range { font-family: var(--font-mono); font-size: 10px; color: var(--stone); margin-top: 4px; }
+</style>
+</head><body>
+<div class="card">
+  <div class="grid">
+    <div class="sw">
+      <div class="bar" style="background:#2E6E4F"><span class="lbl">Favorable</span></div>
+      <div class="meta"><span class="name">Mousse</span><span class="hex">#2E6E4F</span><span class="var">--moss</span><span class="range">score 75 – 100</span></div>
+    </div>
+    <div class="sw">
+      <div class="bar" style="background:#C28B3C"><span class="lbl">À&nbsp;creuser</span></div>
+      <div class="meta"><span class="name">Ocre</span><span class="hex">#C28B3C</span><span class="var">--ochre</span><span class="range">score 55 – 74</span></div>
+    </div>
+    <div class="sw">
+      <div class="bar" style="background:#B5462F"><span class="lbl">Prudence</span></div>
+      <div class="meta"><span class="name">Brique</span><span class="hex">#B5462F</span><span class="var">--brick</span><span class="range">score 35 – 54</span></div>
+    </div>
+    <div class="sw">
+      <div class="bar" style="background:#6B2018"><span class="lbl">Déconseillé</span></div>
+      <div class="meta"><span class="name">Brique profonde</span><span class="hex">#6B2018</span><span class="var">--brick-deep</span><span class="range">score 0 – 34</span></div>
+    </div>
+  </div>
+</div>
+</body></html>

@@ -3,7 +3,7 @@ import random
 import hashlib
 import logging
 import re
-from typing import Optional
+from typing import Any, Optional
 
 import requests
 
@@ -40,6 +40,10 @@ def polite_sleep(base_delay: float = DEFAULT_DELAY) -> None:
     jitter = random.uniform(-0.4, 0.6)
     time.sleep(max(0.3, base_delay + jitter))
 
+
+# -------------------------
+# Téléchargement de page
+# -------------------------
 
 def fetch_page(
     url: str,
@@ -78,6 +82,47 @@ def fetch_page(
     return None
 
 
+def fetch_json(
+    url: str,
+    params: Optional[dict] = None,
+    delay: float = DEFAULT_DELAY,
+    max_retries: int = MAX_RETRIES,
+) -> Optional[Any]:
+    """
+    GET sur une API JSON avec retries et backoff.
+
+    Retourne la réponse parsée, ou None en cas d'erreur réseau / non-JSON.
+    """
+    for attempt in range(1, max_retries + 1):
+        try:
+            resp = _session.get(url, params=params, timeout=REQUEST_TIMEOUT)
+        except requests.RequestException as e:
+            logger.warning("fetch_json error (%d/%d) %s: %s",
+                           attempt, max_retries, url, e)
+            polite_sleep(delay * attempt)
+            continue
+
+        if resp.status_code in RETRYABLE_STATUS:
+            logger.warning("fetch_json status %d (%d/%d) %s",
+                           resp.status_code, attempt, max_retries, url)
+            polite_sleep(delay * attempt)
+            continue
+
+        if resp.status_code != 200:
+            logger.warning("fetch_json status %d (non-retryable) %s",
+                           resp.status_code, url)
+            return None
+
+        try:
+            return resp.json()
+        except ValueError:
+            logger.warning("fetch_json non-JSON response %s", url)
+            return None
+
+    logger.warning("fetch_json gave up after %d attempts: %s", max_retries, url)
+    return None
+
+
 # -------------------------
 # Génération d'identifiant stable
 # -------------------------
@@ -100,14 +145,14 @@ def normalize_price(raw_price: str) -> Optional[float]:
     et suffixes ('à partir de', 'FAI', '€'...).
 
     Exemples :
-    '680 000 €'         -> 680000.0
-    'Prix : 1.250.000'  -> 1250000.0
+    '680 000 €'          -> 680000.0
+    'Prix : 1.250.000'   -> 1250000.0
     'à partir de 250000' -> 250000.0
     """
     if not raw_price:
         return None
     s = raw_price.replace("\xa0", " ").lower()
-    match = re.search(r"\d[\d\s\. ]*", s)
+    match = re.search(r"\d[\d\s\. ]*", s)
     if not match:
         return None
     digits = re.sub(r"[^\d]", "", match.group(0))
@@ -178,7 +223,6 @@ _KNOWN_LOCALITIES = [
     "technopole",
     "queuleu",
     "sablon",
-    "bellecroix",
     "magny",
     "borny",
     "woippy",

@@ -1,9 +1,8 @@
 import "./globals.css";
 
 export const metadata = {
-  title: "Analyse d'annonce immobilière",
-  description:
-    "Décryptez une annonce immobilière en 30 secondes : ce qui est dit, ce qui manque, ce qu'il faut vérifier.",
+  title: "Cohérence — Analyseur d'annonces immobilières",
+  description: "Ce prix et cette annonce sont-ils cohérents avec le marché local ?",
 };
 
 export default function RootLayout({

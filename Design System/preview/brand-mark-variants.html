@@ -1,0 +1,45 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Mark</title>
+<link rel="stylesheet" href="_card.css">
+<style>
+  .card { padding: 24px 28px; flex-direction: row; align-items: center; gap: 40px; justify-content: flex-start; }
+  .swatch {
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+    font-family: var(--font-mono); font-size: 11px; color: var(--stone); letter-spacing: 0.04em; text-transform: uppercase;
+  }
+  .square {
+    width: 120px; height: 120px; display: grid; place-items: center;
+    border: 1px solid var(--stone-line);
+  }
+  .square.dark { background: var(--ink); border-color: var(--ink); }
+  .square.parch { background: var(--parchment); }
+  .square.paper { background: var(--paper); }
+  .square.brick { background: var(--brick); }
+</style>
+</head><body>
+<div class="card">
+  <div class="swatch">
+    <div class="square parch">
+      <svg width="64" height="64" viewBox="0 0 64 64"><path d="M32 6 L58 32 L32 58 L6 32 Z" fill="#B5462F"/><path d="M32 20 L44 32 L32 44 L20 32 Z" fill="#F5F1EA"/></svg>
+    </div>
+    <div>parchemin</div>
+  </div>
+  <div class="swatch">
+    <div class="square paper">
+      <svg width="64" height="64" viewBox="0 0 64 64"><path d="M32 6 L58 32 L32 58 L6 32 Z" fill="#B5462F"/><path d="M32 20 L44 32 L32 44 L20 32 Z" fill="#FBF8F2"/></svg>
+    </div>
+    <div>papier</div>
+  </div>
+  <div class="swatch">
+    <div class="square dark">
+      <svg width="64" height="64" viewBox="0 0 64 64"><path d="M32 6 L58 32 L32 58 L6 32 Z" fill="#B5462F"/><path d="M32 20 L44 32 L32 44 L20 32 Z" fill="#1A1814"/></svg>
+    </div>
+    <div style="color: var(--stone-line)">encre</div>
+  </div>
+  <div class="swatch">
+    <div class="square brick">
+      <svg width="64" height="64" viewBox="0 0 64 64"><path d="M32 6 L58 32 L32 58 L6 32 Z" fill="#F5F1EA"/><path d="M32 20 L44 32 L32 44 L20 32 Z" fill="#B5462F"/></svg>
+    </div>
+    <div style="color: var(--brick-soft)">accent</div>
+  </div>
+</div>
+</body></html>

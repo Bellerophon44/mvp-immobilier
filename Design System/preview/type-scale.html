@@ -1,0 +1,31 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Type scale</title>
+<link rel="stylesheet" href="_card.css">
+<style>
+  .card { padding: 24px 28px; }
+  table { width: 100%; border-collapse: collapse; }
+  td { padding: 8px 0; vertical-align: baseline; border-bottom: 1px solid var(--stone-line); }
+  td:first-child { width: 90px; font-family: var(--font-mono); font-size: 11px; color: var(--stone); letter-spacing: 0.04em; text-transform: uppercase; }
+  td:nth-child(2) { width: 90px; font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); }
+  td:last-child { color: var(--ink); }
+  tr:last-child td { border-bottom: none; }
+  .s-display { font-family: var(--font-serif); font-size: 44px; line-height: 1; letter-spacing: -0.02em; }
+  .s-h1 { font-family: var(--font-serif); font-size: 32px; line-height: 1.05; }
+  .s-h2 { font-family: var(--font-serif); font-size: 24px; line-height: 1.1; }
+  .s-h3 { font-family: var(--font-sans); font-weight: 600; font-size: 20px; }
+  .s-body { font-family: var(--font-sans); font-size: 16px; }
+  .s-small { font-family: var(--font-sans); font-size: 14px; color: var(--ink-3); }
+  .s-cap { font-family: var(--font-sans); font-size: 12px; color: var(--stone); }
+</style>
+</head><body>
+<div class="card">
+  <table>
+    <tr><td>Display</td><td>44 / 1.05</td><td class="s-display">Pilier prix</td></tr>
+    <tr><td>H1</td><td>32 / 1.05</td><td class="s-h1">Le prix est aligné</td></tr>
+    <tr><td>H2</td><td>24 / 1.1</td><td class="s-h2">Comparables retenus</td></tr>
+    <tr><td>H3</td><td>20 / 1.2 · 600</td><td class="s-h3">À&nbsp;vérifier avant la visite</td></tr>
+    <tr><td>Body</td><td>16 / 1.5</td><td class="s-body">Ce bien se situe 18&nbsp;% au-dessus de la médiane.</td></tr>
+    <tr><td>Small</td><td>14 / 1.5</td><td class="s-small">4 comparables dans un rayon de 1,5&nbsp;km.</td></tr>
+    <tr><td>Caption</td><td>12 / 1.5</td><td class="s-cap">Source : laveine.immo · MAJ 14 mai 2026</td></tr>
+  </table>
+</div>
+</body></html>

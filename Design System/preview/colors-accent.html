@@ -1,0 +1,35 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Accent</title>
+<link rel="stylesheet" href="_card.css">
+<style>
+  .card { padding: 24px 28px; flex-direction: row; align-items: stretch; gap: 16px; }
+  .main { flex: 1.4; background: var(--brick); border-radius: 4px; padding: 22px; display: flex; flex-direction: column; justify-content: space-between; color: var(--parchment); }
+  .main h { font-family: var(--font-serif); font-size: 36px; line-height: 1; }
+  .main .meta { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.85; }
+  .side { flex: 1; display: flex; flex-direction: column; gap: 12px; }
+  .row { flex: 1; display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: 4px; border: 1px solid var(--stone-line); background: var(--paper); }
+  .chip { width: 36px; height: 36px; border-radius: 4px; flex-shrink: 0; }
+  .row .name { font-family: var(--font-sans); font-size: 13px; font-weight: 500; color: var(--ink); }
+  .row .hex { font-family: var(--font-mono); font-size: 11px; color: var(--stone); text-transform: uppercase; letter-spacing: 0.04em; }
+  .row .var { font-family: var(--font-mono); font-size: 10px; color: var(--ink-3); }
+</style>
+</head><body>
+<div class="card">
+  <div class="main">
+    <div>
+      <div class="meta">Accent</div>
+      <h class="t-display" style="display:block; margin-top:8px;">Brique</h>
+    </div>
+    <div class="meta">#B5462F · --brick</div>
+  </div>
+  <div class="side">
+    <div class="row">
+      <div class="chip" style="background:#6B2018"></div>
+      <div><div class="name">Brique profonde</div><div class="hex">#6B2018</div><div class="var">--brick-deep</div></div>
+    </div>
+    <div class="row">
+      <div class="chip" style="background:#E8C9BD"></div>
+      <div><div class="name">Brique douce</div><div class="hex">#E8C9BD</div><div class="var">--brick-soft</div></div>
+    </div>
+  </div>
+</div>
+</body></html>

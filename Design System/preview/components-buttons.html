@@ -1,0 +1,42 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Buttons</title>
+<link rel="stylesheet" href="_card.css">
+<style>
+  .card { padding: 28px 32px; }
+  .label { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--stone); margin-bottom: 14px; }
+  .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .row + .row { margin-top: 14px; }
+
+  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 11px 18px; border-radius: 4px; font-family: var(--font-sans); font-size: 14px; font-weight: 500; cursor: pointer; border: 1px solid transparent; line-height: 1; }
+  .btn svg { width: 16px; height: 16px; }
+
+  .btn-primary { background: var(--brick); color: var(--parchment); }
+  .btn-primary.hover { background: var(--brick-deep); }
+  .btn-secondary { background: var(--paper); color: var(--ink); border-color: var(--stone-line); }
+  .btn-secondary.hover { background: var(--stone-fill); border-color: var(--stone); }
+  .btn-ghost { background: transparent; color: var(--ink); padding-left: 0; padding-right: 0; }
+  .btn-ghost.hover { color: var(--brick); }
+  .btn-disabled { background: var(--brick); color: var(--parchment); opacity: 0.4; cursor: not-allowed; }
+
+  .tag { font-family: var(--font-mono); font-size: 10px; color: var(--stone); letter-spacing: 0.06em; text-transform: uppercase; min-width: 60px; }
+</style>
+</head><body>
+<div class="card">
+  <div class="label">Boutons — primaire · secondaire · fantôme</div>
+  <div class="row">
+    <span class="tag">repos</span>
+    <button class="btn btn-primary">Analyser l'annonce <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12 H19"/><path d="M13 6 L19 12 L13 18"/></svg></button>
+    <button class="btn btn-secondary">Copier le rapport</button>
+    <button class="btn btn-ghost">Voir les comparables →</button>
+  </div>
+  <div class="row">
+    <span class="tag">hover</span>
+    <button class="btn btn-primary hover">Analyser l'annonce <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12 H19"/><path d="M13 6 L19 12 L13 18"/></svg></button>
+    <button class="btn btn-secondary hover">Copier le rapport</button>
+    <button class="btn btn-ghost hover">Voir les comparables →</button>
+  </div>
+  <div class="row">
+    <span class="tag">désactivé</span>
+    <button class="btn btn-disabled">Analyser l'annonce <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12 H19"/><path d="M13 6 L19 12 L13 18"/></svg></button>
+  </div>
+</div>
+</body></html>

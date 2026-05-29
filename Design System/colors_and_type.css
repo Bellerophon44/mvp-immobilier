@@ -3,30 +3,31 @@
    colors_and_type.css
 
    Source of truth for tokens (color, type, spacing, motion).
+   Import this once at the root of any page.
    ============================================================ */
 
 @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap');
 
 :root {
   /* ---------- Color: brand ---------- */
-  --ink:          #1A1814;
-  --ink-2:        #3A352E;
-  --ink-3:        #5A5347;
-  --parchment:    #F5F1EA;
-  --paper:        #FBF8F2;
-  --stone:        #8B8275;
-  --stone-line:   #D9D2C5;
-  --stone-fill:   #ECE5D5;
+  --ink:          #1A1814;   /* primary text, warm near-black */
+  --ink-2:        #3A352E;   /* secondary text */
+  --ink-3:        #5A5347;   /* tertiary text, captions */
+  --parchment:    #F5F1EA;   /* page background */
+  --paper:        #FBF8F2;   /* elevated surfaces (cards) */
+  --stone:        #8B8275;   /* muted, borders-on-paper, icon default */
+  --stone-line:   #D9D2C5;   /* hairline rules */
+  --stone-fill:   #ECE5D5;   /* subtle fill, input idle bg */
 
   /* ---------- Color: accent ---------- */
-  --brick:        #B5462F;
-  --brick-deep:   #6B2018;
-  --brick-soft:   #E8C9BD;
+  --brick:        #B5462F;   /* single brand accent + Prudence */
+  --brick-deep:   #6B2018;   /* Déconseillé, hover-deep */
+  --brick-soft:   #E8C9BD;   /* brick tint for backgrounds/badges */
 
   /* ---------- Color: verdict signals ---------- */
-  --moss:         #2E6E4F;
+  --moss:         #2E6E4F;   /* Favorable */
   --moss-soft:    #C9D9CC;
-  --ochre:        #C28B3C;
+  --ochre:        #C28B3C;   /* À creuser */
   --ochre-soft:   #ECD9B0;
 
   /* ---------- Semantic aliases (fg / bg) ---------- */
@@ -57,7 +58,7 @@
   --fs-xl:        32px;
   --fs-2xl:       44px;
   --fs-3xl:       60px;
-  --fs-4xl:       88px;
+  --fs-4xl:       88px;   /* the score numeral */
 
   /* ---------- Type: line-heights ---------- */
   --lh-tight:     1.05;
@@ -75,7 +76,7 @@
   --ls-tight:     -0.02em;
   --ls-snug:      -0.01em;
   --ls-base:      0;
-  --ls-wide:      0.04em;
+  --ls-wide:      0.04em;     /* small-caps eyebrows */
   --ls-widest:    0.12em;
 
   /* ---------- Spacing (4 px base) ---------- */
@@ -94,9 +95,9 @@
   --radius-sm:    2px;
   --radius-md:    4px;
   --radius-lg:    8px;
-  --radius-full:  999px;
+  --radius-full:  999px;  /* used only for the score-ring outer disc, nowhere else */
 
-  /* ---------- Elevation ---------- */
+  /* ---------- Elevation (only one card shadow exists) ---------- */
   --shadow-card:  0 1px 0 rgba(26, 24, 20, 0.04);
   --ring-border:  inset 0 0 0 1px var(--stone-line);
 
@@ -109,14 +110,14 @@
   --dur-page:     480ms;
 
   /* ---------- Layout ---------- */
-  --col-narrow:   720px;
-  --col-wide:    1100px;
-  --gutter:       64px;
-  --gutter-sm:    24px;
+  --col-narrow:   720px;   /* result-page column */
+  --col-wide:    1100px;   /* marketing hero */
+  --gutter:       64px;    /* desktop gutter */
+  --gutter-sm:    24px;    /* mobile gutter */
 }
 
 /* ============================================================
-   Base reset
+   Base — body and reset essentials
    ============================================================ */
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -133,12 +134,9 @@ html, body {
   text-rendering: optimizeLegibility;
 }
 
-button, input, textarea, select {
-  font-family: inherit;
-}
-
 /* ============================================================
-   Semantic type classes
+   Semantic type — use these classes (or the equivalent CSS vars)
+   instead of styling tags directly inside components.
    ============================================================ */
 
 .t-display {
@@ -209,6 +207,7 @@ button, input, textarea, select {
   color: var(--fg-muted);
 }
 
+/* Eyebrow / small-caps label — used on card headers and section openers. */
 .t-eyebrow {
   font-family: var(--font-sans);
   font-weight: var(--fw-medium);
@@ -219,6 +218,7 @@ button, input, textarea, select {
   color: var(--fg-muted);
 }
 
+/* Italic editorial quote / verdict label sub-text. */
 .t-quote {
   font-family: var(--font-serif);
   font-style: italic;
@@ -228,6 +228,7 @@ button, input, textarea, select {
   color: var(--fg-2);
 }
 
+/* Monospaced numerics — every price, m², %, and score uses this. */
 .t-num {
   font-family: var(--font-mono);
   font-weight: var(--fw-medium);
@@ -248,7 +249,8 @@ button, input, textarea, select {
 }
 
 /* ============================================================
-   Verdict color classes
+   Verdict color classes — keep this where the tokens are so
+   it's never out of sync with the palette.
    ============================================================ */
 
 .v-favorable    { color: var(--moss); }
