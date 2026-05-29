@@ -24,3 +24,6 @@ env/
 # Editors
 .idea/
 .vscode/
+
+# recon dumps (local scraper reconnaissance)
+recon_dumps/
