@@ -106,6 +106,12 @@ def _scalar(value) -> Optional[float]:
     return None
 
 
+def _normalize_city(value) -> str:
+    """Casse cohérente pour permettre le filtrage par égalité stricte côté
+    market_stats. 'metz' / 'METZ' -> 'Metz'."""
+    return " ".join(p.capitalize() for p in str(value or "").strip().split())
+
+
 def _parse_listing(ad: dict) -> Optional[PropertyListing]:
     # On ne garde que les ventes classiques. L'API renvoie 'buy' pour une
     # vente standard et 'lifeAnnuitySale' pour un viager — qu'on rejette
@@ -134,7 +140,7 @@ def _parse_listing(ad: dict) -> Optional[PropertyListing]:
         return PropertyListing(
             id=generate_stable_id(SOURCE_NAME, str(ad["id"])),
             source=SOURCE_NAME,
-            city=(ad.get("city") or "").strip(),
+            city=_normalize_city(ad.get("city")),
             district=district_name,
             property_type=property_type,
             surface_m2=surface,
