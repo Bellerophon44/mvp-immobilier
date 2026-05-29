@@ -34,3 +34,6 @@ frontend/package-lock.json
 .claude/
 frontend/.claude/
 backend/.claude/
+
+# recon dumps (local scraper reconnaissance)
+recon_dumps/

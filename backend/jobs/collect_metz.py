@@ -1,5 +1,6 @@
 import logging
 
+import scrapers.sources.bienici  # noqa: F401 — triggers @register
 import scrapers.sources.site_local  # noqa: F401 — triggers @register
 from scrapers.registry import run_all
 from ingestion.save import save_comparables
