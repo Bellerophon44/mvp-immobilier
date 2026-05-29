@@ -1,118 +1,114 @@
 """
-Diagnostic du scraper Bien'ici.
+Diagnostic du scraper Bien'ici — test de variantes de filtre géographique.
 
 Usage (depuis backend/) :
     python -m scrapers.diag_bienici
 
-Le script ne touche pas la base. Il :
-  1. fait un appel brut à l'API Bien'ici (page 0) et inspecte la réponse
-     (présence de données, nombre d'annonces, champs disponibles) ;
-  2. lance le scraper complet BieniciScraper().scrape() ;
-  3. affiche la couverture : nombre d'annonces, répartition par ville,
-     fourchettes de surface / prix / prix au m².
+Constat précédent : le filtre {"city": "metz"} est IGNORÉ par l'API
+(total = 938 686, annonces hors Metz). Bien'ici filtre par identifiant
+de zone (INSEE). Ce script teste plusieurs formats de filtre et indique
+lequel restreint réellement les résultats à Metz.
 
-Objectif : valider si l'API renvoie bien des annonces pour Metz, et si
-le paramètre 'city' filtre correctement (sinon coverage = 0).
+Aucune écriture en base. Le bon filtre = total qui chute (centaines, pas
+~900 000) ET des codes postaux 57xxx.
 """
 
 import json
 from collections import Counter
 
 from scrapers.base import fetch_json
-from scrapers.sources.bienici import (
-    API_URL,
-    PAGE_SIZE,
-    _build_filters,
-    BieniciScraper,
-)
+from scrapers.sources.bienici import API_URL
+
+METZ_INSEE = "57463"
+PROPERTY_TYPES = ["house", "flat"]
 
 
-def step_raw_call() -> None:
-    print("=" * 70)
-    print("ÉTAPE 1 — Appel API brut (page 0)")
+def _wrap(inner: dict) -> dict:
+    """L'API attend ?filters=<json url-encodé>."""
+    return {"filters": json.dumps(inner)}
+
+
+# Variantes de filtre à éprouver
+VARIANTS = {
+    "A_buy_zone_minus": {
+        "size": 50, "from": 0,
+        "filterType": "buy",
+        "propertyType": PROPERTY_TYPES,
+        "zoneIdsByTypes": {"zoneIds": [f"-{METZ_INSEE}"]},
+    },
+    "B_buy_zone_plain": {
+        "size": 50, "from": 0,
+        "filterType": "buy",
+        "propertyType": PROPERTY_TYPES,
+        "zoneIdsByTypes": {"zoneIds": [METZ_INSEE]},
+    },
+    "C_buy_zone_minus_onmarket": {
+        "size": 50, "from": 0,
+        "filterType": "buy",
+        "propertyType": PROPERTY_TYPES,
+        "onTheMarket": [True],
+        "newProperty": False,
+        "zoneIdsByTypes": {"zoneIds": [f"-{METZ_INSEE}"]},
+    },
+    "D_sale_zone_minus": {
+        "size": 50, "from": 0,
+        "adType": "sale",
+        "propertyType": PROPERTY_TYPES,
+        "zoneIdsByTypes": {"zoneIds": [f"-{METZ_INSEE}"]},
+    },
+    "E_buy_postalcode": {
+        "size": 50, "from": 0,
+        "filterType": "buy",
+        "propertyType": PROPERTY_TYPES,
+        "postalCodes": ["57000", "57050", "57070"],
+    },
+}
+
+
+def test_variant(name: str, inner: dict) -> None:
+    print("\n" + "=" * 70)
+    print(f"VARIANTE : {name}")
+    print(f"filtre   : {json.dumps(inner, ensure_ascii=False)}")
     print("-" * 70)
-    print(f"URL    : {API_URL}")
-    params = _build_filters("metz", 0)
-    print(f"params : {params}")
 
-    data = fetch_json(API_URL, params=params)
-    if data is None:
-        print("RÉSULTAT : aucune réponse exploitable (None).")
-        print("  -> soit l'API bloque la requête, soit la réponse n'est pas du JSON.")
-        return
-
+    data = fetch_json(API_URL, params=_wrap(inner))
     if not isinstance(data, dict):
-        print(f"RÉSULTAT : réponse JSON de type {type(data).__name__} (inattendu).")
-        print(json.dumps(data, ensure_ascii=False)[:500])
+        print(f"  -> réponse inexploitable ({type(data).__name__})")
         return
 
-    print(f"Clés racine : {list(data.keys())}")
     total = data.get("total")
     ads = data.get("realEstateAds", [])
-    print(f"total (champ API) : {total}")
-    print(f"annonces dans cette page : {len(ads)} (page_size attendu={PAGE_SIZE})")
+    print(f"total API : {total}   |   annonces page : {len(ads)}")
 
-    if ads:
-        sample = ads[0]
-        print("\nChamps de la 1re annonce :")
-        print(f"  {sorted(sample.keys())}")
-        print("\nValeurs clés de la 1re annonce :")
-        for k in ("id", "price", "surface", "propertyType", "city", "district",
-                  "postalCode", "title"):
-            print(f"  {k:14} = {sample.get(k)!r}")
-    else:
-        print("\nAUCUNE annonce dans la réponse.")
-        print("  -> le paramètre 'city=metz' ne filtre probablement pas comme attendu")
-        print("     (Bien'ici attend souvent un identifiant de zone, pas un nom).")
+    if total and total > 100000:
+        print("  -> filtre IGNORÉ (total ~ catalogue entier).")
 
+    cps = Counter()
+    print("  8 premières annonces :")
+    for ad in ads[:8]:
+        city = ad.get("city")
+        cp = ad.get("postalCode")
+        ptype = ad.get("propertyType")
+        price = ad.get("price")
+        surf = ad.get("surfaceArea")
+        cps[str(cp)[:2]] += 1
+        print(f"    {str(city)[:22]:22} {str(cp):8} {str(ptype):10} "
+              f"{str(price):>10} € {str(surf):>7} m²")
 
-def step_full_scrape() -> None:
-    print("\n" + "=" * 70)
-    print("ÉTAPE 2 — Scraper complet BieniciScraper().scrape()")
-    print("-" * 70)
-
-    listings = BieniciScraper().scrape()
-    print(f"Annonces parsées et valides : {len(listings)}")
-
-    if not listings:
-        print("  -> 0 annonce exploitable. Voir l'étape 1 pour la cause.")
-        return
-
-    by_city = Counter(l.city for l in listings)
-    surfaces = [l.surface_m2 for l in listings]
-    prices = [l.price_total for l in listings]
-    prices_m2 = [l.price_total / l.surface_m2 for l in listings if l.surface_m2]
-
-    print("\nRépartition par ville :")
-    for city, n in by_city.most_common(10):
-        print(f"  {city or '(vide)':28} {n}")
-
-    def _range(label, values, unit):
-        if not values:
-            print(f"  {label}: n/a")
-            return
-        print(f"  {label}: min={min(values):.0f}{unit} "
-              f"médiane≈{sorted(values)[len(values)//2]:.0f}{unit} "
-              f"max={max(values):.0f}{unit}")
-
-    print("\nFourchettes :")
-    _range("surface", surfaces, "m²")
-    _range("prix", prices, "€")
-    _range("prix/m²", prices_m2, "€/m²")
-
-    print("\nÉchantillon (5 premières) :")
-    for l in listings[:5]:
-        pm2 = (l.price_total / l.surface_m2) if l.surface_m2 else 0
-        print(f"  [{l.property_type:11}] {l.city:20} "
-              f"{l.surface_m2:6.0f} m²  {l.price_total:>10.0f} €  "
-              f"({pm2:.0f} €/m²)  district={l.district}")
+    dep57 = cps.get("57", 0)
+    verdict = "✅ MOSELLE (57) majoritaire" if dep57 >= 5 else \
+              "⚠️ pas de concentration 57xxx"
+    print(f"  Codes postaux dépt : {dict(cps)}  -> {verdict}")
 
 
 def main() -> None:
-    step_raw_call()
-    step_full_scrape()
+    print("Test des variantes de filtre Bien'ici pour Metz (INSEE",
+          METZ_INSEE, ")")
+    for name, inner in VARIANTS.items():
+        test_variant(name, inner)
     print("\n" + "=" * 70)
-    print("Diagnostic terminé. Colle toute cette sortie pour décider de la suite.")
+    print("La bonne variante = total faible + codes postaux 57xxx.")
+    print("Colle toute la sortie pour figer le filtre définitif.")
 
 
 if __name__ == "__main__":
