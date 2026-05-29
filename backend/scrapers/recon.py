@@ -52,8 +52,8 @@ SITES = {
     "idemmo": "https://idemmo.fr/rechercher/?es=1&address=Metz",
     "orpi_metz": "https://www.orpi.com/recherche/ach?transaction=achat&proximite[]=Metz%20(57000)",
     "century21_metz": "https://www.century21.fr/annonces/f/achat/v-metz_57000/",
-    "herbeth": "https://www.herbeth-immobilier.com/",
-    "benedic": "https://www.benedicsa.com/",
+    "herbeth": "https://www.herbeth-immobilier.com/vente",
+    "benedic": "https://www.benedicsa.com/particuliers/ventes",
 }
 
 DUMP_DIR = "recon_dumps"
