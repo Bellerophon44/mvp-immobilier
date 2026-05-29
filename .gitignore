@@ -29,3 +29,8 @@ env/
 frontend/.next/
 frontend/node_modules/
 frontend/package-lock.json
+
+# Claude Code — local config (machine-specific paths)
+.claude/
+frontend/.claude/
+backend/.claude/
