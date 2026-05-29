@@ -1,0 +1,30 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Soft fills</title>
+<link rel="stylesheet" href="_card.css">
+<style>
+  .card { padding: 24px 28px; }
+  .lead { font-family: var(--font-sans); font-size: 13px; color: var(--ink-3); line-height: 1.5; margin-bottom: 14px; }
+  .lead b { color: var(--ink); font-weight: 500; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .tag { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 4px; font-family: var(--font-sans); font-size: 13px; font-weight: 500; }
+  .tag .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .a { background: var(--moss-soft); color: var(--moss); } .a .dot { background: var(--moss); }
+  .b { background: var(--ochre-soft); color: var(--ochre); } .b .dot { background: var(--ochre); }
+  .c { background: var(--brick-soft); color: var(--brick); } .c .dot { background: var(--brick); }
+  .d { background: var(--brick-soft); color: var(--brick-deep); } .d .dot { background: var(--brick-deep); }
+  .e { background: var(--stone-fill); color: var(--ink-3); } .e .dot { background: var(--stone); }
+  .meta { margin-top: 16px; font-family: var(--font-mono); font-size: 11px; color: var(--stone); letter-spacing: 0.04em; }
+  .meta b { color: var(--ink); }
+</style>
+</head><body>
+<div class="card">
+  <div class="lead">Les <b>fonds doux</b> servent aux badges, aux puces de verdict et aux états sélectionnés. Toujours appariés avec leur couleur de premier plan.</div>
+  <div class="row">
+    <span class="tag a"><span class="dot"></span>Favorable</span>
+    <span class="tag b"><span class="dot"></span>À&nbsp;creuser</span>
+    <span class="tag c"><span class="dot"></span>Prudence</span>
+    <span class="tag d"><span class="dot"></span>Déconseillé</span>
+    <span class="tag e"><span class="dot"></span>Neutre</span>
+  </div>
+  <div class="meta">--moss-soft · --ochre-soft · --brick-soft · --stone-fill</div>
+</div>
+</body></html>

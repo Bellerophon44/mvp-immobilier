@@ -1,0 +1,33 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Verdict diamonds</title>
+<link rel="stylesheet" href="_card.css">
+<style>
+  .card { padding: 24px 28px; flex-direction: row; gap: 48px; align-items: center; justify-content: flex-start; }
+  .v { display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }
+  .dia { width: 36px; height: 36px; }
+  .label { font-family: var(--font-serif); font-style: italic; font-size: 20px; line-height: 1; }
+  .meta { font-family: var(--font-mono); font-size: 11px; color: var(--stone); letter-spacing: 0.04em; text-transform: uppercase; }
+</style>
+</head><body>
+<div class="card">
+  <div class="v">
+    <svg class="dia" viewBox="0 0 24 24"><path d="M12 3 L21 12 L12 21 L3 12 Z" fill="#2E6E4F"/></svg>
+    <div class="label v-favorable">Favorable</div>
+    <div class="meta">75 – 100</div>
+  </div>
+  <div class="v">
+    <svg class="dia" viewBox="0 0 24 24"><path d="M12 3 L21 12 L12 21 L3 12 Z" fill="#C28B3C"/></svg>
+    <div class="label v-acreuser">À&nbsp;creuser</div>
+    <div class="meta">55 – 74</div>
+  </div>
+  <div class="v">
+    <svg class="dia" viewBox="0 0 24 24"><path d="M12 3 L21 12 L12 21 L3 12 Z" fill="#B5462F"/></svg>
+    <div class="label v-prudence">Prudence</div>
+    <div class="meta">35 – 54</div>
+  </div>
+  <div class="v">
+    <svg class="dia" viewBox="0 0 24 24"><path d="M12 3 L21 12 L12 21 L3 12 Z" fill="#6B2018"/></svg>
+    <div class="label v-deconseille">Déconseillé</div>
+    <div class="meta">0 – 34</div>
+  </div>
+</div>
+</body></html>

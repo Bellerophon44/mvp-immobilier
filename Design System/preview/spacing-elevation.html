@@ -1,0 +1,37 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Elevation</title>
+<link rel="stylesheet" href="_card.css">
+<style>
+  .card { padding: 28px 32px; }
+  .lead { font-family: var(--font-sans); font-size: 13px; color: var(--ink-3); margin-bottom: 18px; line-height: 1.5; }
+  .lead b { color: var(--ink); font-weight: 500; }
+  .row { display: flex; gap: 16px; align-items: stretch; }
+  .lvl { flex: 1; background: var(--paper); padding: 18px 18px 16px; border-radius: 4px; display: flex; flex-direction: column; gap: 8px; }
+  .lvl-0 { border: 1px solid var(--stone-line); box-shadow: none; }
+  .lvl-1 { border: 1px solid var(--stone-line); box-shadow: 0 1px 0 rgba(26,24,20,0.04); }
+  .lvl-2 { background: rgba(26,24,20,0.88); color: var(--parchment); border: none; box-shadow: none; backdrop-filter: blur(8px); }
+  .name { font-family: var(--font-sans); font-size: 13px; font-weight: 600; }
+  .desc { font-family: var(--font-sans); font-size: 12px; opacity: 0.7; line-height: 1.45; }
+  .code { font-family: var(--font-mono); font-size: 10px; opacity: 0.7; letter-spacing: 0.02em; }
+</style>
+</head><body>
+<div class="card">
+  <div class="lead">Une seule élévation. Pas de drop-shadow doux, pas de stack d'ombres : <b>filet de 1&nbsp;px + soulèvement de 1&nbsp;px</b>.</div>
+  <div class="row">
+    <div class="lvl lvl-0">
+      <div class="name">Plat</div>
+      <div class="desc">Surface au repos sur le parchemin. Filet seul, aucun soulèvement.</div>
+      <div class="code">--ring-border</div>
+    </div>
+    <div class="lvl lvl-1">
+      <div class="name">Carte</div>
+      <div class="desc">Toute carte interactive. Filet&nbsp;+&nbsp;ligne basse à 4&nbsp;% d'encre.</div>
+      <div class="code">--shadow-card</div>
+    </div>
+    <div class="lvl lvl-2">
+      <div class="name">Voile modal</div>
+      <div class="desc">Scrim d'encre à 88&nbsp;% sur flou&nbsp;8&nbsp;px. Pas d'ombre.</div>
+      <div class="code">backdrop-filter: blur(8px)</div>
+    </div>
+  </div>
+</div>
+</body></html>

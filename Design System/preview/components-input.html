@@ -1,0 +1,28 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Form input + textarea</title>
+<link rel="stylesheet" href="_card.css">
+<style>
+  .card { padding: 24px 28px; gap: 14px; }
+  .label { font-family: var(--font-sans); font-size: 12px; color: var(--ink-3); font-weight: 500; margin-bottom: 6px; }
+  .input { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border: 1px solid var(--stone-line); background: var(--paper); border-radius: 2px; font-family: var(--font-sans); font-size: 15px; color: var(--ink); }
+  .input.focus { border-color: var(--brick); box-shadow: 0 0 0 2px var(--brick-soft); }
+  .input svg { width: 18px; height: 18px; color: var(--stone); flex-shrink: 0; }
+  .input input { border: none; outline: none; background: transparent; flex: 1; font-family: inherit; font-size: inherit; color: inherit; }
+  .input input::placeholder { color: var(--stone); }
+  .textarea { padding: 12px 14px; border: 1px solid var(--stone-line); background: var(--paper); border-radius: 2px; font-family: var(--font-sans); font-size: 14px; color: var(--ink-3); min-height: 60px; line-height: 1.5; }
+  .hint { font-family: var(--font-sans); font-size: 11px; color: var(--stone); }
+</style>
+</head><body>
+<div class="card">
+  <div>
+    <div class="label">URL de l'annonce</div>
+    <div class="input focus">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14 a4 4 0 0 1 0 -5.66 L13.5 4.84 a4 4 0 0 1 5.66 5.66 L17.5 12.18"/><path d="M14 10 a4 4 0 0 1 0 5.66 L10.5 19.16 a4 4 0 0 1 -5.66 -5.66 L6.5 11.82"/></svg>
+      <input value="https://laveine.immo/annonce/3-pieces-metz-centre-8742" />
+    </div>
+    <div class="hint" style="margin-top:6px">Ou collez le texte brut de l'annonce ci-dessous.</div>
+  </div>
+  <div>
+    <div class="textarea">Bel appartement T3 en plein cœur de Metz, lumineux, refait à neuf, à deux pas de la cathédrale&nbsp;…</div>
+  </div>
+</div>
+</body></html>

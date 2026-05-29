@@ -1,0 +1,264 @@
+/* ============================================================
+   Cohérence — Design System
+   colors_and_type.css
+
+   Source of truth for tokens (color, type, spacing, motion).
+   Import this once at the root of any page.
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap');
+
+:root {
+  /* ---------- Color: brand ---------- */
+  --ink:          #1A1814;   /* primary text, warm near-black */
+  --ink-2:        #3A352E;   /* secondary text */
+  --ink-3:        #5A5347;   /* tertiary text, captions */
+  --parchment:    #F5F1EA;   /* page background */
+  --paper:        #FBF8F2;   /* elevated surfaces (cards) */
+  --stone:        #8B8275;   /* muted, borders-on-paper, icon default */
+  --stone-line:   #D9D2C5;   /* hairline rules */
+  --stone-fill:   #ECE5D5;   /* subtle fill, input idle bg */
+
+  /* ---------- Color: accent ---------- */
+  --brick:        #B5462F;   /* single brand accent + Prudence */
+  --brick-deep:   #6B2018;   /* Déconseillé, hover-deep */
+  --brick-soft:   #E8C9BD;   /* brick tint for backgrounds/badges */
+
+  /* ---------- Color: verdict signals ---------- */
+  --moss:         #2E6E4F;   /* Favorable */
+  --moss-soft:    #C9D9CC;
+  --ochre:        #C28B3C;   /* À creuser */
+  --ochre-soft:   #ECD9B0;
+
+  /* ---------- Semantic aliases (fg / bg) ---------- */
+  --fg-1:         var(--ink);
+  --fg-2:         var(--ink-2);
+  --fg-3:         var(--ink-3);
+  --fg-muted:     var(--stone);
+  --fg-accent:    var(--brick);
+
+  --bg-1:         var(--parchment);
+  --bg-2:         var(--paper);
+  --bg-fill:      var(--stone-fill);
+
+  --border:       var(--stone-line);
+  --border-strong: var(--stone);
+
+  /* ---------- Type: families ---------- */
+  --font-serif:   'Instrument Serif', 'Source Serif 4', Georgia, serif;
+  --font-sans:    'Geist', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono:    'Geist Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  /* ---------- Type: scale (1.25 modular, base 16) ---------- */
+  --fs-xs:        12px;
+  --fs-sm:        14px;
+  --fs-base:      16px;
+  --fs-md:        20px;
+  --fs-lg:        24px;
+  --fs-xl:        32px;
+  --fs-2xl:       44px;
+  --fs-3xl:       60px;
+  --fs-4xl:       88px;   /* the score numeral */
+
+  /* ---------- Type: line-heights ---------- */
+  --lh-tight:     1.05;
+  --lh-snug:      1.2;
+  --lh-base:      1.5;
+  --lh-loose:     1.65;
+
+  /* ---------- Type: weights ---------- */
+  --fw-regular:   400;
+  --fw-medium:    500;
+  --fw-semibold:  600;
+  --fw-bold:      700;
+
+  /* ---------- Type: letterspacing ---------- */
+  --ls-tight:     -0.02em;
+  --ls-snug:      -0.01em;
+  --ls-base:      0;
+  --ls-wide:      0.04em;     /* small-caps eyebrows */
+  --ls-widest:    0.12em;
+
+  /* ---------- Spacing (4 px base) ---------- */
+  --s-0:    0px;
+  --s-1:    4px;
+  --s-2:    8px;
+  --s-3:    12px;
+  --s-4:    16px;
+  --s-5:    24px;
+  --s-6:    32px;
+  --s-7:    48px;
+  --s-8:    64px;
+  --s-9:    96px;
+
+  /* ---------- Radii ---------- */
+  --radius-sm:    2px;
+  --radius-md:    4px;
+  --radius-lg:    8px;
+  --radius-full:  999px;  /* used only for the score-ring outer disc, nowhere else */
+
+  /* ---------- Elevation (only one card shadow exists) ---------- */
+  --shadow-card:  0 1px 0 rgba(26, 24, 20, 0.04);
+  --ring-border:  inset 0 0 0 1px var(--stone-line);
+
+  /* ---------- Motion ---------- */
+  --ease-paper:   cubic-bezier(0.32, 0.08, 0.24, 1);
+  --ease-linear:  linear;
+  --dur-hover:    120ms;
+  --dur-state:    200ms;
+  --dur-reveal:   320ms;
+  --dur-page:     480ms;
+
+  /* ---------- Layout ---------- */
+  --col-narrow:   720px;   /* result-page column */
+  --col-wide:    1100px;   /* marketing hero */
+  --gutter:       64px;    /* desktop gutter */
+  --gutter-sm:    24px;    /* mobile gutter */
+}
+
+/* ============================================================
+   Base — body and reset essentials
+   ============================================================ */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg-1);
+  color: var(--fg-1);
+  font-family: var(--font-sans);
+  font-size: var(--fs-base);
+  line-height: var(--lh-base);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* ============================================================
+   Semantic type — use these classes (or the equivalent CSS vars)
+   instead of styling tags directly inside components.
+   ============================================================ */
+
+.t-display {
+  font-family: var(--font-serif);
+  font-weight: var(--fw-regular);
+  font-size: var(--fs-3xl);
+  line-height: var(--lh-tight);
+  letter-spacing: var(--ls-tight);
+  color: var(--fg-1);
+}
+
+.t-h1 {
+  font-family: var(--font-serif);
+  font-weight: var(--fw-regular);
+  font-size: var(--fs-2xl);
+  line-height: var(--lh-tight);
+  letter-spacing: var(--ls-tight);
+  color: var(--fg-1);
+}
+
+.t-h2 {
+  font-family: var(--font-serif);
+  font-weight: var(--fw-regular);
+  font-size: var(--fs-xl);
+  line-height: var(--lh-snug);
+  letter-spacing: var(--ls-snug);
+  color: var(--fg-1);
+}
+
+.t-h3 {
+  font-family: var(--font-sans);
+  font-weight: var(--fw-semibold);
+  font-size: var(--fs-md);
+  line-height: var(--lh-snug);
+  letter-spacing: var(--ls-snug);
+  color: var(--fg-1);
+}
+
+.t-body {
+  font-family: var(--font-sans);
+  font-weight: var(--fw-regular);
+  font-size: var(--fs-base);
+  line-height: var(--lh-loose);
+  color: var(--fg-2);
+}
+
+.t-body-tight {
+  font-family: var(--font-sans);
+  font-weight: var(--fw-regular);
+  font-size: var(--fs-base);
+  line-height: var(--lh-base);
+  color: var(--fg-2);
+}
+
+.t-small {
+  font-family: var(--font-sans);
+  font-weight: var(--fw-regular);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-base);
+  color: var(--fg-3);
+}
+
+.t-caption {
+  font-family: var(--font-sans);
+  font-weight: var(--fw-regular);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-base);
+  color: var(--fg-muted);
+}
+
+/* Eyebrow / small-caps label — used on card headers and section openers. */
+.t-eyebrow {
+  font-family: var(--font-sans);
+  font-weight: var(--fw-medium);
+  font-size: 11px;
+  line-height: 1;
+  letter-spacing: var(--ls-widest);
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+
+/* Italic editorial quote / verdict label sub-text. */
+.t-quote {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: var(--fw-regular);
+  font-size: var(--fs-md);
+  line-height: var(--lh-snug);
+  color: var(--fg-2);
+}
+
+/* Monospaced numerics — every price, m², %, and score uses this. */
+.t-num {
+  font-family: var(--font-mono);
+  font-weight: var(--fw-medium);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  letter-spacing: 0;
+  color: var(--fg-1);
+}
+
+.t-num-display {
+  font-family: var(--font-mono);
+  font-weight: var(--fw-medium);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-4xl);
+  line-height: 0.95;
+  letter-spacing: -0.04em;
+  color: var(--fg-1);
+}
+
+/* ============================================================
+   Verdict color classes — keep this where the tokens are so
+   it's never out of sync with the palette.
+   ============================================================ */
+
+.v-favorable    { color: var(--moss); }
+.v-acreuser     { color: var(--ochre); }
+.v-prudence     { color: var(--brick); }
+.v-deconseille  { color: var(--brick-deep); }
+
+.v-favorable-bg    { background: var(--moss-soft);  color: var(--moss); }
+.v-acreuser-bg     { background: var(--ochre-soft); color: var(--ochre); }
+.v-prudence-bg     { background: var(--brick-soft); color: var(--brick); }
+.v-deconseille-bg  { background: var(--brick-soft); color: var(--brick-deep); }

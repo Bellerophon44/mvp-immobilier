@@ -1,0 +1,36 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Score ring</title>
+<link rel="stylesheet" href="_card.css">
+<style>
+  .card { padding: 24px 28px; flex-direction: row; gap: 28px; align-items: center; justify-content: flex-start; }
+  .ring { position: relative; width: 132px; height: 132px; flex-shrink: 0; }
+  .ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .ring .track { fill: none; stroke: var(--stone-line); stroke-width: 6; }
+  .ring .bar { fill: none; stroke: var(--ochre); stroke-width: 6; stroke-linecap: round; }
+  .ring .num {
+    position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  }
+  .ring .num .n { font-family: var(--font-mono); font-weight: 500; font-size: 38px; line-height: 1; color: var(--ink); letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+  .ring .num .d { font-family: var(--font-mono); font-size: 10px; color: var(--stone); letter-spacing: 0.06em; }
+
+  .verdict { display: flex; flex-direction: column; gap: 8px; }
+  .eyebrow { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--stone); }
+  .label { font-family: var(--font-serif); font-style: italic; font-size: 36px; line-height: 1; color: var(--ochre); }
+  .desc { font-family: var(--font-sans); font-size: 14px; color: var(--ink-2); line-height: 1.5; max-width: 360px; }
+  .desc b { color: var(--ink); font-weight: 500; }
+</style>
+</head><body>
+<div class="card">
+  <div class="ring">
+    <svg viewBox="0 0 120 120">
+      <circle class="track" cx="60" cy="60" r="54"/>
+      <circle class="bar" cx="60" cy="60" r="54" stroke-dasharray="339.3" stroke-dashoffset="91.6"/>
+    </svg>
+    <div class="num"><div class="n">73</div><div class="d">/ 100</div></div>
+  </div>
+  <div class="verdict">
+    <div class="eyebrow">Score de cohérence</div>
+    <div class="label">À&nbsp;creuser</div>
+    <div class="desc">Le prix est <b>18&nbsp;% au-dessus</b> de la médiane locale. L'annonce est claire mais omet deux points à vérifier avant la visite.</div>
+  </div>
+</div>
+</body></html>
