@@ -44,7 +44,7 @@ def step1_zone() -> list:
 
 def step2_raw(zone_ids: list) -> None:
     print("\n" + "=" * 70)
-    print("ÉTAPE 2 — Appel brut filtré (page 0)")
+    print("ÉTAPE 2 — Appel brut + analyse de la pollution (page 0)")
     print("-" * 70)
     if not zone_ids:
         print("  (pas de zoneIds, on saute)")
@@ -56,13 +56,27 @@ def step2_raw(zone_ids: list) -> None:
     total = data.get("total")
     ads = data.get("realEstateAds", [])
     print(f"  total={total}   annonces page={len(ads)}")
-    cps = Counter(_safe(a.get("postalCode"))[:2] for a in ads)
-    print(f"  départements : {dict(cps)}")
-    print("  8 premières :")
-    for a in ads[:8]:
-        print(f"    {_safe(a.get('city'), 22):22} {_safe(a.get('postalCode')):>6} "
-              f"{_safe(a.get('propertyType'), 10):10} "
-              f"{_safe(a.get('price')):>12} € {_safe(a.get('surfaceArea'), 12):>12} m²")
+
+    by_adtype = Counter(_safe(a.get("adType")) for a in ads)
+    print(f"  adType (brut) : {dict(by_adtype)}")
+
+    # Annonces au prix/m² aberrant : on montre leurs champs discriminants
+    print("  Annonces suspectes (prix/m² < 800) — champs discriminants :")
+    shown = 0
+    for a in ads:
+        price = a.get("price")
+        surf = a.get("surfaceArea")
+        if not isinstance(price, (int, float)) or not isinstance(surf, (int, float)):
+            continue
+        if surf <= 0:
+            continue
+        pm2 = price / surf
+        if pm2 < 800 and shown < 6:
+            print(f"    {pm2:7.0f} €/m² | adType={_safe(a.get('adType'))} "
+                  f"transactionType={_safe(a.get('transactionType'))} "
+                  f"newProperty={_safe(a.get('newProperty'))} "
+                  f"| {_safe(a.get('title'), 50)}")
+            shown += 1
 
 
 def step3_scrape() -> None:

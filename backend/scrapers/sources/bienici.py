@@ -21,7 +21,13 @@ SUGGEST_URLS = [
 ]
 
 PAGE_SIZE = 50
-MAX_PAGES = 10  # 500 annonces max par run
+MAX_PAGES = 20  # jusqu'à 1000 annonces brutes par run avant filtrage
+
+# Bande de plausibilité du prix au m² pour une VENTE résidentielle.
+# Sert de filet contre les loyers, viagers, parkings et erreurs de saisie
+# qui polluent les comparables (le marché messin tourne ~1500-4000 €/m²).
+MIN_PRICE_M2 = 800.0
+MAX_PRICE_M2 = 12000.0
 
 _PROPERTY_TYPE_MAP = {
     "flat": "appartement",
@@ -101,6 +107,11 @@ def _scalar(value) -> Optional[float]:
 
 
 def _parse_listing(ad: dict) -> Optional[PropertyListing]:
+    # On ne garde que les ventes (filet client-side : filterType=buy n'exclut
+    # pas toujours les locations côté API).
+    if ad.get("adType") != "sale":
+        return None
+
     price = _scalar(ad.get("price"))
     surface = _scalar(ad.get("surfaceArea"))
     if not price or not surface or price <= 0 or surface <= 0:
@@ -109,6 +120,11 @@ def _parse_listing(ad: dict) -> Optional[PropertyListing]:
     property_type = _PROPERTY_TYPE_MAP.get(ad.get("propertyType", ""))
     if property_type is None:
         return None  # bureau, terrain, parking, local... → ignoré
+
+    # Filet de plausibilité : éjecte loyers, viagers, parkings, erreurs.
+    price_m2 = price / surface
+    if price_m2 < MIN_PRICE_M2 or price_m2 > MAX_PRICE_M2:
+        return None
 
     district = ad.get("district")
     district_name = district.get("name") if isinstance(district, dict) else None
