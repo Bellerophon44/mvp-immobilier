@@ -24,3 +24,8 @@ env/
 # Editors
 .idea/
 .vscode/
+
+# Next.js
+frontend/.next/
+frontend/node_modules/
+frontend/package-lock.json
