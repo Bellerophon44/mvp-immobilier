@@ -16,6 +16,7 @@ Aucune écriture en base.
 """
 
 import json
+import traceback
 from collections import Counter
 from typing import Optional
 
@@ -167,10 +168,20 @@ def step_c_bbox() -> None:
 
 # ---------------------------- Helper commun ------------------------------
 
+def _safe(value, max_len: int = 0) -> str:
+    """Convertit toute valeur (None, list, dict, int...) en str affichable."""
+    s = "?" if value is None else str(value)
+    return s[:max_len] if max_len else s
+
+
 def _test_filter(label: str, inner: dict) -> None:
     print(f"\n  > {label}")
     print(f"    filtre: {json.dumps(inner, ensure_ascii=False)[:200]}")
-    data = fetch_json(ADS_URL, params=_wrap(inner))
+    try:
+        data = fetch_json(ADS_URL, params=_wrap(inner))
+    except Exception:
+        traceback.print_exc()
+        return
     if not isinstance(data, dict):
         print(f"    -> réponse inexploitable ({type(data).__name__})")
         return
@@ -179,19 +190,32 @@ def _test_filter(label: str, inner: dict) -> None:
     print(f"    total={total}  annonces page={len(ads)}")
     if not ads:
         return
-    cps = Counter(str(a.get("postalCode", ""))[:2] for a in ads)
+    cps = Counter(_safe(a.get("postalCode"))[:2] for a in ads)
     print(f"    départements : {dict(cps)}")
     print(f"    3 premières :")
     for a in ads[:3]:
-        print(f"      {str(a.get('city',''))[:20]:20} {a.get('postalCode'):>6} "
-              f"{str(a.get('propertyType'))[:8]:8} "
-              f"{a.get('price'):>9} € {str(a.get('surfaceArea'))[:6]:>6} m²")
+        city = _safe(a.get("city"), 20)
+        cp = _safe(a.get("postalCode"))
+        ptype = _safe(a.get("propertyType"), 10)
+        price = _safe(a.get("price"))
+        surf = _safe(a.get("surfaceArea"), 12)
+        print(f"      {city:20} {cp:>6} {ptype:10} {price:>14} € {surf:>12} m²")
+
+
+def _safe_step(label: str, fn, *args):
+    """Exécute fn(*args) en attrapant toute exception pour ne pas couper le run."""
+    try:
+        return fn(*args)
+    except Exception:
+        print(f"\n!!! Exception dans {label} — la step continue ailleurs :")
+        traceback.print_exc()
+        return None
 
 
 def main() -> None:
-    candidates = step_a_discover_zone_id()
-    step_b_test_zone_ids(candidates)
-    step_c_bbox()
+    candidates = _safe_step("step_a", step_a_discover_zone_id) or []
+    _safe_step("step_b", step_b_test_zone_ids, candidates)
+    _safe_step("step_c", step_c_bbox)
     print("\n" + "=" * 70)
     print("Cible : un filtre avec total bas (<5000) ET dépt 57 majoritaire.")
     print("Colle toute la sortie.")
