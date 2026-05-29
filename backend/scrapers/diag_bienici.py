@@ -1,224 +1,102 @@
 """
-Diagnostic du scraper Bien'ici — discovery de l'ID de zone interne pour Metz.
+Diagnostic du scraper Bien'ici — confirmation du filtre par zoneIds.
 
-Constats précédents :
-  - {"city": "metz"} : silencieusement ignoré (renvoie ~938k annonces).
-  - {"zoneIdsByTypes": {"zoneIds": ["57463"]}} : total=0
-      → le filtre est respecté MAIS l'INSEE brut n'est pas l'ID attendu.
-  - {"postalCodes": [...]} : silencieusement ignoré.
+Découverte clé : l'endpoint suggest renvoie pour Metz
+    {"name": "Metz", "type": "city", "zoneIds": ["-450381"], ...}
+Le bon filtre est zoneIdsByTypes.zoneIds = ["-450381"] (découvert
+dynamiquement par ville, pas codé en dur).
 
-Bien'ici utilise des identifiants de zone internes. Ce script :
-  1. interroge plusieurs endpoints de suggestion pour découvrir l'ID Metz
-  2. teste le filtre avec chaque ID trouvé
-  3. en fallback : utilise mapBounds (rectangle GPS autour de Metz)
+Ce script :
+  1. découvre les zoneIds de Metz via discover_zone_ids()
+  2. fait un appel brut filtré et montre la couverture (dépt, échantillon)
+  3. lance le scraper complet et affiche les stats
 
 Aucune écriture en base.
 """
 
 import json
-import traceback
 from collections import Counter
-from typing import Optional
 
-from scrapers.base import _session, fetch_json, REQUEST_TIMEOUT
+from scrapers.base import fetch_json
+from scrapers.sources.bienici import (
+    ADS_URL,
+    discover_zone_ids,
+    _build_filters,
+    BieniciScraper,
+)
 
-ADS_URL = "https://www.bienici.com/realEstateAds.json"
-PROPERTY_TYPES = ["house", "flat"]
+CITY = "Metz"
 
-# Endpoints de suggestion candidats — on essaie tout, on garde ce qui répond.
-SUGGEST_ENDPOINTS = [
-    "https://www.bienici.com/realEstateAds-suggestions.json",
-    "https://res.bienici.com/suggest.json",
-    "https://www.bienici.com/suggest.json",
-    "https://www.bienici.com/places.json",
-]
-SUGGEST_QUERIES = [
-    {"q": "Metz"},
-    {"q": "metz"},
-    {"q": "Metz 57000"},
-]
-
-# Coordonnées GPS approximatives de Metz (élargies au Grand Metz).
-METZ_BBOX = {
-    "northEast": {"lat": 49.18, "lng": 6.30},
-    "southWest": {"lat": 49.05, "lng": 6.05},
-}
-
-
-def _wrap(inner: dict) -> dict:
-    return {"filters": json.dumps(inner)}
-
-
-# -------------------------- STEP A : suggestion --------------------------
-
-def probe_suggest_endpoint(url: str, params: dict) -> Optional[dict]:
-    """GET direct sans wrapping JSON — on attend de la donnée brute."""
-    try:
-        r = _session.get(url, params=params, timeout=REQUEST_TIMEOUT)
-    except Exception as e:
-        print(f"    erreur réseau: {e}")
-        return None
-    print(f"    HTTP {r.status_code}  bytes={len(r.text)}  "
-          f"ct={r.headers.get('content-type','?')[:30]}")
-    if r.status_code != 200 or not r.text:
-        return None
-    try:
-        return r.json()
-    except ValueError:
-        snippet = r.text[:200].replace("\n", " ")
-        print(f"    non-JSON : {snippet!r}")
-        return None
-
-
-def step_a_discover_zone_id() -> list:
-    """Renvoie la liste des candidats ID trouvés."""
-    print("=" * 70)
-    print("ÉTAPE A — Découverte de l'ID de zone Metz via endpoints suggest")
-    print("=" * 70)
-
-    candidates: list = []
-    for endpoint in SUGGEST_ENDPOINTS:
-        for q in SUGGEST_QUERIES:
-            print(f"\n  GET {endpoint}  params={q}")
-            data = probe_suggest_endpoint(endpoint, q)
-            if data is None:
-                continue
-            # On affiche un échantillon pour comprendre la structure
-            sample = json.dumps(data, ensure_ascii=False)[:600]
-            print(f"    payload start: {sample}")
-            # On extrait toutes les valeurs ressemblant à un ID (id, zoneId,
-            # placeId...) de tout le JSON, récursivement.
-            ids = _extract_ids(data, want="metz")
-            if ids:
-                print(f"    >> candidats ID Metz : {ids}")
-                candidates.extend(ids)
-    # déduplique en gardant l'ordre
-    seen = set()
-    uniq = []
-    for c in candidates:
-        if c not in seen:
-            seen.add(c)
-            uniq.append(c)
-    print(f"\n  TOTAL candidats uniques : {uniq}")
-    return uniq
-
-
-def _extract_ids(node, want: str, path: str = "") -> list:
-    """Walk récursif. Si un noeud porte un nom contenant 'metz', remonte
-    les champs id/zoneId/placeId/_id du même noeud."""
-    found = []
-    if isinstance(node, dict):
-        name_fields = [str(node.get(k, "")).lower()
-                       for k in ("name", "title", "label", "libelle", "city")]
-        looks_metz = any(want in n for n in name_fields if n)
-        if looks_metz:
-            for k in ("id", "_id", "zoneId", "placeId", "code", "value"):
-                if k in node:
-                    found.append(str(node[k]))
-        for k, v in node.items():
-            found.extend(_extract_ids(v, want, f"{path}.{k}"))
-    elif isinstance(node, list):
-        for i, v in enumerate(node):
-            found.extend(_extract_ids(v, want, f"{path}[{i}]"))
-    return found
-
-
-# ----------------- STEP B : test filtre avec chaque ID -------------------
-
-def step_b_test_zone_ids(zone_ids: list) -> None:
-    print("\n" + "=" * 70)
-    print(f"ÉTAPE B — Test des {len(zone_ids)} candidats ID en filtre")
-    print("=" * 70)
-    if not zone_ids:
-        print("  (aucun candidat à tester)")
-        return
-
-    # Pour chaque ID, on essaie 2 formats : brut et avec préfixe '-'
-    for raw_id in zone_ids:
-        for prefix in ("", "-"):
-            test_id = f"{prefix}{raw_id}"
-            _test_filter(
-                label=f"zoneIds=[{test_id!r}]",
-                inner={
-                    "size": 20, "from": 0,
-                    "filterType": "buy",
-                    "propertyType": PROPERTY_TYPES,
-                    "zoneIdsByTypes": {"zoneIds": [test_id]},
-                },
-            )
-
-
-# ----------------- STEP C : fallback mapBounds GPS -----------------------
-
-def step_c_bbox() -> None:
-    print("\n" + "=" * 70)
-    print("ÉTAPE C — Fallback : filtre par mapBounds (GPS) autour de Metz")
-    print("=" * 70)
-    _test_filter(
-        label="mapBounds Metz",
-        inner={
-            "size": 20, "from": 0,
-            "filterType": "buy",
-            "propertyType": PROPERTY_TYPES,
-            "onTheMarket": [True],
-            "mapBounds": METZ_BBOX,
-        },
-    )
-
-
-# ---------------------------- Helper commun ------------------------------
 
 def _safe(value, max_len: int = 0) -> str:
-    """Convertit toute valeur (None, list, dict, int...) en str affichable."""
     s = "?" if value is None else str(value)
     return s[:max_len] if max_len else s
 
 
-def _test_filter(label: str, inner: dict) -> None:
-    print(f"\n  > {label}")
-    print(f"    filtre: {json.dumps(inner, ensure_ascii=False)[:200]}")
-    try:
-        data = fetch_json(ADS_URL, params=_wrap(inner))
-    except Exception:
-        traceback.print_exc()
+def step1_zone() -> list:
+    print("=" * 70)
+    print(f"ÉTAPE 1 — Découverte des zoneIds pour '{CITY}'")
+    print("-" * 70)
+    zone_ids = discover_zone_ids(CITY)
+    print(f"zoneIds = {zone_ids}")
+    return zone_ids
+
+
+def step2_raw(zone_ids: list) -> None:
+    print("\n" + "=" * 70)
+    print("ÉTAPE 2 — Appel brut filtré (page 0)")
+    print("-" * 70)
+    if not zone_ids:
+        print("  (pas de zoneIds, on saute)")
         return
+    data = fetch_json(ADS_URL, params=_build_filters(zone_ids, 0))
     if not isinstance(data, dict):
-        print(f"    -> réponse inexploitable ({type(data).__name__})")
+        print(f"  réponse inexploitable ({type(data).__name__})")
         return
     total = data.get("total")
     ads = data.get("realEstateAds", [])
-    print(f"    total={total}  annonces page={len(ads)}")
-    if not ads:
-        return
+    print(f"  total={total}   annonces page={len(ads)}")
     cps = Counter(_safe(a.get("postalCode"))[:2] for a in ads)
-    print(f"    départements : {dict(cps)}")
-    print(f"    3 premières :")
-    for a in ads[:3]:
-        city = _safe(a.get("city"), 20)
-        cp = _safe(a.get("postalCode"))
-        ptype = _safe(a.get("propertyType"), 10)
-        price = _safe(a.get("price"))
-        surf = _safe(a.get("surfaceArea"), 12)
-        print(f"      {city:20} {cp:>6} {ptype:10} {price:>14} € {surf:>12} m²")
+    print(f"  départements : {dict(cps)}")
+    print("  8 premières :")
+    for a in ads[:8]:
+        print(f"    {_safe(a.get('city'), 22):22} {_safe(a.get('postalCode')):>6} "
+              f"{_safe(a.get('propertyType'), 10):10} "
+              f"{_safe(a.get('price')):>12} € {_safe(a.get('surfaceArea'), 12):>12} m²")
 
 
-def _safe_step(label: str, fn, *args):
-    """Exécute fn(*args) en attrapant toute exception pour ne pas couper le run."""
-    try:
-        return fn(*args)
-    except Exception:
-        print(f"\n!!! Exception dans {label} — la step continue ailleurs :")
-        traceback.print_exc()
-        return None
+def step3_scrape() -> None:
+    print("\n" + "=" * 70)
+    print("ÉTAPE 3 — Scraper complet BieniciScraper().scrape()")
+    print("-" * 70)
+    listings = BieniciScraper().scrape()
+    print(f"Annonces valides : {len(listings)}")
+    if not listings:
+        return
+
+    by_city = Counter(l.city for l in listings)
+    by_type = Counter(l.property_type for l in listings)
+    prices_m2 = sorted(l.price_total / l.surface_m2 for l in listings if l.surface_m2)
+
+    print(f"villes  : {dict(by_city.most_common(8))}")
+    print(f"types   : {dict(by_type)}")
+    if prices_m2:
+        n = len(prices_m2)
+        print(f"prix/m² : min={prices_m2[0]:.0f}  médiane={prices_m2[n//2]:.0f}  "
+              f"max={prices_m2[-1]:.0f} €/m²")
+    print("Échantillon (5) :")
+    for l in listings[:5]:
+        pm2 = l.price_total / l.surface_m2 if l.surface_m2 else 0
+        print(f"  [{l.property_type:11}] {l.city:18} {l.surface_m2:6.0f} m²  "
+              f"{l.price_total:>10.0f} €  ({pm2:.0f} €/m²)  district={l.district}")
 
 
 def main() -> None:
-    candidates = _safe_step("step_a", step_a_discover_zone_id) or []
-    _safe_step("step_b", step_b_test_zone_ids, candidates)
-    _safe_step("step_c", step_c_bbox)
+    zone_ids = step1_zone()
+    step2_raw(zone_ids)
+    step3_scrape()
     print("\n" + "=" * 70)
-    print("Cible : un filtre avec total bas (<5000) ET dépt 57 majoritaire.")
-    print("Colle toute la sortie.")
+    print("Succès attendu : total bas, dépt 57, prix/m² réalistes (~2000-3500).")
 
 
 if __name__ == "__main__":
