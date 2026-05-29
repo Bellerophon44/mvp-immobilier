@@ -107,9 +107,10 @@ def _scalar(value) -> Optional[float]:
 
 
 def _parse_listing(ad: dict) -> Optional[PropertyListing]:
-    # On ne garde que les ventes (filet client-side : filterType=buy n'exclut
-    # pas toujours les locations côté API).
-    if ad.get("adType") != "sale":
+    # On ne garde que les ventes classiques. L'API renvoie 'buy' pour une
+    # vente standard et 'lifeAnnuitySale' pour un viager — qu'on rejette
+    # car son prix bouquet n'est pas comparable à un prix de marché.
+    if ad.get("adType") != "buy":
         return None
 
     price = _scalar(ad.get("price"))
