@@ -1,8 +1,12 @@
+import logging
 from typing import Any, Dict
 
 from app.llm_semantic import analyze_semantic
 from app.market_stats import compute_price_market_pillar
 from app.scoring import compute_global_score
+
+
+logger = logging.getLogger("analysis")
 
 
 def _price_pillar_from_listing(listing: Dict[str, Any]) -> Dict[str, Any]:
@@ -38,7 +42,9 @@ def _price_pillar_from_listing(listing: Dict[str, Any]) -> Dict[str, Any]:
 
 def run_full_analysis(raw_text: str) -> dict:
     semantic_result = analyze_semantic(raw_text)
-    price_market_pillar = _price_pillar_from_listing(semantic_result.get("listing") or {})
+    listing = semantic_result.get("listing") or {}
+    logger.info("LLM extracted listing: %s", listing)
+    price_market_pillar = _price_pillar_from_listing(listing)
 
     pillars = [
         {

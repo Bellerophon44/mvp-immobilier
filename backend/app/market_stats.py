@@ -1,8 +1,13 @@
+import logging
+
 import numpy as np
 from typing import Optional, Dict, Any
 
 from db.session import SessionLocal
 from db.models import Comparable
+
+
+logger = logging.getLogger("market_stats")
 
 
 # ============================
@@ -70,13 +75,33 @@ def compute_market_stats(
     surface_min = surface_m2 * 0.8
     surface_max = surface_m2 * 1.2
 
+    # 1er essai : avec district si fourni (résultat plus précis)
     comparables = _fetch_comparables(
         city=city,
         district=district,
         property_type=property_type,
         surface_min=surface_min,
-        surface_max=surface_max
+        surface_max=surface_max,
     )
+    logger.info(
+        "market_stats query: city=%r district=%r type=%r surface=[%.0f-%.0f] -> %d comparables",
+        city, district, property_type, surface_min, surface_max, len(comparables),
+    )
+
+    # 2e essai : si trop peu de matchs avec district, on retombe ville+type
+    # (les libellés de district varient entre sources, pas fiable comme filtre dur)
+    if district and len(comparables) < 3:
+        comparables = _fetch_comparables(
+            city=city,
+            district=None,
+            property_type=property_type,
+            surface_min=surface_min,
+            surface_max=surface_max,
+        )
+        logger.info(
+            "market_stats fallback (no district): %d comparables",
+            len(comparables),
+        )
 
     if len(comparables) < 3:
         return None
