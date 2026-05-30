@@ -1,253 +1,437 @@
-# CLAUDE.md — mvp-immobilier
+# CLAUDE.md — backend mvp-immobilier
 
-> Fichier de référence pour Claude Code. Lit ce fichier en entier avant de toucher au code.
-
----
-
-## 1. Vision produit — ce que c'est et ce que ce n'est PAS
-
-Ce projet est un **analyseur de cohérence d'annonces immobilières** à destination d'acheteurs particuliers.
-
-| Ce que le produit fait ✅ | Ce que le produit ne fait PAS ❌ |
-|---|---|
-| Analyse sémantique du texte de l'annonce | Estimation de prix |
-| Compare le prix au marché local **observable** | Consultation DVF / bases notaires |
-| Produit un score explicable (0–100) | Prédiction opaque ou scoring "boîte noire" |
-| Pose des questions utiles à l'acheteur | Distribution ou réagrégation d'annonces |
-| Identifie des leviers de négociation | Avis juridique ou financier |
-
-**Promesse utilisateur :** *"Ce prix et cette annonce sont-ils cohérents avec ce que j'observe réellement sur le marché local, et quels points dois-je vérifier avant d'acheter ?"*
+> Fichier de référence court à lire **avant toute modification du backend**.
+> Pour le contexte stratégique, marketing, business et la roadmap, voir
+> [`/CONTEXT.md`](../CONTEXT.md) à la racine du repo (source de vérité).
+> Ce fichier-ci se concentre sur l'état technique courant du backend.
+>
+> **Dernière mise à jour :** 2026-06-02 (post-activation cron Bien'ici)
 
 ---
 
-## 2. Architecture générale
+## 1. Promesse produit (rappel court)
 
-### Backend (ce repo)
+Analyseur de **cohérence d'annonces immobilières**, pas estimateur de prix.
+Trois piliers : **prix vs marché local observable**, **transparence sémantique**,
+**risques**. Score 0-100 explicable.
 
-```
-POST /analyze
-    └── run_full_analysis(raw_text)           ← app/analysis.py
-            ├── analyze_semantic()            ← app/llm_semantic.py  → OpenAI gpt-4.1-mini
-            ├── compute_price_market_pillar() ← app/market_stats.py  → SQLite comparables.db
-            └── compute_global_score()        ← app/scoring.py
-```
-
-**Flux de collecte de données (batch, indépendant de l'API) :**
-
-```
-jobs/collect_metz.py
-    └── scrape_site_local_metz()   ← scrapers/site_local.py
-            └── fetch_page()       ← scrapers/base.py  → requests HTTP
-    └── save_comparables()         ← ingestion/save.py → SQLAlchemy → comparables.db
-```
-
-### Frontend (repo séparé, Vercel)
-
-Next.js App Router, une seule page :
-- Champ texte (texte brut de l'annonce ou URL)
-- Bouton "Analyser"
-- Affichage du score + 3 piliers + actions concrètes
-
-La communication avec le backend se fait via `NEXT_PUBLIC_API_URL` pointant vers l'URL Railway.
+Anti-patterns à ne JAMAIS introduire :
+- estimation de prix
+- consultation DVF / bases notaires
+- réagrégation / redistribution d'annonces brutes
+- conseil juridique ou financier
 
 ---
 
-## 3. Infrastructure de déploiement
+## 2. Stack et infra réelles (vérifiées dans le code)
 
 | Élément | Valeur |
 |---|---|
-| Plateforme backend | **Railway** (Docker explicite) |
-| Image Docker | `FROM python:3.12-slim` |
-| Commande de démarrage | `uvicorn app.main:app --host 0.0.0.0 --port 8000` |
-| Variable d'env requise | `OPENAI_API_KEY` |
-| Base de données | SQLite locale `comparables.db` (créée automatiquement au démarrage via `init_db()`) |
-| Plateforme frontend | Vercel (Next.js) |
+| Plateforme backend | **Fly.io** (Docker explicite — pas de buildpacks) |
+| App Fly | `backend-frosty-sound-441-docker` |
+| Région | `cdg` |
+| URL prod | https://backend-frosty-sound-441-docker.fly.dev |
+| Image | `FROM python:3.12-slim` |
+| Commande de démarrage | `uvicorn app.main:app --host 0.0.0.0 --port 8080` |
+| Healthcheck Fly | `GET /health` toutes les 30 s, grace 10 s |
+| Volume Fly | `comparables_data` (1 Go) monté sur `/data` |
+| Persistence | SQLite, chemin via `DATABASE_PATH=/data/comparables.db` |
+| Auto-stop / auto-start machines | `true` / `min_machines_running = 0` |
+| Plateforme frontend | Vercel (Next.js **16.2.6** App Router) |
+| CI | GitHub Actions (2 workflows, voir §9) |
 
-> ⚠️ Un fichier `fly.toml` est présent dans le repo — c'est un **vestige d'une tentative Fly.io avortée**. Il ne doit pas être utilisé et peut être ignoré ou supprimé.
-
-Le `Dockerfile` est la seule source de vérité pour le déploiement. Ne jamais revenir à un buildpack ou à `fastapi run`.
-
----
-
-## 4. État exact de chaque fichier
-
-### ✅ Fichiers complets et fonctionnels
-
-| Fichier | Rôle |
-|---|---|
-| `app/main.py` | FastAPI entry point, route `POST /analyze`, CORS |
-| `app/analysis.py` | Orchestrateur — appelle les 3 piliers et assemble la réponse |
-| `app/llm_semantic.py` | Analyse IA via OpenAI, cache mémoire SHA-256 TTL 7j |
-| `db/models.py` | Modèle SQLAlchemy `Comparable` |
-| `db/session.py` | Engine SQLite, `SessionLocal`, `init_db()` |
-| `scrapers/site_local.py` | Scraper Metz ciblé (laveine.immo) |
-| `ingestion/save.py` | Upsert SQLAlchemy des comparables |
-| `jobs/collect_metz.py` | Script batch de collecte — à lancer manuellement |
-
-### ⚠️ Fichiers tronqués — À COMPLÉTER EN PRIORITÉ
-
-#### `app/market_stats.py`
-- **Présent :** requête SQLite, calcul Q1/médiane/Q3, verdicts de positionnement, indice de confiance
-- **Manquant :** la fonction `compute_price_market_pillar(raw_text)` — c'est cette fonction qu'`analysis.py` appelle. Elle doit :
-  1. Parser le texte brut de l'annonce (regex) pour en extraire : prix, surface, ville, quartier (optionnel), type de bien
-  2. Appeler les fonctions de calcul statistique déjà présentes dans le fichier
-  3. Retourner un dict avec au minimum : `median_price_m2`, `position_verdict`, `confidence`, `comparables_count`, `q1`, `q3`
-  4. Retourner `None` ou un dict avec `insufficient_data: True` si moins de 3 comparables
-
-#### `app/scoring.py`
-- **Présent :** scoring du pilier prix (40 pts max) : aligné→35, modéré→25, fort→10, sous-positionné→30
-- **Manquant :**
-  - Scoring du pilier sémantique (60 pts max) basé sur `verdict` (BON/MOYEN/MAUVAIS) et `risk_level` (FAIBLE/MODÉRÉ/ÉLEVÉ) retournés par `llm_semantic.py`
-  - Calcul du verdict final (`Favorable`, `À creuser`, `Prudence`, `Déconseillé`)
-  - `return {"score": ..., "verdict": ..., "confidence": ...}`
-
-#### `scrapers/base.py`
-- **Présent :** `fetch_page(url)` — GET avec User-Agent custom, timeout 10s
-- **Manquant :**
-  - Corps de `generate_stable_id(source, external_id)` : doit retourner `hashlib.sha256(f"{source}:{external_id}".encode()).hexdigest()`
-  - `normalize_price(raw)` : extrait le float d'une chaîne type `"250 000 €"` ou `"250000€"`
-  - `normalize_surface(raw)` : extrait le float d'une chaîne type `"68 m²"` ou `"68m2"`
+⚠️ **Pas de Railway.** Toute documentation interne qui mentionne encore Railway
+ou le port 8000 est périmée et doit être ignorée.
 
 ---
 
-## 5. Détails des modules — comportement attendu
-
-### `app/llm_semantic.py`
-
-- Modèle : `gpt-4.1-mini`, temperature 0.2, `response_format: {"type": "json_object"}`
-- Cache mémoire en dict Python, clé = SHA-256 du texte normalisé (strip + lowercase), TTL = 7 jours
-- **Retourne un dict avec ces clés exactes** (utilisées par `scoring.py` et `analysis.py`) :
-  ```python
-  {
-    "verdict": "BON" | "MOYEN" | "MAUVAIS",
-    "summary": str,
-    "risk_level": "FAIBLE" | "MODÉRÉ" | "ÉLEVÉ",
-    "risk_summary": str,
-    "to_check": [str, ...],       # points à vérifier avant achat
-    "questions": [str, ...],      # questions à poser au vendeur/agent
-    "negotiation_levers": [str, ...]
-  }
-  ```
-
-### `app/market_stats.py`
-
-- Scope géographique MVP : **Metz / Moselle uniquement**
-- Requête SQLite : biens de même `city`, même `property_type`, surface dans un intervalle ±20%
-- Seuil minimum : **3 comparables** pour produire un résultat
-- Verdicts de positionnement (basés sur écart entre prix annoncé et médiane) :
-  - `"Plutôt aligné"` : écart ≤ ±10%
-  - `"Légèrement sur-positionné"` : +10% à +25%
-  - `"Fortement sur-positionné"` : >+25%
-  - `"Sous-positionné"` : <-10%
-- Indice de confiance :
-  - `"Élevée"` : ≥10 comparables ET dispersion <800€/m²
-  - `"Moyenne"` : ≥4 comparables
-  - `"Faible"` : 3 comparables ou dispersion élevée
-
-### `app/scoring.py`
-
-Score total sur 100, deux piliers :
-
-| Pilier | Poids | Critères |
-|---|---|---|
-| Prix vs marché | 40 pts | aligné→35, légèrement sur→25, fortement sur→10, sous→30 |
-| Sémantique IA | 60 pts | combinaison verdict × risk_level (grille à définir) |
-
-Verdict final suggéré (à adapter selon les seuils retenus) :
-- 75–100 → `"Favorable"`
-- 55–74 → `"À creuser"`
-- 35–54 → `"Prudence"`
-- 0–34 → `"Déconseillé"`
-
----
-
-## 6. Corrections déjà appliquées (ne pas revenir en arrière)
-
-Ces bugs ont été corrigés lors d'une session précédente avec Claude Code :
-
-1. **`app/main.py`** — backticks `` ` `` parasites ligne 68 → `SyntaxError` → **supprimés**
-2. **`app/analysis.py`** — backticks `` ` `` parasites ligne 58 → `SyntaxError` → **supprimés**
-3. **`app/llm_semantic.py`** — fichier tronqué à la ligne 45 → `IndentationError` → **fichier complété intégralement**
-
-Ces trois corrections permettent au serveur de **démarrer**. Mais le premier appel à `POST /analyze` échouera encore en runtime car `compute_price_market_pillar` et le `return` de `compute_global_score` sont manquants.
-
----
-
-## 7. Ordre des priorités pour la prochaine session
-
-### Priorité 1 — Compléter le backend (blocage runtime)
-
-1. **Compléter `app/market_stats.py`** — écrire `compute_price_market_pillar(raw_text)` :
-   - Parser prix, surface, ville, quartier, type avec regex
-   - Appeler les fonctions statistiques déjà présentes
-   - Gérer le cas `None` (données insuffisantes)
-
-2. **Compléter `app/scoring.py`** — écrire le scoring sémantique + le `return` final de `compute_global_score()`
-
-3. **Compléter `scrapers/base.py`** — corps de `generate_stable_id`, `normalize_price`, `normalize_surface`
-
-4. **Tester l'endpoint end-to-end** avec un texte d'annonce réel (voir exemple ci-dessous)
-
-### Priorité 2 — Peupler la base de données
-
-5. **Lancer `jobs/collect_metz.py`** pour peupler `comparables.db` — sans cela, `compute_price_market_pillar` retournera systématiquement "données insuffisantes"
-
-### Priorité 3 — Produit (après backend opérationnel)
-
-6. Tester 5–10 annonces réelles, ajuster les seuils de scoring
-7. Ajouter le wording légal dans le frontend
-8. Décider : scraping continu vs API payante pour les données marché
-
----
-
-## 8. Exemple de texte d'annonce pour les tests
-
-```
-Appartement T3 de 68m² à Metz-Sablon, 3ème étage sans ascenseur.
-Séjour 25m², 2 chambres, cuisine équipée, cave. Chauffage collectif gaz.
-DPE D. Prix : 189 000 € FAI. Libre de suite. Copropriété de 24 lots,
-charges 180€/mois. Pas de travaux votés.
-```
-
-Ce texte doit permettre de tester le parsing regex dans `compute_price_market_pillar` :
-- Prix : 189 000 €
-- Surface : 68 m²
-- Ville : Metz
-- Quartier : Sablon
-- Type : appartement
-
----
-
-## 9. Conventions du projet
-
-- **Python 3.12**
-- **Pas de type hints stricts** dans les fichiers existants — rester cohérent avec le style présent
-- **Logging** : utiliser `print()` ou `logging` simple, pas de framework de logs complexe
-- **Pas de migrations** : SQLite est recréé via `init_db()` au démarrage si absent
-- **Pas de tests automatisés** actuellement — valider manuellement via `/docs` (Swagger) et curl
-- **Pas de `.env`** en local : la variable `OPENAI_API_KEY` est injectée par Railway en production
-- **`fly.toml` présent** dans le repo : ignorer, ne pas modifier, peut être supprimé proprement
-
----
-
-## 10. Variables d'environnement requises
+## 3. Secrets et variables d'environnement
 
 | Variable | Où | Usage |
 |---|---|---|
-| `OPENAI_API_KEY` | Railway (backend) | Appels GPT-4.1-mini dans `llm_semantic.py` |
-| `NEXT_PUBLIC_API_URL` | Vercel (frontend) | URL Railway du backend, ex: `https://mvp-immobilier.up.railway.app` |
+| `OPENAI_API_KEY` | `fly secrets` | Appel `gpt-4.1-mini` |
+| `OPENAI_MODEL` (optionnel) | `fly secrets` | Par défaut `gpt-4.1-mini` |
+| `ADMIN_TOKEN` | `fly secrets` **et** GitHub repo secret | Authentifie `POST /admin/comparables` |
+| `DATABASE_PATH` | `fly.toml [env]` | `/data/comparables.db` |
+| `CORS_ORIGINS` (optionnel) | env Fly | Par défaut : localhost + regex `*.vercel.app` |
+| `NEXT_PUBLIC_API_URL` | Vercel | URL prod du backend |
 
 ---
 
-## 11. Rappel — ce qui a été validé par simulation
+## 4. Arborescence backend (état réel)
 
-Une simulation complète bout-en-bout a été réalisée sur une vraie annonce Leboncoin avec les résultats suivants, qui définissent le comportement cible du produit :
+```
+backend/
+├── Dockerfile              # uvicorn :8080 + PYTHONUNBUFFERED
+├── fly.toml                # 1 VM, volume /data, healthcheck /health, auto-stop
+├── requirements.txt        # fastapi, uvicorn[standard], sqlalchemy, requests,
+│                           # beautifulsoup4, openai>=1.50, numpy
+├── app/
+│   ├── main.py             # FastAPI, CORS, /health, /, /analyze, /admin/comparables
+│   ├── analysis.py         # Orchestrateur run_full_analysis
+│   ├── llm_semantic.py     # gpt-4.1-mini, cache mémoire SHA-256 TTL 7j
+│   ├── market_stats.py     # SQL comparables, fallback district, stats Q1/médiane/Q3
+│   ├── scoring.py          # Score global 0-100 (40+30+30)
+│   └── url_fetch.py        # GET URL annonce + extraction texte HTML, SSRF filter
+├── db/
+│   ├── models.py           # SQLAlchemy Comparable
+│   └── session.py          # SessionLocal, init_db, DATABASE_PATH
+├── ingestion/
+│   └── save.py             # save_comparables(list[dict]) → DB (merge)
+├── scrapers/
+│   ├── base.py             # session HTTP UA Chrome, retry, normalize_price/surface,
+│   │                       # infer_property_type, extract_district (Grand Metz)
+│   ├── models.py           # @dataclass PropertyListing
+│   ├── protocol.py         # ScraperProtocol
+│   ├── registry.py         # @register(name), run_all() — pattern registre
+│   ├── recon.py            # outil dev : recon HTML d'agences locales
+│   ├── diag_bienici.py     # outil dev : diagnostic API Bien'ici
+│   ├── site_local.py       # shim de rétrocompat — n'éditer plus, redirige vers sources/
+│   └── sources/
+│       ├── __init__.py
+│       ├── bienici.py      # @register("bienici") — API JSON, zoneIdsByTypes
+│       └── site_local.py   # @register("laveine_immo") — HTML laveine.immo
+└── jobs/
+    ├── collect_metz.py     # CLI local : python -m jobs.collect_metz
+    └── push_comparables.py # CI : scrape + POST batches vers /admin/comparables
+```
 
-- **Score** : ~65/100
-- **Verdict** : "À creuser"
-- **Positionnement prix** : "Légèrement sur-positionné"
-- **Transparence** : "Bonne"
-- **Risques** : "Modérés"
-- **Questions générées** : pertinentes et actionnables
+⚠️ `scrapers/site_local.py` (à la racine) est un **shim de rétrocompat** :
 
-Ces valeurs servent de référence pour valider que les fonctions manquantes une fois écrites produisent des résultats dans le bon ordre de grandeur.
+```python
+from scrapers.sources.site_local import SiteLocalScraper
+def scrape_site_local_metz() -> list: ...
+```
+
+Ne rien ajouter dedans. Toute nouvelle logique scraper va dans `scrapers/sources/`.
+
+---
+
+## 5. Endpoints HTTP exposés (état réel — `backend/app/main.py`)
+
+| Méthode | Chemin | Auth | Rôle |
+|---|---|---|---|
+| GET | `/health` | aucune | `{"status":"ok"}` — pour Fly healthcheck |
+| GET | `/` | aucune | `{"service":"mvp-immobilier","docs":"/docs"}` |
+| GET | `/docs` | aucune | Swagger UI FastAPI |
+| POST | `/analyze` | aucune | Analyse cohérence d'une annonce |
+| GET | `/admin/comparables/stats` | `X-Admin-Token` | `{"total": n, "cities": [...]}` |
+| POST | `/admin/comparables` | `X-Admin-Token` | Import batch (max 10000) |
+
+### `POST /analyze`
+Body (au moins l'un des deux) :
+```json
+{"raw_text": "Appartement T3 à Metz...", "url": null}
+```
+ou
+```json
+{"raw_text": null, "url": "https://..."}
+```
+
+Quand `url` est fourni seul, le backend télécharge la page via `app/url_fetch.py`
+(UA Chrome, anti-SSRF basique, extraction du `<main>`/`<article>`, plafond
+8000 chars) puis passe le texte au LLM.
+
+Réponse :
+```json
+{
+  "global_score": 0-100,
+  "verdict": "Cohérence forte" | "À creuser" | "Risque élevé" | "Cohérence faible",
+  "confidence": "Élevée" | "Moyenne" | "Faible",
+  "pillars": [
+    {"label": "Prix vs marché local", "verdict": "...", "explanation": "..."},
+    {"label": "Transparence de l'annonce", "verdict": "...", "explanation": "..."},
+    {"label": "Risques et incertitudes", "verdict": "...", "explanation": "..."}
+  ],
+  "actions": {"check": [...], "questions": [...], "negotiation": [...]}
+}
+```
+
+Codes d'erreur : 400 (aucun input), 422 (URL fournie mais inaccessible),
+500 (erreur interne, loguée).
+
+### `POST /admin/comparables`
+Authentification : header `X-Admin-Token` comparé en temps constant à
+`os.getenv("ADMIN_TOKEN")`. 503 si la variable n'est pas configurée, 401 si
+mismatch, 413 au-delà de 10000 items.
+
+Body :
+```json
+{"items": [{"id": "...", "source": "...", "city": "...", "property_type": "appartement",
+            "surface_m2": 80, "price_total": 250000, "district": null}, ...]}
+```
+
+Délègue à `ingestion/save.save_comparables`, recalcule `price_m2`.
+
+---
+
+## 6. Pipeline d'analyse (état réel)
+
+```
+POST /analyze
+  └── run_full_analysis(raw_text)               ← app/analysis.py
+        ├── analyze_semantic()                  ← app/llm_semantic.py → OpenAI gpt-4.1-mini
+        │     retourne :
+        │     - transparency_score (int 0-100)
+        │     - verdict, summary, risk_level, risk_summary
+        │     - to_check[], questions[], negotiation_levers[]
+        │     - listing: {city, district, property_type, surface_m2, price_total}
+        │
+        ├── _price_pillar_from_listing(listing)
+        │     └── compute_price_market_pillar()  ← app/market_stats.py
+        │            └── compute_market_stats()
+        │                   1) requête DB avec district si fourni
+        │                   2) si <3 résultats : retry sans district (fallback)
+        │                   → médiane, Q1, Q3, dispersion, confiance
+        │            └── interpret_price_positioning() → verdict ("Plutôt aligné",
+        │                  "Légèrement sur-positionné", "Fortement sur-positionné",
+        │                  "Sous-positionné", "Indéterminé")
+        │
+        └── compute_global_score()               ← app/scoring.py
+              pondération : 40 pts prix + 30 pts transparence + 30 pts risques
+              verdict global selon score :
+                ≥80 "Cohérence forte" | ≥60 "À creuser"
+                ≥40 "Risque élevé"    | <40 "Cohérence faible"
+```
+
+⚠️ Le **pilier prix renvoie "Indéterminé"** si :
+- le LLM n'a pas extrait city/surface/price_total ;
+- ou la DB renvoie <3 comparables même après fallback sans district.
+
+Voir §11 pour les pistes de tuning du `scoring.py` (déséquilibre actuel
+quand seul le prix est défavorable).
+
+---
+
+## 7. Modèle de données
+
+`db/models.py` — table `comparables` :
+
+```python
+class Comparable(Base):
+    id            = Column(String, primary_key=True)  # sha256(source:external_id)
+    source        = Column(String, nullable=False)    # ex "bienici"
+    city          = Column(String, nullable=False)    # normalisé (Casse-Titre)
+    district      = Column(String, nullable=True)
+    property_type = Column(String, nullable=False)    # "appartement" | "maison"
+    surface_m2    = Column(Float, nullable=False)
+    price_total   = Column(Float, nullable=False)
+    price_m2      = Column(Float, nullable=False)
+    collected_at  = Column(DateTime, default=datetime.utcnow)
+```
+
+État actuel en prod : **~900 comparables**, couverture Grand Metz (Metz +
+~20 communes limitrophes), 98% appartements (Bien'ici intra-muros).
+
+Seuils dans `market_stats.py` :
+- Fenêtre surface : ±20%
+- Minimum 3 comparables sinon `None` (verdict "Indéterminé")
+- Confiance "Élevée" si ≥10 comparables ET dispersion <800 €/m²
+- Confiance "Moyenne" si ≥4 ; sinon "Faible"
+
+Seuils de verdict prix (vs médiane locale) :
+- ≤ ±10 % → "Plutôt aligné"
+- +10 à +25 % → "Légèrement sur-positionné"
+- > +25 % → "Fortement sur-positionné"
+- < -10 % → "Sous-positionné"
+
+---
+
+## 8. Architecture scrapers (pattern registre)
+
+### Registre
+`scrapers/registry.py` expose `@register("nom")` et `run_all()`. Chaque module
+dans `scrapers/sources/` enregistre sa classe ; `run_all()` les exécute toutes
+et agrège des `PropertyListing`.
+
+### Source 1 : `bienici` (principale)
+`scrapers/sources/bienici.py` — **API JSON pas HTML**, donc immunisé aux
+protections anti-bot des frontaux.
+
+- Découverte dynamique de l'identifiant de zone via
+  `https://res.bienici.com/suggest.json?q=<ville>` → renvoie `zoneIds`
+  (ex. Metz = `["-450381"]`). C'est l'ID interne Bien'ici, **pas** l'INSEE.
+- Endpoint annonces : `https://www.bienici.com/realEstateAds.json`
+  avec `filterType=buy` + `zoneIdsByTypes.zoneIds`
+- **Pagination** : 50/page, jusqu'à 20 pages = 1000 annonces brutes / run
+- **Filtres qualité** dans `_parse_listing` :
+  - `adType == "buy"` uniquement (rejette `lifeAnnuitySale` viagers et `rent`)
+  - Type résidentiel uniquement (flat/studio/loft/duplex/house/villa/castle/townhouse/manor)
+  - `price` et `surfaceArea` doivent être des nombres simples (rejette les
+    fourchettes `[min, max]` des programmes neufs)
+  - Bande de plausibilité prix/m² : **800-12000 €/m²** (éjecte parkings,
+    erreurs de saisie, biens hors marché)
+  - Normalisation casse ville via `_normalize_city`
+- Renvoie ~830 comparables propres pour Metz par run
+
+### Source 2 : `laveine_immo` (complément)
+`scrapers/sources/site_local.py` — scraper HTML de https://www.laveine.immo
+avec sélecteurs CSS spécifiques (`article.item`, `.item__price`,
+`.item__block--title`, `.item__block--city`). Apporte des biens en exclusivité
+agence, notamment quelques maisons dans les communes limitrophes.
+
+### Bases utilitaires partagées
+`scrapers/base.py` :
+- `requests.Session` réutilisée + UA Chrome 121 réaliste
+- `fetch_page` et `fetch_json` avec retry/backoff sur 429/5xx
+- `polite_sleep` avec jitter
+- `generate_stable_id(source, ext_id)` → sha256
+- `normalize_price` / `normalize_surface` (regex, gèrent points de milliers,
+  virgules décimales, "à partir de", "FAI", "nbsp")
+- `infer_property_type` (maison/villa/pavillon... sinon appartement)
+- `extract_district` (~30 localités du Grand Metz reconnues, renvoie `None`
+  si inconnu — pas de placeholder)
+
+### Outils dev (pas en prod)
+- `scrapers/recon.py` : exécution locale pour ausculter une URL d'agence
+  (statut, présence prix dans le HTML, classes CSS candidates, dump local
+  dans `recon_dumps/`)
+- `scrapers/diag_bienici.py` : suite de tests sur l'API Bien'ici (suggest
+  endpoints, variantes de filtres) — exécutable via GitHub Action
+  `diag-bienici.yml`
+
+---
+
+## 9. Pipeline d'ingestion (CI + manuel)
+
+### En CI (production)
+1. `.github/workflows/collect.yml` se déclenche :
+   - manuellement (`workflow_dispatch`)
+   - **chaque lundi 04:00 UTC** (`schedule: cron "0 4 * * 1"`)
+2. Le runner GitHub installe Python 3.12 + `requirements.txt`
+3. Exécute `python -m jobs.push_comparables` avec
+   `BACKEND_URL=https://...fly.dev` et `ADMIN_TOKEN=<secret>`
+4. Le job :
+   - importe `scrapers.sources.bienici` et `scrapers.sources.site_local`
+     pour déclencher leurs `@register`
+   - appelle `run_all()` (collecte sur les runners GitHub, pas anti-bot)
+   - batch de 1000 max et POST vers `/admin/comparables`
+5. Le backend reçoit, appelle `ingestion/save.save_comparables` → écriture
+   atomique sur le volume `/data`
+
+### En local (manuel, alternatif)
+```bash
+python -m jobs.collect_metz
+```
+Écrit directement dans `comparables.db` local (ne touche pas la prod).
+
+---
+
+## 10. Frontend en bref (pour comprendre le contrat API)
+
+Le frontend a été repris depuis une autre conversation Claude (design
+system "Cohérence"). Côté contrat API :
+
+- `frontend/lib/api.ts` expose
+  `analyzeListing(input: string, mode: "url" | "text"): Promise<ApiResult>`
+  → envoie `{url}` ou `{raw_text}` selon le mode choisi par l'utilisateur
+  (onglets explicites dans `components/design/AnalyzerInput.tsx`, plus de
+  détection regex côté client).
+- Polices Google Fonts (`Instrument Serif`, `Geist`, `Geist Mono`).
+- Tokens de design dans `app/globals.css` (palette ink/parchment/brick/
+  moss/ochre, échelle typo 12-88 px, espacements 4 px).
+- Next.js **16.2.6** App Router, déployé sur Vercel.
+- Composants présentation : `VerdictHeader`, `PillarBar`, `ScoreRing`,
+  `ChecklistCard`, `LeversList`, `Wordmark`, `ScopeBadge`, `Footer`, `Icons`
+  (tous sous `components/design/`).
+- Les anciens composants à la racine (`components/Actions.tsx`,
+  `Pillars.tsx`, `ScoreResult.tsx`) sont conservés mais **plus utilisés**
+  par la page principale.
+
+**Côté backend, retenir** : la réponse `/analyze` doit garder ce schéma
+exact (`global_score`, `verdict`, `confidence`, `pillars[]`, `actions{check,
+questions, negotiation}`). Le frontend code en dur l'ordre des piliers
+`[prix, transparence, risques]`.
+
+---
+
+## 11. Limitations connues et dette technique
+
+### Côté produit / scoring
+- **Pondération du score** : `scoring.py` donne 40 pts au pilier prix.
+  Quand un bien est transparent, à faible risque, mais nettement sur-positionné,
+  le score peut descendre jusqu'à 50/100 → verdict "Risque élevé", ce qui
+  est trop sévère sémantiquement. À reprendre avec la charte produit.
+- **Couverture maisons** : Bien'ici ne renvoie ~1% de maisons pour Metz
+  intra-muros, donc le pilier prix sort souvent "Indéterminé" pour une
+  maison. À élargir via ajout de zones (banlieue dortoir) ou source HTML
+  dédiée.
+
+### Côté technique
+- `@app.on_event("startup")` est **déprécié** (FastAPI lifespan moderne).
+  Fonctionne encore, à migrer.
+- **Cache LLM en mémoire seulement** (perdu au restart de la VM Fly).
+  Pas critique mais non optimal. Migrer vers Redis ou table SQLite.
+- **Pas de tests automatisés** (pas de pytest). Vérification manuelle via
+  Swagger.
+- **Pas de monitoring** d'erreurs (pas de Sentry).
+- **Filtre SSRF dans `url_fetch.py`** : volontairement minimal (refuse
+  localhost / IP privées RFC1918 / scheme non http(s)). Ne résout pas le
+  DNS pour valider l'IP réelle, donc partiellement contournable.
+
+---
+
+## 12. Conventions de code
+
+- **Python 3.12** uniquement
+- **Logging** structuré via `logging.getLogger(<module>)`. Niveau INFO par
+  défaut (forcé dans `app/main.py` avec `basicConfig(level=INFO, force=True)`).
+  Loggers nommés en prod : `mvp`, `analysis`, `market_stats`, `llm_semantic`,
+  `url_fetch`, `scrapers.base`, `push_comparables`.
+- **Pas de commentaires "what"** dans le code. Commenter uniquement le "why"
+  non-trivial (workaround, invariant caché, choix non-évident).
+- **Pas d'emoji** dans le code, commits ou prompts LLM système, sauf demande
+  explicite utilisateur.
+- **Type hints** : on en ajoute volontiers dans les nouveaux modules (`db/`,
+  `app/`, `scrapers/sources/`). On reste cohérent avec le style existant.
+
+---
+
+## 13. Commandes utiles
+
+### Ops Fly (PowerShell)
+```powershell
+fly status --app backend-frosty-sound-441-docker
+fly logs --app backend-frosty-sound-441-docker
+fly secrets list --app backend-frosty-sound-441-docker
+fly deploy --app backend-frosty-sound-441-docker
+fly volumes list --app backend-frosty-sound-441-docker
+```
+
+### Test direct du backend (PowerShell)
+```powershell
+# stats de la DB
+Invoke-WebRequest `
+  -Uri "https://backend-frosty-sound-441-docker.fly.dev/admin/comparables/stats" `
+  -Headers @{"X-Admin-Token"="<token>"}
+
+# analyse
+$body = '{"url":"https://idemmo.fr/bien-immobilier/..."}'
+Invoke-WebRequest -Uri "https://backend-frosty-sound-441-docker.fly.dev/analyze" `
+  -Method POST -ContentType "application/json" -Body $body
+```
+
+### Collecte manuelle (local)
+```bash
+cd backend
+python -m jobs.collect_metz
+```
+
+### Diagnostic Bien'ici
+GitHub → Actions → "Diagnose Bien'ici scraper" → Run workflow
+
+### Collecte prod (manuelle)
+GitHub → Actions → "Collect comparables (Metz)" → Run workflow
+(sinon, déclenchement auto chaque lundi 04:00 UTC)
+
+---
+
+## 14. Si tu touches au backend, lire d'abord
+
+1. **Ce fichier** (CLAUDE.md) pour la cartographie technique courante
+2. **`/CONTEXT.md`** à la racine pour le contexte stratégique et la roadmap
+3. Les fichiers que tu vas modifier, **avant** de modifier (l'état réel
+   change vite : ce CLAUDE.md est une carte, pas le terrain)
+
+Ne jamais réintroduire les anti-patterns listés au §1.
+Ne jamais commiter de secret en clair.
