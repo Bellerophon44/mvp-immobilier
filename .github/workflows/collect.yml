@@ -3,8 +3,8 @@ name: Collect comparables (Metz)
 # Manuel pour valider. Décommenter 'schedule' pour automatiser ensuite.
 on:
   workflow_dispatch:
-  # schedule:
-  #   - cron: "0 4 * * 1"   # tous les lundis à 04:00 UTC
+   schedule:
+     - cron: "0 4 * * 1"   # tous les lundis à 04:00 UTC
 
 jobs:
   collect:
