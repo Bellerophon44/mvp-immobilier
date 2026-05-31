@@ -1,0 +1,32 @@
+name: Deploy backend (Fly)
+
+# Equivalent du deploiement auto Vercel cote frontend : tout merge sur main
+# touchant backend/ redeploie l'app Fly. Necessite le secret repo FLY_API_TOKEN
+# (jeton Fly : `fly tokens create deploy -a backend-frosty-sound-441-docker`).
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - ".github/workflows/deploy-backend.yml"
+  workflow_dispatch:
+
+# Un seul deploiement a la fois ; annule un deploiement en cours s'il en arrive
+# un plus recent.
+concurrency:
+  group: deploy-backend
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy to Fly
+        working-directory: backend
+        run: flyctl deploy --remote-only
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
