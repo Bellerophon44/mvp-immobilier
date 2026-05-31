@@ -52,7 +52,9 @@ TIMEOUT = 20
 # Ecartees apres recon : herbeth, agencevalentin (robots interdit + 403),
 # century21 et orpi (rendu JS-only, pas de prix dans le HTML serveur).
 SITES = {
-    "immoheytienne": "https://immoheytienne.fr/fr/properties",
+    # Vide : toutes les candidates sont traitées (idemmo, benedic, immoheytienne
+    # actives ; herbeth/agencevalentin/century21/orpi écartées). Ajouter une URL
+    # ici pour ausculter une nouvelle agence au prochain run.
 }
 
 DUMP_DIR = "recon_dumps"

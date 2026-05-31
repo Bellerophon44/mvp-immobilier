@@ -60,7 +60,10 @@ def _parse_card(card) -> Optional[PropertyListing]:
         # Le prix est isolé dans son <p> dédié : on ne lit PAS le texte global de
         # la carte (le premier nombre y est le compteur de photos, pas le prix).
         price = normalize_price(price_el.get_text(strip=True))
-        city = city_el.get_text(" ", strip=True)
+        # La pastille ville est parfois préfixée d'une zone ("Metz Métropole -
+        # Metz") : on garde le dernier segment pour s'aligner sur les autres
+        # sources et permettre l'agrégation des comparables par ville.
+        city = city_el.get_text(" ", strip=True).split(" - ")[-1].strip()
 
         title_el = card.select_one("h2.thumb__title")
         meta_el = card.select_one("div.text-base")
