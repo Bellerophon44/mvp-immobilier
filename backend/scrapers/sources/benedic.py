@@ -20,12 +20,6 @@ SOURCE_NAME = "benedic"
 BASE_URL = "https://www.benedicsa.com/particuliers/ventes"
 MAX_PAGES = 15
 
-# Slug de l'annonce, ex : "maison-fameck-5-pieces-102-40-m2-10181"
-#   type(maison) - ville(fameck) - N pieces - surface(102-40 -> 102.40) - id
-_SLUG_RE = re.compile(
-    r"/ventes/([a-z]+)-(.+?)-\d+-pieces?-([\d-]+)-m2-(\d+)", re.IGNORECASE
-)
-
 _PROPERTY_TYPE_MAP = {
     "appartement": "appartement",
     "studio": "appartement",
@@ -36,39 +30,43 @@ _PROPERTY_TYPE_MAP = {
     "immeuble": "maison",
 }
 
-
-def _slug_city(slug: str) -> str:
-    return " ".join(p.capitalize() for p in slug.split("-"))
+_SURFACE_RE = re.compile(r"(\d+(?:[.,]\d+)?)\s*m[²2]", re.IGNORECASE)
 
 
-def _slug_surface(raw: str) -> Optional[float]:
-    # "102-40" -> 102.40 ; "86" -> 86
-    return normalize_surface(raw.replace("-", ".", 1))
+def _property_type(title: str) -> str:
+    lowered = title.lower()
+    for key, value in _PROPERTY_TYPE_MAP.items():
+        if key in lowered:
+            return value
+    return infer_property_type(title)
+
+
+def _extract_surface(*texts: str) -> Optional[float]:
+    for text in texts:
+        match = _SURFACE_RE.search(text or "")
+        if match:
+            return normalize_surface(match.group(0))
+    return None
 
 
 def _parse_card(card) -> Optional[PropertyListing]:
     try:
         external_id = card.get("data-card-maker")
-        link = card.select_one("a[href*='/ventes/']")
-        if not external_id or not link:
+        price_el = card.select_one("p.text-2xl")
+        city_el = card.select_one("p.uppercase")
+        if not external_id or not price_el or not city_el:
             return None
 
-        text = card.get_text(" ", strip=True)
-        price = normalize_price(text) if "€" in text else None
+        # Le prix est isolé dans son <p> dédié : on ne lit PAS le texte global de
+        # la carte (le premier nombre y est le compteur de photos, pas le prix).
+        price = normalize_price(price_el.get_text(strip=True))
+        city = city_el.get_text(" ", strip=True)
 
-        type_from_slug = city = None
-        surface = None
-        m = _SLUG_RE.search(link["href"])
-        if m:
-            type_from_slug = _PROPERTY_TYPE_MAP.get(m.group(1).lower())
-            city = _slug_city(m.group(2))
-            surface = _slug_surface(m.group(3))
-
-        if surface is None:
-            sm = re.search(r"(\d+(?:[.,]\d+)?)\s*m[²2]", text, re.IGNORECASE)
-            surface = normalize_surface(sm.group(0)) if sm else None
-
-        property_type = type_from_slug or infer_property_type(text)
+        title_el = card.select_one("h2.thumb__title")
+        meta_el = card.select_one("div.text-base")
+        title = title_el.get_text(" ", strip=True) if title_el else ""
+        meta = meta_el.get_text(" ", strip=True) if meta_el else ""
+        surface = _extract_surface(meta, title)
 
         if not price or not surface or not city:
             return None
@@ -77,7 +75,7 @@ def _parse_card(card) -> Optional[PropertyListing]:
             id=generate_stable_id(SOURCE_NAME, external_id),
             source=SOURCE_NAME,
             city=city,
-            property_type=property_type,
+            property_type=_property_type(title),
             surface_m2=surface,
             price_total=price,
         )
@@ -111,7 +109,7 @@ class BenedicScraper:
                     new_on_page += 1
 
             # Pagination inconnue : on s'arrête dès qu'une page n'apporte aucune
-            # annonce nouvelle (page renvoyée à l'identique = param ignoré).
+            # annonce nouvelle (param ignoré = page renvoyée a l'identique).
             if new_on_page == 0:
                 break
 
