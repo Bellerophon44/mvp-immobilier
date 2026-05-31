@@ -125,7 +125,7 @@ def diagnose_sources(only: Optional[str] = None) -> tuple[str, bool]:
     return header + "\n".join(blocks), any_fail
 
 
-def _representative_card_html(soup, max_len: int = 1800) -> Optional[str]:
+def _representative_card_html(soup, max_len: int = 3500) -> Optional[str]:
     """HTML d'une carte d'annonce plausible : plus petit élément contenant à la
     fois un prix (€), une surface (m²) et un lien. Révèle la vraie structure
     (classes réelles, href de détail, emplacement des champs) pour écrire les
