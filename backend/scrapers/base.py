@@ -3,6 +3,7 @@ import random
 import hashlib
 import logging
 import re
+import unicodedata
 from typing import Any, Optional
 
 import requests
@@ -188,6 +189,26 @@ def normalize_surface(raw_surface: str) -> Optional[float]:
 # =========================
 # Helpers métier partagés
 # =========================
+
+def canonical_city(raw: Optional[str]) -> Optional[str]:
+    """
+    Forme canonique d'un nom de ville, partagée par toutes les sources ET par
+    la requête d'analyse (market_stats), pour que la même commune écrite
+    différemment selon les agences s'agrège sur la même clé.
+
+    Stratégie : suppression des accents, séparateurs unifiés (espaces et tirets
+    -> tiret unique), capitalisation par segment. Ainsi 'Montigny-lès-Metz',
+    'Montigny Les Metz' et 'MONTIGNY-LES-METZ' -> 'Montigny-Les-Metz'.
+
+    Retourne None / chaîne vide tels quels (pas de valeur factice).
+    """
+    if not raw:
+        return raw
+    stripped = unicodedata.normalize("NFD", raw.strip())
+    stripped = "".join(c for c in stripped if unicodedata.category(c) != "Mn")
+    segments = [s for s in re.split(r"[\s\-]+", stripped.lower()) if s]
+    return "-".join(s.capitalize() for s in segments)
+
 
 def infer_property_type(text: str) -> str:
     """Déduction simple du type de bien depuis un texte libre."""

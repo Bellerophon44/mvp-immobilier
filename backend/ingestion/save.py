@@ -1,8 +1,18 @@
+import logging
 from datetime import datetime
 from typing import List, Dict, Any
 
 from db.session import SessionLocal, init_db
 from db.models import Comparable
+
+logger = logging.getLogger("ingestion")
+
+# Garde-fou de plausibilité prix/m² pour une vente résidentielle, appliqué à
+# TOUTES les sources avant écriture. Centralisé ici (et non dans chaque
+# scraper) pour que toute nouvelle agence soit protégée sans y penser : éjecte
+# loyers, parkings, viagers et erreurs de saisie qui pollueraient les stats.
+MIN_PRICE_M2 = 800.0
+MAX_PRICE_M2 = 12000.0
 
 
 def save_comparables(listings: List[Dict[str, Any]]) -> int:
@@ -20,6 +30,7 @@ def save_comparables(listings: List[Dict[str, Any]]) -> int:
 
     db = SessionLocal()
     saved_count = 0
+    rejected_band = 0
 
     for ad in listings:
         try:
@@ -30,6 +41,10 @@ def save_comparables(listings: List[Dict[str, Any]]) -> int:
                 continue
 
             price_m2 = price / surface
+
+            if price_m2 < MIN_PRICE_M2 or price_m2 > MAX_PRICE_M2:
+                rejected_band += 1
+                continue
 
             comparable = Comparable(
                 id=ad["id"],
@@ -53,5 +68,11 @@ def save_comparables(listings: List[Dict[str, Any]]) -> int:
 
     db.commit()
     db.close()
+
+    if rejected_band:
+        logger.info(
+            "Ingestion : %d annonces rejetées (prix/m² hors [%.0f-%.0f]).",
+            rejected_band, MIN_PRICE_M2, MAX_PRICE_M2,
+        )
 
     return saved_count

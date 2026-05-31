@@ -47,13 +47,14 @@ HEADERS = {
 }
 TIMEOUT = 20
 
-# URLs de listing à ajuster si besoin (ce sont des hypothèses).
+# URLs de listing des agences candidates (cibles du recon en CI).
+# laveine.immo, idemmo et benedic sont deja des sources actives, donc absentes.
+# Ecartees apres recon : herbeth, agencevalentin (robots interdit + 403),
+# century21 et orpi (rendu JS-only, pas de prix dans le HTML serveur).
 SITES = {
-    "idemmo": "https://idemmo.fr/rechercher/?es=1&address=Metz",
-    "orpi_metz": "https://www.orpi.com/recherche/ach?transaction=achat&proximite[]=Metz%20(57000)",
-    "century21_metz": "https://www.century21.fr/annonces/f/achat/v-metz_57000/",
-    "herbeth": "https://www.herbeth-immobilier.com/vente",
-    "benedic": "https://www.benedicsa.com/particuliers/ventes",
+    # Vide : toutes les candidates sont traitées (idemmo, benedic, immoheytienne
+    # actives ; herbeth/agencevalentin/century21/orpi écartées). Ajouter une URL
+    # ici pour ausculter une nouvelle agence au prochain run.
 }
 
 DUMP_DIR = "recon_dumps"

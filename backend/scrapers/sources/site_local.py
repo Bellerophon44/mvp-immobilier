@@ -5,7 +5,12 @@ from urllib.parse import urlparse
 
 from bs4 import BeautifulSoup
 
-from scrapers.base import fetch_page, generate_stable_id, normalize_price
+from scrapers.base import (
+    canonical_city,
+    fetch_page,
+    generate_stable_id,
+    normalize_price,
+)
 from scrapers.models import PropertyListing
 from scrapers.registry import register
 
@@ -86,7 +91,7 @@ def _parse_card(card) -> Optional[PropertyListing]:
         return PropertyListing(
             id=generate_stable_id(SOURCE_NAME, external_id),
             source=SOURCE_NAME,
-            city=_extract_city(city_el.get_text(strip=True)),
+            city=canonical_city(_extract_city(city_el.get_text(strip=True))),
             property_type=_extract_property_type(title_text),
             surface_m2=surface,
             price_total=price,

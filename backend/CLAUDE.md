@@ -5,7 +5,7 @@
 > [`/CONTEXT.md`](../CONTEXT.md) à la racine du repo (source de vérité).
 > Ce fichier-ci se concentre sur l'état technique courant du backend.
 >
-> **Dernière mise à jour :** 2026-06-02 (post-activation cron Bien'ici)
+> **Dernière mise à jour :** 2026-05-31 (5 sources + harnais de diagnostic CI)
 
 ---
 
@@ -38,7 +38,7 @@ Anti-patterns à ne JAMAIS introduire :
 | Persistence | SQLite, chemin via `DATABASE_PATH=/data/comparables.db` |
 | Auto-stop / auto-start machines | `true` / `min_machines_running = 0` |
 | Plateforme frontend | Vercel (Next.js **16.2.6** App Router) |
-| CI | GitHub Actions (2 workflows, voir §9) |
+| CI | GitHub Actions (3 workflows, voir §9) |
 
 ⚠️ **Pas de Railway.** Toute documentation interne qui mentionne encore Railway
 ou le port 8000 est périmée et doit être ignorée.
@@ -77,7 +77,8 @@ backend/
 │   ├── models.py           # SQLAlchemy Comparable
 │   └── session.py          # SessionLocal, init_db, DATABASE_PATH
 ├── ingestion/
-│   └── save.py             # save_comparables(list[dict]) → DB (merge)
+│   └── save.py             # save_comparables(list[dict]) → DB (merge) +
+│                           # garde-fou central prix/m² [800-12000] (toutes sources)
 ├── scrapers/
 │   ├── base.py             # session HTTP UA Chrome, retry, normalize_price/surface,
 │   │                       # infer_property_type, extract_district (Grand Metz)
@@ -86,10 +87,14 @@ backend/
 │   ├── registry.py         # @register(name), run_all() — pattern registre
 │   ├── recon.py            # outil dev : recon HTML d'agences locales
 │   ├── diag_bienici.py     # outil dev : diagnostic API Bien'ici
+│   ├── diagnose.py         # harnais : run sources + rapport Markdown / mode --recon
 │   ├── site_local.py       # shim de rétrocompat — n'éditer plus, redirige vers sources/
 │   └── sources/
-│       ├── __init__.py
+│       ├── __init__.py     # load_all() — autoload de tous les modules du package
 │       ├── bienici.py      # @register("bienici") — API JSON, zoneIdsByTypes
+│       ├── benedic.py      # @register("benedic") — HTML benedicsa.com (data-card-maker)
+│       ├── idemmo.py       # @register("idemmo") — HTML idemmo.fr (Essential Real Estate)
+│       ├── immoheytienne.py# @register("immoheytienne") — HTML immoheytienne.fr
 │       └── site_local.py   # @register("laveine_immo") — HTML laveine.immo
 └── jobs/
     ├── collect_metz.py     # CLI local : python -m jobs.collect_metz
@@ -220,8 +225,11 @@ class Comparable(Base):
     collected_at  = Column(DateTime, default=datetime.utcnow)
 ```
 
-État actuel en prod : **~900 comparables**, couverture Grand Metz (Metz +
-~20 communes limitrophes), 98% appartements (Bien'ici intra-muros).
+État : **5 sources** actives (bienici, benedic, laveine_immo, idemmo,
+immoheytienne) → ~1100+ annonces brutes/run, couverture Moselle élargie et
+nettement plus de **maisons** qu'avec Bien'ici seul. La ville est stockée sous
+forme canonique (`canonical_city`) ; un garde-fou prix/m² [800-12000] est
+appliqué à l'ingestion (`ingestion/save.py`) à toutes les sources.
 
 Seuils dans `market_stats.py` :
 - Fenêtre surface : ±20%
@@ -270,6 +278,24 @@ avec sélecteurs CSS spécifiques (`article.item`, `.item__price`,
 `.item__block--title`, `.item__block--city`). Apporte des biens en exclusivité
 agence, notamment quelques maisons dans les communes limitrophes.
 
+### Sources 3-5 : agences locales HTML (ajoutées via le harnais de diagnostic)
+- `benedic` — `scrapers/sources/benedic.py` : benedicsa.com. Cartes
+  `div[data-card-maker]` (id stable), prix dans `p.text-2xl`, ville dans
+  `p.uppercase` (segment après ` - `), surface depuis le bloc méta / titre.
+  Pagination `?page=N` avec arrêt dès qu'aucune annonce nouvelle. ~240 annonces,
+  couverture Moselle large (Forbach, Thionville, Saint-Avold...).
+- `idemmo` — `scrapers/sources/idemmo.py` : idemmo.fr (plugin Essential Real
+  Estate). Cartes `.js-es-listing`, prix `.es-price`, ville/surface dans les
+  méta structurées (`li.es_property_address` / `li.es_property_area`),
+  pagination via lien « next ».
+- `immoheytienne` — `scrapers/sources/immoheytienne.py` : immoheytienne.fr.
+  Cartes `a[href*='/property/']`, prix `.price-badge`, ville `.locality-badge`,
+  **surface habitable** depuis le span picto (évite les pièges du titre :
+  surface de jardin, année de construction). Majoritairement des maisons.
+
+Agences écartées au recon : herbeth, agencevalentin (robots.txt interdit +
+HTTP 403), century21, orpi (rendu JS-only, pas de prix dans le HTML serveur).
+
 ### Bases utilitaires partagées
 `scrapers/base.py` :
 - `requests.Session` réutilisée + UA Chrome 121 réaliste
@@ -281,6 +307,11 @@ agence, notamment quelques maisons dans les communes limitrophes.
 - `infer_property_type` (maison/villa/pavillon... sinon appartement)
 - `extract_district` (~30 localités du Grand Metz reconnues, renvoie `None`
   si inconnu — pas de placeholder)
+- `canonical_city` : forme canonique partagée par **toutes les sources** ET par
+  `market_stats` (requête d'analyse). Supprime les accents, unifie espaces/tirets,
+  capitalise par segment → 'Montigny-lès-Metz', 'Montigny Les Metz' et
+  'MONTIGNY-LES-METZ' deviennent tous 'Montigny-Les-Metz'. Indispensable pour que
+  les comparables d'une même commune issus d'agences différentes s'agrègent.
 
 ### Outils dev (pas en prod)
 - `scrapers/recon.py` : exécution locale pour ausculter une URL d'agence
@@ -289,6 +320,13 @@ agence, notamment quelques maisons dans les communes limitrophes.
 - `scrapers/diag_bienici.py` : suite de tests sur l'API Bien'ici (suggest
   endpoints, variantes de filtres) — exécutable via GitHub Action
   `diag-bienici.yml`
+- `scrapers/diagnose.py` : **harnais de diagnostic générique**. Lance les
+  sources enregistrées et produit un rapport Markdown (comptage, villes,
+  types, distribution prix/m², hors-bande, échantillon). `--recon <url>`
+  ausculte le HTML brut (statut, signaux prix, classes CSS candidates).
+  Écrit `diag_report.md` et l'affiche sur stdout. Code de sortie non nul si
+  une source renvoie 0 annonce. Sans accès réseau en local, c'est le runner
+  CI qui l'exécute (voir `diagnose-scrapers.yml`, §9).
 
 ---
 
@@ -302,12 +340,28 @@ agence, notamment quelques maisons dans les communes limitrophes.
 3. Exécute `python -m jobs.push_comparables` avec
    `BACKEND_URL=https://...fly.dev` et `ADMIN_TOKEN=<secret>`
 4. Le job :
-   - importe `scrapers.sources.bienici` et `scrapers.sources.site_local`
-     pour déclencher leurs `@register`
+   - appelle `scrapers.sources.load_all()` qui importe automatiquement tous
+     les modules de `scrapers/sources/` (déclenche leurs `@register`). Une
+     nouvelle agence = un fichier déposé, sans édition du job.
    - appelle `run_all()` (collecte sur les runners GitHub, pas anti-bot)
    - batch de 1000 max et POST vers `/admin/comparables`
-5. Le backend reçoit, appelle `ingestion/save.save_comparables` → écriture
-   atomique sur le volume `/data`
+5. Le backend reçoit, appelle `ingestion/save.save_comparables` → garde-fou
+   prix/m² [800-12000] (rejet des loyers/parkings/erreurs, toutes sources) puis
+   écriture sur le volume `/data`
+
+### Diagnostic des scrapers en CI (`diagnose-scrapers.yml`)
+Boucle de développement automatisable des nouveaux scrapers :
+1. Se déclenche sur **`pull_request`** touchant `backend/scrapers/**` ou
+   `backend/jobs/**` (et `workflow_dispatch`).
+2. Installe les deps, exécute `python -m scrapers.diagnose --out diag_report.md`.
+3. **Poste le rapport en commentaire de PR** (commentaire collant, mis à jour
+   à chaque push via `actions/github-script`). C'est le canal de retour : pas
+   besoin de lire les logs Actions bruts.
+4. Le job passe au rouge si une source renvoie 0 annonce.
+
+Boucle type pour intégrer une agence : déposer `sources/<agence>.py` sur une
+branche → ouvrir une PR → lire le commentaire de diagnostic → corriger les
+sélecteurs → repousser → relire → merge quand vert.
 
 ### En local (manuel, alternatif)
 ```bash
@@ -353,9 +407,10 @@ questions, negotiation}`). Le frontend code en dur l'ordre des piliers
   le score peut descendre jusqu'à 50/100 → verdict "Risque élevé", ce qui
   est trop sévère sémantiquement. À reprendre avec la charte produit.
 - **Couverture maisons** : Bien'ici ne renvoie ~1% de maisons pour Metz
-  intra-muros, donc le pilier prix sort souvent "Indéterminé" pour une
-  maison. À élargir via ajout de zones (banlieue dortoir) ou source HTML
-  dédiée.
+  intra-muros. Les sources HTML d'agences ajoutées (benedic, idemmo,
+  immoheytienne) apportent une part bien plus élevée de maisons et de communes
+  limitrophes — à confirmer dans la durée (volume par commune encore faible
+  hors Metz).
 
 ### Côté technique
 - `@app.on_event("startup")` est **déprécié** (FastAPI lifespan moderne).
