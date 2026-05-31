@@ -125,6 +125,30 @@ def diagnose_sources(only: Optional[str] = None) -> tuple[str, bool]:
     return header + "\n".join(blocks), any_fail
 
 
+def _representative_card_html(soup, max_len: int = 1800) -> Optional[str]:
+    """HTML d'une carte d'annonce plausible : plus petit élément contenant à la
+    fois un prix (€), une surface (m²) et un lien. Révèle la vraie structure
+    (classes réelles, href de détail, emplacement des champs) pour écrire les
+    sélecteurs sans accès réseau."""
+    import re
+
+    candidates = []
+    for el in soup.find_all(True):
+        text = el.get_text(" ", strip=True)
+        if "€" not in text or not re.search(r"\d+\s*m[²2]", text, re.I):
+            continue
+        if not el.find("a", href=True):
+            continue
+        length = len(text)
+        if 30 <= length <= 600:
+            candidates.append((length, el))
+    if not candidates:
+        return None
+    candidates.sort(key=lambda c: c[0])
+    html = candidates[0][1].prettify()
+    return html[:max_len] + ("\n... (tronqué)" if len(html) > max_len else "")
+
+
 def run_recon(url: str) -> str:
     """Auscultation HTML brute d'une URL (statut, signaux prix, sélecteurs)."""
     # Import paresseux : recon dépend de bs4, absent du sandbox de dev.
@@ -160,10 +184,15 @@ def run_recon(url: str) -> str:
     prices, surfaces = detect_price_surface(html)
     lines.append(f"- signaux HTML : {prices} prix (€), {surfaces} surfaces (m²)")
     if prices >= 3:
+        soup = BeautifulSoup(html, "html.parser")
         lines.append("- VERDICT : FAISABLE (contenu en HTML serveur)")
         lines.append("- classes CSS candidates (éléments contenant €) :")
-        for cls, n in suggest_card_selectors(BeautifulSoup(html, "html.parser")):
+        for cls, n in suggest_card_selectors(soup):
             lines.append(f"  - `.{cls}` (x{n})")
+        sample = _representative_card_html(soup)
+        if sample:
+            lines.append("- structure d'une carte représentative :")
+            lines.append("```html\n" + sample + "\n```")
     elif len(html) > 20000:
         lines.append("- VERDICT : PROBABLEMENT JS-ONLY (page lourde, pas de prix en HTML)")
     else:
