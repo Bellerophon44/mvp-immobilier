@@ -48,13 +48,11 @@ HEADERS = {
 TIMEOUT = 20
 
 # URLs de listing des agences candidates (cibles du recon en CI).
-# laveine.immo est deja une source active, donc absente d'ici.
-# Ecartees apres recon : herbeth (robots interdit + 403), century21 et orpi
-# (rendu JS-only, pas de prix dans le HTML serveur).
+# laveine.immo, idemmo et benedic sont deja des sources actives, donc absentes.
+# Ecartees apres recon : herbeth, agencevalentin (robots interdit + 403),
+# century21 et orpi (rendu JS-only, pas de prix dans le HTML serveur).
 SITES = {
-    "benedic": "https://www.benedicsa.com/particuliers/ventes",
-    "idemmo": "https://idemmo.fr/rechercher/?es=1&address&es_category=6",
-    "agencevalentin": "https://www.agencevalentin.com/vente",
+    "immoheytienne": "https://immoheytienne.fr/fr/properties",
 }
 
 DUMP_DIR = "recon_dumps"
