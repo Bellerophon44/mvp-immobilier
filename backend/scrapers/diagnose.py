@@ -171,15 +171,29 @@ def run_recon(url: str) -> str:
     return "\n".join(lines) + "\n"
 
 
+def run_recon_all() -> str:
+    """Ausculte toutes les agences candidates listées dans recon.SITES."""
+    from scrapers.recon import SITES
+
+    blocks = ["## Recon des agences candidates\n"]
+    for name, url in SITES.items():
+        blocks.append(f"### {name}\n" + run_recon(url))
+    return "\n".join(blocks)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Diagnostic des scrapers")
     parser.add_argument("--source", help="Nom d'une source enregistrée à diagnostiquer")
     parser.add_argument("--recon", help="URL à ausculter (HTML brut, pas de base)")
+    parser.add_argument("--recon-all", action="store_true",
+                        help="Ausculte toutes les agences candidates (recon.SITES)")
     parser.add_argument("--out", default="diag_report.md", help="Fichier rapport Markdown")
     args = parser.parse_args()
 
     if args.recon:
         report, any_fail = run_recon(args.recon), False
+    elif args.recon_all:
+        report, any_fail = run_recon_all(), False
     else:
         report, any_fail = diagnose_sources(args.source)
 

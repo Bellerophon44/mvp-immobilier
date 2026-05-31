@@ -47,13 +47,13 @@ HEADERS = {
 }
 TIMEOUT = 20
 
-# URLs de listing à ajuster si besoin (ce sont des hypothèses).
+# URLs de listing des agences candidates (cibles du recon en CI).
+# laveine.immo est deja une source active, donc absente d'ici.
 SITES = {
-    "idemmo": "https://idemmo.fr/rechercher/?es=1&address=Metz",
-    "orpi_metz": "https://www.orpi.com/recherche/ach?transaction=achat&proximite[]=Metz%20(57000)",
-    "century21_metz": "https://www.century21.fr/annonces/f/achat/v-metz_57000/",
-    "herbeth": "https://www.herbeth-immobilier.com/vente",
     "benedic": "https://www.benedicsa.com/particuliers/ventes",
+    "herbeth": "https://www.herbeth-immobilier.com/vente",
+    "century21_metz": "https://www.century21.fr/annonces/f/achat-maison-appartement/v-metz/",
+    "orpi_metz": "https://www.orpi.com/recherche/buy?transaction=buy&realEstateTypes%5B0%5D=maison&realEstateTypes%5B1%5D=appartement&sort=date-down&layoutType=list",
 }
 
 DUMP_DIR = "recon_dumps"
