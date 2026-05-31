@@ -38,7 +38,7 @@ Anti-patterns à ne JAMAIS introduire :
 | Persistence | SQLite, chemin via `DATABASE_PATH=/data/comparables.db` |
 | Auto-stop / auto-start machines | `true` / `min_machines_running = 0` |
 | Plateforme frontend | Vercel (Next.js **16.2.6** App Router) |
-| CI | GitHub Actions (2 workflows, voir §9) |
+| CI | GitHub Actions (3 workflows, voir §9) |
 
 ⚠️ **Pas de Railway.** Toute documentation interne qui mentionne encore Railway
 ou le port 8000 est périmée et doit être ignorée.
@@ -86,9 +86,10 @@ backend/
 │   ├── registry.py         # @register(name), run_all() — pattern registre
 │   ├── recon.py            # outil dev : recon HTML d'agences locales
 │   ├── diag_bienici.py     # outil dev : diagnostic API Bien'ici
+│   ├── diagnose.py         # harnais : run sources + rapport Markdown / mode --recon
 │   ├── site_local.py       # shim de rétrocompat — n'éditer plus, redirige vers sources/
 │   └── sources/
-│       ├── __init__.py
+│       ├── __init__.py     # load_all() — autoload de tous les modules du package
 │       ├── bienici.py      # @register("bienici") — API JSON, zoneIdsByTypes
 │       └── site_local.py   # @register("laveine_immo") — HTML laveine.immo
 └── jobs/
@@ -289,6 +290,13 @@ agence, notamment quelques maisons dans les communes limitrophes.
 - `scrapers/diag_bienici.py` : suite de tests sur l'API Bien'ici (suggest
   endpoints, variantes de filtres) — exécutable via GitHub Action
   `diag-bienici.yml`
+- `scrapers/diagnose.py` : **harnais de diagnostic générique**. Lance les
+  sources enregistrées et produit un rapport Markdown (comptage, villes,
+  types, distribution prix/m², hors-bande, échantillon). `--recon <url>`
+  ausculte le HTML brut (statut, signaux prix, classes CSS candidates).
+  Écrit `diag_report.md` et l'affiche sur stdout. Code de sortie non nul si
+  une source renvoie 0 annonce. Sans accès réseau en local, c'est le runner
+  CI qui l'exécute (voir `diagnose-scrapers.yml`, §9).
 
 ---
 
@@ -302,12 +310,27 @@ agence, notamment quelques maisons dans les communes limitrophes.
 3. Exécute `python -m jobs.push_comparables` avec
    `BACKEND_URL=https://...fly.dev` et `ADMIN_TOKEN=<secret>`
 4. Le job :
-   - importe `scrapers.sources.bienici` et `scrapers.sources.site_local`
-     pour déclencher leurs `@register`
+   - appelle `scrapers.sources.load_all()` qui importe automatiquement tous
+     les modules de `scrapers/sources/` (déclenche leurs `@register`). Une
+     nouvelle agence = un fichier déposé, sans édition du job.
    - appelle `run_all()` (collecte sur les runners GitHub, pas anti-bot)
    - batch de 1000 max et POST vers `/admin/comparables`
 5. Le backend reçoit, appelle `ingestion/save.save_comparables` → écriture
    atomique sur le volume `/data`
+
+### Diagnostic des scrapers en CI (`diagnose-scrapers.yml`)
+Boucle de développement automatisable des nouveaux scrapers :
+1. Se déclenche sur **`pull_request`** touchant `backend/scrapers/**` ou
+   `backend/jobs/**` (et `workflow_dispatch`).
+2. Installe les deps, exécute `python -m scrapers.diagnose --out diag_report.md`.
+3. **Poste le rapport en commentaire de PR** (commentaire collant, mis à jour
+   à chaque push via `actions/github-script`). C'est le canal de retour : pas
+   besoin de lire les logs Actions bruts.
+4. Le job passe au rouge si une source renvoie 0 annonce.
+
+Boucle type pour intégrer une agence : déposer `sources/<agence>.py` sur une
+branche → ouvrir une PR → lire le commentaire de diagnostic → corriger les
+sélecteurs → repousser → relire → merge quand vert.
 
 ### En local (manuel, alternatif)
 ```bash

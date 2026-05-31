@@ -15,8 +15,7 @@ import os
 import sys
 import urllib.request
 
-import scrapers.sources.bienici  # noqa: F401 — triggers @register
-import scrapers.sources.site_local  # noqa: F401 — triggers @register
+from scrapers.sources import load_all
 from scrapers.registry import run_all
 
 logging.basicConfig(level=logging.INFO)
@@ -49,7 +48,7 @@ def main() -> int:
         logger.error("BACKEND_URL et ADMIN_TOKEN sont requis.")
         return 2
 
-    logger.info("Collecte des comparables...")
+    logger.info("Sources chargées : %s", load_all())
     listings = run_all()
     if not listings:
         logger.warning("Aucune annonce collectée — rien à pousser.")
