@@ -49,11 +49,12 @@ TIMEOUT = 20
 
 # URLs de listing des agences candidates (cibles du recon en CI).
 # laveine.immo est deja une source active, donc absente d'ici.
+# Ecartees apres recon : herbeth (robots interdit + 403), century21 et orpi
+# (rendu JS-only, pas de prix dans le HTML serveur).
 SITES = {
     "benedic": "https://www.benedicsa.com/particuliers/ventes",
-    "herbeth": "https://www.herbeth-immobilier.com/vente",
-    "century21_metz": "https://www.century21.fr/annonces/f/achat-maison-appartement/v-metz/",
-    "orpi_metz": "https://www.orpi.com/recherche/buy?transaction=buy&realEstateTypes%5B0%5D=maison&realEstateTypes%5B1%5D=appartement&sort=date-down&layoutType=list",
+    "idemmo": "https://idemmo.fr/rechercher/?es=1&address&es_category=6",
+    "agencevalentin": "https://www.agencevalentin.com/vente",
 }
 
 DUMP_DIR = "recon_dumps"
