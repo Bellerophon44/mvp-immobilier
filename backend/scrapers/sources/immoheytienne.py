@@ -5,6 +5,7 @@ from typing import Optional
 from bs4 import BeautifulSoup
 
 from scrapers.base import (
+    canonical_city,
     fetch_page,
     generate_stable_id,
     infer_property_type,
@@ -53,7 +54,7 @@ def _parse_card(card) -> Optional[PropertyListing]:
 
         price = normalize_price(price_el.get_text(strip=True))
         surface = _extract_surface(card)
-        city = city_el.get_text(" ", strip=True)
+        city = canonical_city(city_el.get_text(" ", strip=True))
         if not price or not surface or not city:
             return None
 

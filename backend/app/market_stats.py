@@ -5,6 +5,7 @@ from typing import Optional, Dict, Any
 
 from db.session import SessionLocal
 from db.models import Comparable
+from scrapers.base import canonical_city
 
 
 logger = logging.getLogger("market_stats")
@@ -70,6 +71,10 @@ def compute_market_stats(
 
     Retourne None si données insuffisantes.
     """
+
+    # Même normalisation que les scrapers : la ville extraite de l'annonce doit
+    # matcher la clé canonique sous laquelle les comparables sont stockés.
+    city = canonical_city(city)
 
     # Fourchette MVP : ±20 % autour de la surface
     surface_min = surface_m2 * 0.8

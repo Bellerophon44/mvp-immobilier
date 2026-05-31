@@ -5,7 +5,7 @@
 > [`/CONTEXT.md`](../CONTEXT.md) à la racine du repo (source de vérité).
 > Ce fichier-ci se concentre sur l'état technique courant du backend.
 >
-> **Dernière mise à jour :** 2026-06-02 (post-activation cron Bien'ici)
+> **Dernière mise à jour :** 2026-05-31 (5 sources + harnais de diagnostic CI)
 
 ---
 
@@ -77,7 +77,8 @@ backend/
 │   ├── models.py           # SQLAlchemy Comparable
 │   └── session.py          # SessionLocal, init_db, DATABASE_PATH
 ├── ingestion/
-│   └── save.py             # save_comparables(list[dict]) → DB (merge)
+│   └── save.py             # save_comparables(list[dict]) → DB (merge) +
+│                           # garde-fou central prix/m² [800-12000] (toutes sources)
 ├── scrapers/
 │   ├── base.py             # session HTTP UA Chrome, retry, normalize_price/surface,
 │   │                       # infer_property_type, extract_district (Grand Metz)
@@ -91,6 +92,9 @@ backend/
 │   └── sources/
 │       ├── __init__.py     # load_all() — autoload de tous les modules du package
 │       ├── bienici.py      # @register("bienici") — API JSON, zoneIdsByTypes
+│       ├── benedic.py      # @register("benedic") — HTML benedicsa.com (data-card-maker)
+│       ├── idemmo.py       # @register("idemmo") — HTML idemmo.fr (Essential Real Estate)
+│       ├── immoheytienne.py# @register("immoheytienne") — HTML immoheytienne.fr
 │       └── site_local.py   # @register("laveine_immo") — HTML laveine.immo
 └── jobs/
     ├── collect_metz.py     # CLI local : python -m jobs.collect_metz
@@ -221,8 +225,11 @@ class Comparable(Base):
     collected_at  = Column(DateTime, default=datetime.utcnow)
 ```
 
-État actuel en prod : **~900 comparables**, couverture Grand Metz (Metz +
-~20 communes limitrophes), 98% appartements (Bien'ici intra-muros).
+État : **5 sources** actives (bienici, benedic, laveine_immo, idemmo,
+immoheytienne) → ~1100+ annonces brutes/run, couverture Moselle élargie et
+nettement plus de **maisons** qu'avec Bien'ici seul. La ville est stockée sous
+forme canonique (`canonical_city`) ; un garde-fou prix/m² [800-12000] est
+appliqué à l'ingestion (`ingestion/save.py`) à toutes les sources.
 
 Seuils dans `market_stats.py` :
 - Fenêtre surface : ±20%
@@ -271,6 +278,24 @@ avec sélecteurs CSS spécifiques (`article.item`, `.item__price`,
 `.item__block--title`, `.item__block--city`). Apporte des biens en exclusivité
 agence, notamment quelques maisons dans les communes limitrophes.
 
+### Sources 3-5 : agences locales HTML (ajoutées via le harnais de diagnostic)
+- `benedic` — `scrapers/sources/benedic.py` : benedicsa.com. Cartes
+  `div[data-card-maker]` (id stable), prix dans `p.text-2xl`, ville dans
+  `p.uppercase` (segment après ` - `), surface depuis le bloc méta / titre.
+  Pagination `?page=N` avec arrêt dès qu'aucune annonce nouvelle. ~240 annonces,
+  couverture Moselle large (Forbach, Thionville, Saint-Avold...).
+- `idemmo` — `scrapers/sources/idemmo.py` : idemmo.fr (plugin Essential Real
+  Estate). Cartes `.js-es-listing`, prix `.es-price`, ville/surface dans les
+  méta structurées (`li.es_property_address` / `li.es_property_area`),
+  pagination via lien « next ».
+- `immoheytienne` — `scrapers/sources/immoheytienne.py` : immoheytienne.fr.
+  Cartes `a[href*='/property/']`, prix `.price-badge`, ville `.locality-badge`,
+  **surface habitable** depuis le span picto (évite les pièges du titre :
+  surface de jardin, année de construction). Majoritairement des maisons.
+
+Agences écartées au recon : herbeth, agencevalentin (robots.txt interdit +
+HTTP 403), century21, orpi (rendu JS-only, pas de prix dans le HTML serveur).
+
 ### Bases utilitaires partagées
 `scrapers/base.py` :
 - `requests.Session` réutilisée + UA Chrome 121 réaliste
@@ -282,6 +307,11 @@ agence, notamment quelques maisons dans les communes limitrophes.
 - `infer_property_type` (maison/villa/pavillon... sinon appartement)
 - `extract_district` (~30 localités du Grand Metz reconnues, renvoie `None`
   si inconnu — pas de placeholder)
+- `canonical_city` : forme canonique partagée par **toutes les sources** ET par
+  `market_stats` (requête d'analyse). Supprime les accents, unifie espaces/tirets,
+  capitalise par segment → 'Montigny-lès-Metz', 'Montigny Les Metz' et
+  'MONTIGNY-LES-METZ' deviennent tous 'Montigny-Les-Metz'. Indispensable pour que
+  les comparables d'une même commune issus d'agences différentes s'agrègent.
 
 ### Outils dev (pas en prod)
 - `scrapers/recon.py` : exécution locale pour ausculter une URL d'agence
@@ -315,8 +345,9 @@ agence, notamment quelques maisons dans les communes limitrophes.
      nouvelle agence = un fichier déposé, sans édition du job.
    - appelle `run_all()` (collecte sur les runners GitHub, pas anti-bot)
    - batch de 1000 max et POST vers `/admin/comparables`
-5. Le backend reçoit, appelle `ingestion/save.save_comparables` → écriture
-   atomique sur le volume `/data`
+5. Le backend reçoit, appelle `ingestion/save.save_comparables` → garde-fou
+   prix/m² [800-12000] (rejet des loyers/parkings/erreurs, toutes sources) puis
+   écriture sur le volume `/data`
 
 ### Diagnostic des scrapers en CI (`diagnose-scrapers.yml`)
 Boucle de développement automatisable des nouveaux scrapers :
@@ -376,9 +407,10 @@ questions, negotiation}`). Le frontend code en dur l'ordre des piliers
   le score peut descendre jusqu'à 50/100 → verdict "Risque élevé", ce qui
   est trop sévère sémantiquement. À reprendre avec la charte produit.
 - **Couverture maisons** : Bien'ici ne renvoie ~1% de maisons pour Metz
-  intra-muros, donc le pilier prix sort souvent "Indéterminé" pour une
-  maison. À élargir via ajout de zones (banlieue dortoir) ou source HTML
-  dédiée.
+  intra-muros. Les sources HTML d'agences ajoutées (benedic, idemmo,
+  immoheytienne) apportent une part bien plus élevée de maisons et de communes
+  limitrophes — à confirmer dans la durée (volume par commune encore faible
+  hors Metz).
 
 ### Côté technique
 - `@app.on_event("startup")` est **déprécié** (FastAPI lifespan moderne).

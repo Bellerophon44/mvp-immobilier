@@ -5,6 +5,7 @@ from typing import Optional
 from bs4 import BeautifulSoup
 
 from scrapers.base import (
+    canonical_city,
     fetch_page,
     generate_stable_id,
     infer_property_type,
@@ -63,7 +64,7 @@ def _parse_card(card) -> Optional[PropertyListing]:
         # La pastille ville est parfois préfixée d'une zone ("Metz Métropole -
         # Metz") : on garde le dernier segment pour s'aligner sur les autres
         # sources et permettre l'agrégation des comparables par ville.
-        city = city_el.get_text(" ", strip=True).split(" - ")[-1].strip()
+        city = canonical_city(city_el.get_text(" ", strip=True).split(" - ")[-1])
 
         title_el = card.select_one("h2.thumb__title")
         meta_el = card.select_one("div.text-base")

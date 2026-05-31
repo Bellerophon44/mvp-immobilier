@@ -6,6 +6,7 @@ from urllib.parse import urljoin
 from bs4 import BeautifulSoup
 
 from scrapers.base import (
+    canonical_city,
     fetch_page,
     generate_stable_id,
     infer_property_type,
@@ -59,7 +60,7 @@ def _parse_card(card) -> Optional[PropertyListing]:
         return PropertyListing(
             id=generate_stable_id(SOURCE_NAME, external_id),
             source=SOURCE_NAME,
-            city=city.strip(),
+            city=canonical_city(city),
             property_type=infer_property_type(link.get_text(" ", strip=True)),
             surface_m2=surface,
             price_total=price,
