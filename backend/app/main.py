@@ -3,7 +3,7 @@ import logging
 import os
 from typing import Optional, Dict, List
 
-from fastapi import FastAPI, HTTPException, Header
+from fastapi import FastAPI, HTTPException, Header, Body
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -11,7 +11,13 @@ from app.analysis import run_full_analysis
 from app.url_fetch import fetch_listing_text
 from db.session import init_db, SessionLocal
 from db.models import Comparable
-from ingestion.save import save_comparables
+from ingestion.save import (
+    save_comparables,
+    MIN_PRICE_M2,
+    MAX_PRICE_M2,
+    OUT_OF_SCOPE_CITIES,
+)
+from scrapers.base import canonical_city
 
 
 logging.basicConfig(level=logging.INFO, force=True)
@@ -138,6 +144,69 @@ def import_comparables(
     logger.info("ADMIN import: received=%d saved=%d total_in_db=%d",
                 len(listings), saved, total)
     return {"received": len(listings), "saved": saved, "total_in_db": total}
+
+
+class MaintenanceRequest(BaseModel):
+    # Sécurité : par défaut on ne fait que SIMULER. Passer dry_run=false pour
+    # appliquer réellement les suppressions / renommages.
+    dry_run: bool = True
+    extra_out_of_scope: List[str] = []
+
+
+@app.post("/admin/comparables/maintenance")
+def comparables_maintenance(
+    payload: MaintenanceRequest = Body(default=MaintenanceRequest()),
+    x_admin_token: Optional[str] = Header(default=None),
+) -> dict:
+    """
+    Assainit l'historique : purge les comparables hors bande prix/m², purge les
+    communes hors périmètre, et ré-applique la forme canonique aux villes.
+
+    dry_run=true (défaut) ne fait que compter ce qui serait modifié.
+    """
+    _check_admin_token(x_admin_token)
+
+    out_of_scope = OUT_OF_SCOPE_CITIES | {
+        canonical_city(c) for c in payload.extra_out_of_scope
+    }
+
+    db = SessionLocal()
+    purged_band = purged_zone = renamed = 0
+    try:
+        for c in db.query(Comparable).all():
+            if c.price_m2 is None or c.price_m2 < MIN_PRICE_M2 or c.price_m2 > MAX_PRICE_M2:
+                purged_band += 1
+                if not payload.dry_run:
+                    db.delete(c)
+                continue
+
+            canon = canonical_city(c.city)
+            if canon in out_of_scope:
+                purged_zone += 1
+                if not payload.dry_run:
+                    db.delete(c)
+                continue
+
+            if canon != c.city:
+                renamed += 1
+                if not payload.dry_run:
+                    c.city = canon
+
+        if not payload.dry_run:
+            db.commit()
+        total_after = db.query(Comparable).count()
+    finally:
+        db.close()
+
+    result = {
+        "dry_run": payload.dry_run,
+        "purged_band": purged_band,
+        "purged_zone": purged_zone,
+        "renamed": renamed,
+        "total_after": total_after,
+    }
+    logger.info("ADMIN maintenance: %s", result)
+    return result
 
 
 @app.post("/analyze", response_model=AnalyzeResponse)
