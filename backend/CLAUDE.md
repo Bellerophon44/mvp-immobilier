@@ -122,6 +122,7 @@ Ne rien ajouter dedans. Toute nouvelle logique scraper va dans `scrapers/sources
 | POST | `/analyze` | aucune | Analyse cohérence d'une annonce |
 | GET | `/admin/comparables/stats` | `X-Admin-Token` | `{"total": n, "cities": [...]}` |
 | POST | `/admin/comparables` | `X-Admin-Token` | Import batch (max 10000) |
+| POST | `/admin/comparables/maintenance` | `X-Admin-Token` | Assainit l'historique (voir §9) |
 
 ### `POST /analyze`
 Body (au moins l'un des deux) :
@@ -362,6 +363,19 @@ Boucle de développement automatisable des nouveaux scrapers :
 Boucle type pour intégrer une agence : déposer `sources/<agence>.py` sur une
 branche → ouvrir une PR → lire le commentaire de diagnostic → corriger les
 sélecteurs → repousser → relire → merge quand vert.
+
+### Maintenance de l'historique (`POST /admin/comparables/maintenance`)
+Le garde-fou prix/m² et le filtre zone à l'ingestion ne nettoient que les
+*nouvelles* écritures ; les lignes anciennes (outliers d'avant le filtre, villes
+en ancien format) persistent. Cet endpoint les assainit en base :
+- **purge** les lignes hors bande `[800-12000]` (`purged_band`) ;
+- **purge** les communes hors périmètre (`OUT_OF_SCOPE_CITIES`, dépt 54 /
+  agglo nancéienne — `purged_zone`) ; `extra_out_of_scope: [...]` ajoute des
+  villes ponctuelles ;
+- **ré-applique `canonical_city`** aux villes existantes (`renamed`).
+
+`dry_run` est **true par défaut** (simulation, ne supprime rien) ; passer
+`{"dry_run": false}` pour appliquer. Renvoie les compteurs + `total_after`.
 
 ### En local (manuel, alternatif)
 ```bash
