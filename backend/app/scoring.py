@@ -23,24 +23,28 @@ def compute_global_score(price_pillar: dict, semantic_pillar: dict) -> dict:
     # --------------------------
     # 1. PILIER PRIX / MARCHÉ (40 points max)
     # --------------------------
+    # On matche sur les libellés réels produits par market_stats :
+    # "Plutôt aligné", "Légèrement sur‑positionné", "Fortement sur‑positionné",
+    # "Sous‑positionné", "Indéterminé". (Avant : la branche cherchait "modéré",
+    # qui n'est jamais produit — un "légèrement" tombait à tort dans le else.)
 
     price_verdict = price_pillar.get("verdict", "").lower()
 
     if "aligné" in price_verdict:
-        score += 35
-        explanations.append("Prix globalement cohérent avec le marché local.")
-    elif "modéré" in price_verdict:
-        score += 25
-        explanations.append("Prix légèrement au‑dessus du marché observable.")
-    elif "fort" in price_verdict:
-        score += 10
-        explanations.append("Prix nettement au‑dessus du marché observable.")
+        score += 40
+        explanations.append("Prix cohérent avec la fourchette observée localement.")
     elif "sous" in price_verdict:
-        score += 30
-        explanations.append("Prix inférieur aux tendances observées localement.")
+        score += 32
+        explanations.append("Prix sous la fourchette observée localement.")
+    elif "légèrement" in price_verdict:
+        score += 28
+        explanations.append("Prix un peu au‑dessus de la fourchette, mais dans les niveaux constatés.")
+    elif "fortement" in price_verdict:
+        score += 12
+        explanations.append("Prix nettement au‑dessus du marché observable.")
     else:
-        score += 15
-        explanations.append("Positionnement prix incertain.")
+        score += 22
+        explanations.append("Positionnement prix indéterminé (comparables insuffisants).")
 
     # =========================
     # 2. Transparence (30 pts)
