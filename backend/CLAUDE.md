@@ -232,8 +232,17 @@ class Comparable(Base):
 > remplissage variable : bien'ici ~82% DPE / ~33% année ; agences best-effort).
 > `db/session.init_db` fait une **micro-migration** idempotente (`ALTER TABLE ADD
 > COLUMN`) pour les bases prod existantes. L'**époque** (neuf/récent/ancien) est
-> *dérivée* (`scrapers.base.construction_epoch`), pas stockée. Usage prévu :
-> signal explicatif + filtre dur conditionnel (B2), extraction LLM (B3).
+> *dérivée* (`scrapers.base.construction_epoch`), pas stockée.
+>
+> **B2 — usage hybride (`market_stats`)** : la sélection des comparables suit une
+> **cascade** retenant le périmètre le plus précis encore peuplé (≥10) :
+> `quartier+bandeDPE → quartier → ville+bandeDPE → ville` (bandes DPE larges
+> A-B / C-D / E-G, cf. `dpe_band`). En plus, un **signal explicatif** (couche 2,
+> non-estimatif) situe le DPE/époque du bien vs le profil du pool, ajouté à
+> l'explication — **verdict et score inchangés**.
+>
+> **B3 — extraction LLM** : `llm_semantic` extrait aussi `dpe` + `construction_year`
+> de l'annonce analysée (sinon `null`).
 
 État : **5 sources** actives (bienici, benedic, laveine_immo, idemmo,
 immoheytienne) → ~1100+ annonces brutes/run, couverture Moselle élargie et

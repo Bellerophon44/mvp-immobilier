@@ -69,7 +69,9 @@ USER_PROMPT_TEMPLATE = """Analyse le texte d'annonce immobilière ci-dessous et 
     "district": string | null,
     "property_type": string | null,
     "surface_m2": number | null,
-    "price_total": number | null
+    "price_total": number | null,
+    "dpe": string | null,
+    "construction_year": number | null
   }}
 }}
 
@@ -81,6 +83,8 @@ Règles :
 - `verdict` ∈ ["Bonne", "Moyenne", "Faible"].
 - `risk_level` ∈ ["Faible", "Modéré", "Élevé"].
 - `property_type` ∈ ["appartement", "maison", null].
+- `dpe` : lettre de classe énergie ∈ ["A","B","C","D","E","F","G"] si présente, sinon null (ne pas confondre avec le GES).
+- `construction_year` : année de construction (entier) si EXPLICITEMENT mentionnée, sinon null.
 - Pour `listing`, n'extraire que ce qui est EXPLICITEMENT présent dans le texte ; sinon `null`.
 
 Texte :
@@ -105,8 +109,27 @@ _FALLBACK = {
         "property_type": None,
         "surface_m2": None,
         "price_total": None,
+        "dpe": None,
+        "construction_year": None,
     },
 }
+
+
+_VALID_DPE = {"A", "B", "C", "D", "E", "F", "G"}
+
+
+def _coerce_dpe(value):
+    if isinstance(value, str) and value.strip().upper()[:1] in _VALID_DPE:
+        return value.strip().upper()[:1]
+    return None
+
+
+def _coerce_year(value):
+    try:
+        y = int(value)
+    except (TypeError, ValueError):
+        return None
+    return y if 1600 <= y <= 2100 else None
 
 
 def _coerce_int(value, default: int) -> int:
@@ -159,6 +182,8 @@ def analyze_semantic(raw_text: str) -> Dict[str, Any]:
         "property_type": raw_listing.get("property_type"),
         "surface_m2": _coerce_float(raw_listing.get("surface_m2")),
         "price_total": _coerce_float(raw_listing.get("price_total")),
+        "dpe": _coerce_dpe(raw_listing.get("dpe")),
+        "construction_year": _coerce_year(raw_listing.get("construction_year")),
     }
 
     semantic_output = {
