@@ -11,6 +11,13 @@ from scrapers.base import canonical_city, canonical_district
 logger = logging.getLogger("market_stats")
 
 
+# Le filtre quartier n'est fiable que si le sous-échantillon est assez fourni.
+# En dessous, un quartier peu peuplé (ou par malchance composé d'annonces
+# atypiques) produit des quartiles trompeurs — on retombe alors sur la ville,
+# plus robuste. Calé sur le seuil de confiance "Élevée" (cf. compute_confidence).
+MIN_DISTRICT_COMPARABLES = 10
+
+
 # ============================
 # Fonctions statistiques simples
 # ============================
@@ -95,9 +102,9 @@ def compute_market_stats(
         city, district, property_type, surface_min, surface_max, len(comparables),
     )
 
-    # 2e essai : si trop peu de matchs avec district, on retombe ville+type
-    # (les libellés de district varient entre sources, pas fiable comme filtre dur)
-    if district and len(comparables) < 3:
+    # 2e essai : si le quartier est trop peu fourni pour être fiable, on
+    # retombe ville+type (échantillon plus large, quartiles plus stables).
+    if district and len(comparables) < MIN_DISTRICT_COMPARABLES:
         comparables = _fetch_comparables(
             city=city,
             district=None,
@@ -106,8 +113,8 @@ def compute_market_stats(
             surface_max=surface_max,
         )
         logger.info(
-            "market_stats fallback (no district): %d comparables",
-            len(comparables),
+            "market_stats fallback ville (district < %d): %d comparables",
+            MIN_DISTRICT_COMPARABLES, len(comparables),
         )
 
     if len(comparables) < 3:
