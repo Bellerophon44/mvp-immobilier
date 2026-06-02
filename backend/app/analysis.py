@@ -45,6 +45,8 @@ def _price_pillar_from_listing(
         property_type=property_type,
         surface_m2=surface,
         listing_price_m2=listing_price_m2,
+        dpe=listing.get("dpe"),
+        construction_year=listing.get("construction_year"),
     )
 
 

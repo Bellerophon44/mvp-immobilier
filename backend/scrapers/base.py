@@ -222,6 +222,29 @@ _YEAR_RE = re.compile(
 )
 
 
+DPE_BANDS = {"A-B": {"A", "B"}, "C-D": {"C", "D"}, "E-G": {"E", "F", "G"}}
+
+
+def dpe_band(dpe: Optional[str]) -> Optional[str]:
+    """Bande DPE large ('A-B' / 'C-D' / 'E-G') pour un filtre peu sensible à la
+    sparsité, sinon None."""
+    if not dpe:
+        return None
+    d = dpe.strip().upper()[:1]
+    for label, letters in DPE_BANDS.items():
+        if d in letters:
+            return label
+    return None
+
+
+def dpe_rank(dpe: Optional[str]) -> Optional[int]:
+    """Rang 0 (A, meilleur) à 6 (G, pire), sinon None."""
+    if not dpe:
+        return None
+    d = dpe.strip().upper()[:1]
+    return "ABCDEFG".find(d) if d in "ABCDEFG" else None
+
+
 def extract_dpe(text: str) -> Optional[str]:
     """Lettre DPE (A-G) extraite d'un texte d'annonce, sinon None. Best-effort,
     exige un contexte 'DPE'/'classe énergie' pour éviter les faux positifs."""

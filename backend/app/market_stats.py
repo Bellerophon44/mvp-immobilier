@@ -1,21 +1,30 @@
 import logging
 
 import numpy as np
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 
 from db.session import SessionLocal
 from db.models import Comparable
-from scrapers.base import canonical_city, canonical_district
+from scrapers.base import (
+    canonical_city,
+    canonical_district,
+    construction_epoch,
+    dpe_band,
+    DPE_BANDS,
+    dpe_rank,
+)
 
 
 logger = logging.getLogger("market_stats")
 
 
-# Le filtre quartier n'est fiable que si le sous-échantillon est assez fourni.
-# En dessous, un quartier peu peuplé (ou par malchance composé d'annonces
-# atypiques) produit des quartiles trompeurs — on retombe alors sur la ville,
-# plus robuste. Calé sur le seuil de confiance "Élevée" (cf. compute_confidence).
-MIN_DISTRICT_COMPARABLES = 10
+# Un filtre plus précis (quartier, bande DPE) n'est retenu que si son
+# sous-échantillon reste assez fourni, sinon ses quartiles sont trompeurs : on
+# retombe sur un périmètre plus large et plus robuste. Même seuil que la
+# confiance "Élevée".
+MIN_REFINED_COMPARABLES = 10
+MIN_COMPARABLES = 3  # plancher absolu (niveau ville)
+MIN_PROFILE = 5      # mini pour calculer un profil DPE/année de pool fiable
 
 
 # ============================
@@ -39,28 +48,35 @@ def _fetch_comparables(
     district: Optional[str],
     property_type: str,
     surface_min: float,
-    surface_max: float
+    surface_max: float,
+    dpe_letters: Optional[set] = None,
 ):
-    """
-    Récupère les annonces comparables depuis la DB
-    selon des critères simples et explicables.
-    """
+    """Récupère les comparables selon des critères simples et explicables."""
     db = SessionLocal()
+    try:
+        query = db.query(Comparable).filter(
+            Comparable.city == city,
+            Comparable.property_type == property_type,
+            Comparable.surface_m2 >= surface_min,
+            Comparable.surface_m2 <= surface_max,
+        )
+        if district:
+            query = query.filter(Comparable.district == district)
+        if dpe_letters:
+            query = query.filter(Comparable.dpe.in_(list(dpe_letters)))
+        return query.all()
+    finally:
+        db.close()
 
-    query = db.query(Comparable).filter(
-        Comparable.city == city,
-        Comparable.property_type == property_type,
-        Comparable.surface_m2 >= surface_min,
-        Comparable.surface_m2 <= surface_max
-    )
 
-    if district:
-        query = query.filter(Comparable.district == district)
-
-    results = query.all()
-    db.close()
-
-    return results
+def _pool_profile(comparables: List[Comparable]) -> Dict[str, Any]:
+    """Profil du pool pour le signal explicatif : DPE médian et année médiane
+    (calculés seulement si assez de données, sinon None)."""
+    ranks = [r for c in comparables if (r := dpe_rank(c.dpe)) is not None]
+    years = [c.construction_year for c in comparables if c.construction_year]
+    pool_dpe = "ABCDEFG"[int(round(_median(ranks)))] if len(ranks) >= MIN_PROFILE else None
+    pool_year = int(_median(years)) if len(years) >= MIN_PROFILE else None
+    return {"pool_dpe": pool_dpe, "pool_year": pool_year}
 
 
 # ============================
@@ -71,73 +87,68 @@ def compute_market_stats(
     city: str,
     district: Optional[str],
     property_type: str,
-    surface_m2: float
+    surface_m2: float,
+    dpe: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
     """
-    Calcule les statistiques du marché local observable.
-
-    Retourne None si données insuffisantes.
+    Statistiques du marché local observable, via une cascade qui retient le
+    périmètre le plus précis encore suffisamment peuplé :
+      quartier+DPE -> quartier -> ville+DPE -> ville.
+    Retourne None si même la ville n'a pas assez de comparables.
     """
-
-    # Même normalisation que les scrapers : ville ET quartier extraits de
-    # l'annonce doivent matcher les clés canoniques sous lesquelles les
-    # comparables sont stockés.
     city = canonical_city(city)
     district = canonical_district(district, city)
+    band = dpe_band(dpe)
+    band_letters = DPE_BANDS.get(band) if band else None
 
-    # Fourchette MVP : ±20 % autour de la surface
     surface_min = surface_m2 * 0.8
     surface_max = surface_m2 * 1.2
 
-    # 1er essai : avec district si fourni (résultat plus précis)
-    comparables = _fetch_comparables(
-        city=city,
-        district=district,
-        property_type=property_type,
-        surface_min=surface_min,
-        surface_max=surface_max,
-    )
-    used_district = bool(district)
-    logger.info(
-        "market_stats query: city=%r district=%r type=%r surface=[%.0f-%.0f] -> %d comparables",
-        city, district, property_type, surface_min, surface_max, len(comparables),
-    )
+    # Niveaux candidats, du plus précis au plus large.
+    candidates = []
+    if district and band_letters:
+        candidates.append(("quartier", district, band))
+    if district:
+        candidates.append(("quartier", district, None))
+    if band_letters:
+        candidates.append(("ville", None, band))
+    candidates.append(("ville", None, None))  # base
 
-    # 2e essai : si le quartier est trop peu fourni pour être fiable, on
-    # retombe ville+type (échantillon plus large, quartiles plus stables).
-    if district and len(comparables) < MIN_DISTRICT_COMPARABLES:
+    chosen = None
+    for scope, dist, b in candidates:
         comparables = _fetch_comparables(
-            city=city,
-            district=None,
-            property_type=property_type,
-            surface_min=surface_min,
-            surface_max=surface_max,
+            city, dist, property_type, surface_min, surface_max,
+            DPE_BANDS.get(b) if b else None,
         )
-        used_district = False
-        logger.info(
-            "market_stats fallback ville (district < %d): %d comparables",
-            MIN_DISTRICT_COMPARABLES, len(comparables),
-        )
+        is_base = (scope == "ville" and b is None)
+        if is_base or len(comparables) >= MIN_REFINED_COMPARABLES:
+            chosen = (scope, dist, b, comparables)
+            break
 
-    if len(comparables) < 3:
+    scope, dist, b, comparables = chosen
+    logger.info(
+        "market_stats: scope=%s district=%r dpe_band=%r -> %d comparables",
+        scope, dist, b, len(comparables),
+    )
+
+    if len(comparables) < MIN_COMPARABLES:
         return None
 
     prices_m2 = [c.price_m2 for c in comparables]
-
     q1 = _percentile(prices_m2, 25)
     median = _median(prices_m2)
     q3 = _percentile(prices_m2, 75)
-
-    dispersion = q3 - q1
 
     return {
         "count": len(prices_m2),
         "median": median,
         "q1": q1,
         "q3": q3,
-        "dispersion": dispersion,
-        "scope": "quartier" if used_district else "ville",
-        "scope_name": district if used_district else city,
+        "dispersion": q3 - q1,
+        "scope": scope,
+        "scope_name": dist if scope == "quartier" else city,
+        "dpe_band": b,
+        **_pool_profile(comparables),
     }
 
 
@@ -145,31 +156,28 @@ def compute_market_stats(
 # Interprétation métier (pilier)
 # ============================
 
+def _scope_context(market_stats: Dict[str, Any]) -> str:
+    scope = market_stats.get("scope", "ville")
+    name = market_stats.get("scope_name") or "ce marché local"
+    base = f"Dans le quartier {name}" if scope == "quartier" else f"À l'échelle de {name}"
+    if market_stats.get("dpe_band"):
+        base += f" (DPE {market_stats['dpe_band']})"
+    return base
+
+
 def interpret_price_positioning(
     listing_price_m2: float,
     market_stats: Dict[str, Any]
 ) -> Dict[str, str]:
     """
-    Interprète le positionnement du prix par rapport à la **distribution**
-    observée (quartiles), et non à un simple écart en % sur la médiane. Le
-    marché local est souvent très dispersé (ex. Metz : Borny ~900 €/m² vs
-    centre ~3000) : comparer à la fourchette interquartile évite de juger
-    "fortement sur‑positionné" un bien qui reste dans les niveaux constatés.
+    Positionnement du prix selon la **distribution** observée (quartiles), pas
+    un écart en % sur la médiane — robuste à la forte dispersion intra-marché.
     """
-
     q1 = market_stats["q1"]
     q3 = market_stats["q3"]
     iqr = max(q3 - q1, 0.0)
     upper_fence = q3 + 1.5 * iqr  # clôture haute de Tukey
-
-    # Périmètre réellement utilisé (quartier précis ou ville), explicité pour
-    # que l'utilisateur sache à quoi le bien est comparé.
-    scope = market_stats.get("scope", "ville")
-    scope_name = market_stats.get("scope_name") or "ce marché local"
-    if scope == "quartier":
-        ctx = f"Dans le quartier {scope_name}"
-    else:
-        ctx = f"À l'échelle de {scope_name}"
+    ctx = _scope_context(market_stats)
 
     def _r(v: float) -> int:
         return int(round(v))
@@ -200,10 +208,36 @@ def interpret_price_positioning(
             f"(au‑delà de {_r(upper_fence)} €/m²) pour des biens similaires."
         )
 
-    return {
-        "verdict": verdict,
-        "explanation": explanation
-    }
+    return {"verdict": verdict, "explanation": explanation}
+
+
+def _criteria_signal(
+    dpe: Optional[str],
+    epoch: Optional[str],
+    market_stats: Dict[str, Any],
+) -> str:
+    """Signal explicatif (factuel, sans estimation de prix) : situe le DPE et
+    l'époque du bien par rapport au profil des comparables. Couche 2 : enrichit
+    l'explication, ne touche ni le verdict ni le score."""
+    parts = []
+    if dpe:
+        pool_dpe = market_stats.get("pool_dpe")
+        lr, pr = dpe_rank(dpe), dpe_rank(pool_dpe)
+        if pool_dpe and lr is not None and pr is not None:
+            if lr < pr:
+                parts.append(f"DPE {dpe} (meilleur que le DPE médian {pool_dpe} des comparables)")
+            elif lr > pr:
+                parts.append(f"DPE {dpe} (moins bon que le DPE médian {pool_dpe} des comparables)")
+            else:
+                parts.append(f"DPE {dpe} (au niveau du DPE médian des comparables)")
+        else:
+            parts.append(f"DPE {dpe}")
+    if epoch:
+        parts.append({"neuf": "bien neuf", "récent": "construction récente",
+                      "ancien": "construction ancienne"}.get(epoch, epoch))
+    if not parts:
+        return ""
+    return " À pondérer : " + ", ".join(parts) + "."
 
 
 # ============================
@@ -211,20 +245,15 @@ def interpret_price_positioning(
 # ============================
 
 def compute_confidence(market_stats: Dict[str, Any]) -> str:
-    """
-    Détermine un niveau de confiance explicite
-    selon la quantité et la dispersion des données.
-    """
-
     count = market_stats["count"]
     dispersion = market_stats["dispersion"]
-
     if count >= 10 and dispersion < 800:
         return "Élevée"
     elif count >= 4:
         return "Moyenne"
     else:
         return "Faible"
+
 
 # ============================
 # Fonction principale utilisée
@@ -235,18 +264,17 @@ def compute_price_market_pillar(
     district: Optional[str],
     property_type: str,
     surface_m2: float,
-    listing_price_m2: float
+    listing_price_m2: float,
+    dpe: Optional[str] = None,
+    construction_year: Optional[int] = None,
 ) -> Dict[str, Any]:
-    """
-    Fonction appelée par analysis.py
-    pour construire le pilier Prix / Marché.
-    """
-
+    """Pilier Prix / Marché appelé par analysis.py."""
     market_stats = compute_market_stats(
         city=city,
         district=district,
         property_type=property_type,
-        surface_m2=surface_m2
+        surface_m2=surface_m2,
+        dpe=dpe,
     )
 
     if market_stats is None:
@@ -256,20 +284,15 @@ def compute_price_market_pillar(
                 "Données comparables insuffisantes pour établir "
                 "une référence fiable."
             ),
-            "confidence": "Faible"
+            "confidence": "Faible",
         }
 
-    positioning = interpret_price_positioning(
-        listing_price_m2=listing_price_m2,
-        market_stats=market_stats
-    )
-
-    confidence = compute_confidence(market_stats)
+    positioning = interpret_price_positioning(listing_price_m2, market_stats)
+    epoch = construction_epoch(construction_year)
+    explanation = positioning["explanation"] + _criteria_signal(dpe, epoch, market_stats)
 
     return {
         "verdict": positioning["verdict"],
-        "explanation": positioning["explanation"],
-        "confidence": confidence
+        "explanation": explanation,
+        "confidence": compute_confidence(market_stats),
     }
-
-# ============================
