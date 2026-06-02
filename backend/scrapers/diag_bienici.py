@@ -165,6 +165,72 @@ def step4_low_tail(zone_ids: list) -> None:
     print(low_price_tail_md())
 
 
+def deep_pagination_probe_md(city: str = CITY, max_pages: int = 80) -> str:
+    """Sonde : jusqu'où l'API bien'ici pagine-t-elle, et quelle distribution de
+    surfaces au-delà des 1000 premières annonces ? Distingue 'pagination
+    autorisée -> lever le plafond' de 'pagination plafonnée -> balayer par
+    tranches de surface'."""
+    zone_ids = discover_zone_ids(city)
+    if not zone_ids:
+        return f"## Sonde pagination bienici ({city})\n\n_(pas de zoneId)_\n"
+
+    total = None
+    fetched = 0
+    buy_surfaces = []
+    last_full_page = -1
+    last_page_with_data = -1
+    for page in range(max_pages):
+        data = fetch_json(ADS_URL, params=_build_filters(zone_ids, page))
+        if not isinstance(data, dict):
+            break
+        if total is None:
+            total = data.get("total")
+        ads = data.get("realEstateAds", [])
+        if not ads:
+            break
+        fetched += len(ads)
+        last_page_with_data = page
+        if len(ads) >= PAGE_SIZE:
+            last_full_page = page
+        for a in ads:
+            if a.get("adType") != "buy":
+                continue
+            s = a.get("surfaceArea")
+            if isinstance(s, (int, float)) and not isinstance(s, bool):
+                buy_surfaces.append(float(s))
+        if len(ads) < PAGE_SIZE:
+            break
+
+    n = len(buy_surfaces)
+    buckets = [(0, 40), (40, 55), (55, 70), (70, 85), (85, 100), (100, 1e9)]
+    lines = [
+        f"## Sonde pagination bienici ({city})",
+        f"- total annoncé par l'API : {total}",
+        f"- dernière page avec data : {last_page_with_data} · dernière page pleine : "
+        f"{last_full_page} (offset atteint {(last_page_with_data + 1) * PAGE_SIZE})",
+        f"- annonces brutes récupérées : {fetched} · surfaces 'buy' numériques : {n}",
+    ]
+    if n:
+        lines.append(f"- surface buy : min={min(buy_surfaces):.0f} max={max(buy_surfaces):.0f} m²")
+        lines.append("- histogramme surfaces buy (toutes pages sondées) :")
+        for b_lo, b_hi in buckets:
+            c = sum(1 for s in buy_surfaces if b_lo <= s < b_hi)
+            label = f"{b_lo:.0f}-{b_hi:.0f}" if b_hi < 1e9 else f"{b_lo:.0f}+"
+            lines.append(f"  - {label} m² : {c}")
+    capped = (last_page_with_data < max_pages - 1
+              and isinstance(total, int) and total > fetched + PAGE_SIZE)
+    lines.append(
+        "- verdict : " + (
+            "pagination PLAFONNÉE (la collecte s'arrête avant le total) -> "
+            "balayage par tranches de surface requis"
+            if capped else
+            "pagination semble se poursuivre -> lever MAX_PAGES suffirait "
+            "(ou épuisement réel atteint)"
+        )
+    )
+    return "\n".join(lines) + "\n"
+
+
 def field_audit_md(city: str = CITY, max_pages: int = 4) -> str:
     """Audit B0 : quels champs l'API bien'ici expose réellement, avec leur taux
     de remplissage, et focus DPE + année de construction (noms exacts +
