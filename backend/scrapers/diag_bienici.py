@@ -165,6 +165,67 @@ def step4_low_tail(zone_ids: list) -> None:
     print(low_price_tail_md())
 
 
+def field_audit_md(city: str = CITY, max_pages: int = 4) -> str:
+    """Audit B0 : quels champs l'API bien'ici expose réellement, avec leur taux
+    de remplissage, et focus DPE + année de construction (noms exacts +
+    échantillons de valeurs). Sert à calibrer l'usage des critères (filtre dur
+    si bien rempli, sinon signal explicatif)."""
+    zone_ids = discover_zone_ids(city)
+    if not zone_ids:
+        return f"## Audit champs bienici ({city})\n\n_(pas de zoneId)_\n"
+
+    ads = []
+    for page in range(max_pages):
+        data = fetch_json(ADS_URL, params=_build_filters(zone_ids, page))
+        if not isinstance(data, dict):
+            break
+        page_ads = data.get("realEstateAds", [])
+        if not page_ads:
+            break
+        ads.extend(page_ads)
+        if len(page_ads) < 50:
+            break
+
+    n = len(ads)
+    if not n:
+        return f"## Audit champs bienici ({city})\n\n_(aucune annonce)_\n"
+
+    fill = Counter()
+    for a in ads:
+        for k, v in a.items():
+            if v not in (None, "", [], {}):
+                fill[k] += 1
+
+    def _kw(*words):
+        return [k for k in fill if any(w in k.lower() for w in words)]
+
+    energy_keys = _kw("energy", "dpe", "ges", "greenhouse", "energie")
+    year_keys = _kw("year", "construction", "built", "annee")
+
+    def _samples(keys):
+        out = []
+        for k in keys:
+            vals = []
+            for a in ads:
+                v = a.get(k)
+                if v not in (None, "", [], {}) and v not in vals:
+                    vals.append(v)
+                if len(vals) >= 4:
+                    break
+            out.append(f"  - `{k}` ({fill[k]}/{n}) ex: {vals}")
+        return out
+
+    lines = [f"## Audit champs bienici ({city}) — {n} annonces"]
+    lines.append("### DPE / énergie")
+    lines += _samples(energy_keys) or ["  - aucun champ"]
+    lines.append("### Année de construction")
+    lines += _samples(year_keys) or ["  - aucun champ"]
+    lines.append("### Tous les champs (remplissage)")
+    for k, c in fill.most_common():
+        lines.append(f"  - `{k}` : {c}/{n}")
+    return "\n".join(lines) + "\n"
+
+
 def main() -> None:
     zone_ids = step1_zone()
     step2_raw(zone_ids)
