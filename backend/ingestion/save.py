@@ -72,6 +72,8 @@ def save_comparables(listings: List[Dict[str, Any]]) -> int:
                 surface_m2=surface,
                 price_total=price,
                 price_m2=price_m2,
+                dpe=ad.get("dpe"),
+                construction_year=ad.get("construction_year"),
                 collected_at=datetime.utcnow()
             )
 

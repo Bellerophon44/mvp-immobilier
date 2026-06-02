@@ -25,6 +25,8 @@ SUGGEST_URLS = [
 PAGE_SIZE = 50
 MAX_PAGES = 20  # jusqu'à 1000 annonces brutes par run avant filtrage
 
+_VALID_DPE = {"A", "B", "C", "D", "E", "F", "G"}
+
 # Bande de plausibilité du prix au m² pour une VENTE résidentielle.
 # Sert de filet contre les loyers, viagers, parkings et erreurs de saisie
 # qui polluent les comparables (le marché messin tourne ~1500-4000 €/m²).
@@ -132,6 +134,12 @@ def _parse_listing(ad: dict) -> Optional[PropertyListing]:
     district = ad.get("district")
     district_name = district.get("name") if isinstance(district, dict) else None
 
+    dpe = ad.get("energyClassification")
+    dpe = dpe.upper() if isinstance(dpe, str) and dpe.upper() in _VALID_DPE else None
+
+    year = ad.get("yearOfConstruction")
+    construction_year = int(year) if isinstance(year, (int, float)) and 1600 <= year <= 2100 else None
+
     try:
         return PropertyListing(
             id=generate_stable_id(SOURCE_NAME, str(ad["id"])),
@@ -141,6 +149,8 @@ def _parse_listing(ad: dict) -> Optional[PropertyListing]:
             property_type=property_type,
             surface_m2=surface,
             price_total=price,
+            dpe=dpe,
+            construction_year=construction_year,
         )
     except (KeyError, TypeError):
         return None

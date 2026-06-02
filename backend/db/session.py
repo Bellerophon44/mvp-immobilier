@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
 from db.models import Base
@@ -30,5 +30,22 @@ SessionLocal = sessionmaker(
 )
 
 
+# Colonnes ajoutées après la création initiale de la table : create_all ne fait
+# pas d'ALTER, donc on rattrape les bases existantes (prod) au démarrage.
+_ADD_COLUMNS = {
+    "dpe": "ALTER TABLE comparables ADD COLUMN dpe VARCHAR",
+    "construction_year": "ALTER TABLE comparables ADD COLUMN construction_year INTEGER",
+}
+
+
+def _migrate_comparables(conn) -> None:
+    existing = {row[1] for row in conn.execute(text("PRAGMA table_info(comparables)"))}
+    for column, ddl in _ADD_COLUMNS.items():
+        if column not in existing:
+            conn.execute(text(ddl))
+
+
 def init_db():
     Base.metadata.create_all(bind=engine)
+    with engine.begin() as conn:
+        _migrate_comparables(conn)

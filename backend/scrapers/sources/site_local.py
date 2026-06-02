@@ -7,6 +7,8 @@ from bs4 import BeautifulSoup
 
 from scrapers.base import (
     canonical_city,
+    extract_construction_year,
+    extract_dpe,
     fetch_page,
     generate_stable_id,
     normalize_price,
@@ -88,6 +90,8 @@ def _parse_card(card) -> Optional[PropertyListing]:
         if not price or not surface:
             return None
 
+        card_text = card.get_text(" ", strip=True)
+
         return PropertyListing(
             id=generate_stable_id(SOURCE_NAME, external_id),
             source=SOURCE_NAME,
@@ -95,6 +99,8 @@ def _parse_card(card) -> Optional[PropertyListing]:
             property_type=_extract_property_type(title_text),
             surface_m2=surface,
             price_total=price,
+            dpe=extract_dpe(card_text),
+            construction_year=extract_construction_year(card_text),
         )
 
     except Exception:

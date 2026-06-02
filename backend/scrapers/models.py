@@ -11,6 +11,8 @@ class PropertyListing:
     surface_m2: float
     price_total: float
     district: Optional[str] = None
+    dpe: Optional[str] = None              # lettre A-G, sinon None
+    construction_year: Optional[int] = None
 
     def to_dict(self) -> dict:
         return asdict(self)

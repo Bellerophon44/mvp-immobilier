@@ -78,6 +78,8 @@ class ComparableIn(BaseModel):
     surface_m2: float
     price_total: float
     district: Optional[str] = None
+    dpe: Optional[str] = None
+    construction_year: Optional[int] = None
 
 
 class ImportRequest(BaseModel):

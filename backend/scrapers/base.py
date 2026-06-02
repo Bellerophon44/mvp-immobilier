@@ -210,6 +210,53 @@ def canonical_city(raw: Optional[str]) -> Optional[str]:
     return "-".join(s.capitalize() for s in segments)
 
 
+_DPE_RE = re.compile(
+    r"(?:dpe|d\.p\.e|classe\s+(?:[ée]nerg\w*)|[ée]tiquette\s+[ée]nerg\w*)"
+    r"\s*[:\-]?\s*([A-G])\b",
+    re.IGNORECASE,
+)
+_YEAR_RE = re.compile(
+    r"(?:constru\w*\s+en|ann[ée]e\s+(?:de\s+)?construction|construction)"
+    r"\s*[:\-]?\s*((?:1[6-9]|20)\d{2})",
+    re.IGNORECASE,
+)
+
+
+def extract_dpe(text: str) -> Optional[str]:
+    """Lettre DPE (A-G) extraite d'un texte d'annonce, sinon None. Best-effort,
+    exige un contexte 'DPE'/'classe énergie' pour éviter les faux positifs."""
+    if not text:
+        return None
+    m = _DPE_RE.search(text)
+    return m.group(1).upper() if m else None
+
+
+def extract_construction_year(text: str) -> Optional[int]:
+    """Année de construction extraite d'un texte, sinon None. Exige un contexte
+    ('construit en', 'année de construction') — pas de nombre isolé, pour ne pas
+    confondre avec une référence ou une adresse."""
+    if not text:
+        return None
+    m = _YEAR_RE.search(text)
+    if not m:
+        return None
+    year = int(m.group(1))
+    return year if 1600 <= year <= 2100 else None
+
+
+def construction_epoch(year: Optional[int], is_new: bool = False) -> Optional[str]:
+    """Époque dérivée (signal), pas stockée : 'neuf' / 'récent' / 'ancien'."""
+    if is_new:
+        return "neuf"
+    if not year:
+        return None
+    if year >= 2015:
+        return "neuf"
+    if year >= 2000:
+        return "récent"
+    return "ancien"
+
+
 def canonical_district(raw: Optional[str], city: Optional[str] = None) -> Optional[str]:
     """
     Forme canonique d'un quartier, partagée par les sources et la requête

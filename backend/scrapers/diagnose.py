@@ -86,6 +86,9 @@ def build_source_report(name: str, listings: list[PropertyListing]) -> tuple[str
         f"({band_ratio:.0%})"
     )
     lines.append(f"- sans district : {no_district}/{count}")
+    with_dpe = sum(1 for l in listings if getattr(l, "dpe", None))
+    with_year = sum(1 for l in listings if getattr(l, "construction_year", None))
+    lines.append(f"- avec DPE : {with_dpe}/{count} · avec année constr. : {with_year}/{count}")
     lines.append("- échantillon :")
     for l in listings[:5]:
         pm2 = _price_m2(l) or 0

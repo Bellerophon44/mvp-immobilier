@@ -223,8 +223,17 @@ class Comparable(Base):
     surface_m2    = Column(Float, nullable=False)
     price_total   = Column(Float, nullable=False)
     price_m2      = Column(Float, nullable=False)
+    dpe                = Column(String, nullable=True)   # lettre A-G (chantier B)
+    construction_year  = Column(Integer, nullable=True)  # (chantier B)
     collected_at  = Column(DateTime, default=datetime.utcnow)
 ```
+
+> **Chantier B (critères affinés)** : `dpe` + `construction_year` ajoutés (nullable,
+> remplissage variable : bien'ici ~82% DPE / ~33% année ; agences best-effort).
+> `db/session.init_db` fait une **micro-migration** idempotente (`ALTER TABLE ADD
+> COLUMN`) pour les bases prod existantes. L'**époque** (neuf/récent/ancien) est
+> *dérivée* (`scrapers.base.construction_epoch`), pas stockée. Usage prévu :
+> signal explicatif + filtre dur conditionnel (B2), extraction LLM (B3).
 
 État : **5 sources** actives (bienici, benedic, laveine_immo, idemmo,
 immoheytienne) → ~1100+ annonces brutes/run, couverture Moselle élargie et
