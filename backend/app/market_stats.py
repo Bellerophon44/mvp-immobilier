@@ -34,10 +34,13 @@ MIN_PROFILE = 5      # mini pour calculer un profil DPE/année de pool fiable
 # via canonical_district au chargement pour matcher les valeurs stockées (y
 # compris les formes composées de bien'ici, ex. 'Plantières - Queuleu').
 _SECTORS_RAW = {
-    "Centre": ["Centre-Ville", "Centre", "Nouvelle Ville", "Outre-Seille"],
-    "Sud": ["Sablon", "Queuleu", "Plantières", "Plantières - Queuleu"],
-    "Est": ["Borny", "Grange-aux-Bois", "Technopôle", "Bellecroix", "Vallières"],
-    "Nord-Ouest": ["Devant-les-Ponts", "La Patrotte", "Patrotte", "Magny"],
+    # Libellés réels en base (confirmés par le diagnostic « quartiers distincts »)
+    # + formes mono proposées par le sélecteur front, pour que les deux chemins
+    # (district stocké et quartier choisi) tombent dans le bon secteur.
+    "Centre": ["Centre-Ville", "Ancienne-Ville", "Nouvelle Ville", "Les Îles", "Outre-Seille"],
+    "Sud": ["Sablon", "Plantières - Queuleu", "Queuleu", "Plantières", "Magny"],
+    "Est": ["Borny", "Bellecroix", "Vallières-lès-Bordes", "Vallières", "Grange-aux-Bois", "Technopôle"],
+    "Nord": ["Devant-les-Ponts", "Patrotte-Metz-Nord", "La Patrotte"],
 }
 
 
