@@ -71,7 +71,15 @@ USER_PROMPT_TEMPLATE = """Analyse le texte d'annonce immobilière ci-dessous et 
     "surface_m2": number | null,
     "price_total": number | null,
     "dpe": string | null,
-    "construction_year": number | null
+    "construction_year": number | null,
+    "floor": number | null,
+    "has_elevator": boolean | null,
+    "has_terrace": boolean | null,
+    "has_balcony": boolean | null,
+    "has_cellar": boolean | null,
+    "parking": number | null,
+    "bedrooms": number | null,
+    "condo_fees": number | null
   }}
 }}
 
@@ -85,6 +93,10 @@ Règles :
 - `property_type` ∈ ["appartement", "maison", null].
 - `dpe` : lettre de classe énergie ∈ ["A","B","C","D","E","F","G"] si présente, sinon null (ne pas confondre avec le GES).
 - `construction_year` : année de construction (entier) si EXPLICITEMENT mentionnée, sinon null.
+- `floor` : numéro d'étage (entier ; rez-de-chaussée = 0) si mentionné, sinon null.
+- `has_elevator`, `has_terrace`, `has_balcony`, `has_cellar` : true/false UNIQUEMENT si l'annonce le précise, sinon null (ne pas supposer).
+- `parking`, `bedrooms` : entier si mentionné, sinon null.
+- `condo_fees` : charges annuelles de copropriété en euros (entier) si mentionnées, sinon null.
 - Pour `listing`, n'extraire que ce qui est EXPLICITEMENT présent dans le texte ; sinon `null`.
 
 Texte :
@@ -111,6 +123,14 @@ _FALLBACK = {
         "price_total": None,
         "dpe": None,
         "construction_year": None,
+        "floor": None,
+        "has_elevator": None,
+        "has_terrace": None,
+        "has_balcony": None,
+        "has_cellar": None,
+        "parking": None,
+        "bedrooms": None,
+        "condo_fees": None,
     },
 }
 
@@ -144,6 +164,21 @@ def _coerce_float(value):
         return float(value) if value is not None else None
     except (TypeError, ValueError):
         return None
+
+
+def _coerce_bool(value):
+    return value if isinstance(value, bool) else None
+
+
+def _coerce_int_opt(value):
+    """Entier >= 0 (étage, places, chambres), sinon None. 0 reste valide (rdc)."""
+    if isinstance(value, bool):
+        return None
+    try:
+        i = int(value)
+    except (TypeError, ValueError):
+        return None
+    return i if i >= 0 else None
 
 
 def analyze_semantic(raw_text: str) -> Dict[str, Any]:
@@ -184,6 +219,14 @@ def analyze_semantic(raw_text: str) -> Dict[str, Any]:
         "price_total": _coerce_float(raw_listing.get("price_total")),
         "dpe": _coerce_dpe(raw_listing.get("dpe")),
         "construction_year": _coerce_year(raw_listing.get("construction_year")),
+        "floor": _coerce_int_opt(raw_listing.get("floor")),
+        "has_elevator": _coerce_bool(raw_listing.get("has_elevator")),
+        "has_terrace": _coerce_bool(raw_listing.get("has_terrace")),
+        "has_balcony": _coerce_bool(raw_listing.get("has_balcony")),
+        "has_cellar": _coerce_bool(raw_listing.get("has_cellar")),
+        "parking": _coerce_int_opt(raw_listing.get("parking")),
+        "bedrooms": _coerce_int_opt(raw_listing.get("bedrooms")),
+        "condo_fees": _coerce_float(raw_listing.get("condo_fees")),
     }
 
     semantic_output = {

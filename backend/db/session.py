@@ -36,6 +36,15 @@ _ADD_COLUMNS = {
     "dpe": "ALTER TABLE comparables ADD COLUMN dpe VARCHAR",
     "construction_year": "ALTER TABLE comparables ADD COLUMN construction_year INTEGER",
     "postal_code": "ALTER TABLE comparables ADD COLUMN postal_code VARCHAR",
+    "floor": "ALTER TABLE comparables ADD COLUMN floor INTEGER",
+    "has_elevator": "ALTER TABLE comparables ADD COLUMN has_elevator BOOLEAN",
+    "has_terrace": "ALTER TABLE comparables ADD COLUMN has_terrace BOOLEAN",
+    "has_balcony": "ALTER TABLE comparables ADD COLUMN has_balcony BOOLEAN",
+    "is_condo": "ALTER TABLE comparables ADD COLUMN is_condo BOOLEAN",
+    "condo_fees": "ALTER TABLE comparables ADD COLUMN condo_fees FLOAT",
+    "has_cellar": "ALTER TABLE comparables ADD COLUMN has_cellar BOOLEAN",
+    "parking": "ALTER TABLE comparables ADD COLUMN parking INTEGER",
+    "bedrooms": "ALTER TABLE comparables ADD COLUMN bedrooms INTEGER",
 }
 
 

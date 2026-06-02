@@ -85,6 +85,15 @@ class ComparableIn(BaseModel):
     postal_code: Optional[str] = None
     dpe: Optional[str] = None
     construction_year: Optional[int] = None
+    floor: Optional[int] = None
+    has_elevator: Optional[bool] = None
+    has_terrace: Optional[bool] = None
+    has_balcony: Optional[bool] = None
+    is_condo: Optional[bool] = None
+    condo_fees: Optional[float] = None
+    has_cellar: Optional[bool] = None
+    parking: Optional[int] = None
+    bedrooms: Optional[int] = None
 
 
 class ImportRequest(BaseModel):

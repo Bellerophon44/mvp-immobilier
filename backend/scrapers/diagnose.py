@@ -91,6 +91,10 @@ def build_source_report(name: str, listings: list[PropertyListing]) -> tuple[str
     with_postal = sum(1 for l in listings if getattr(l, "postal_code", None))
     lines.append(f"- avec DPE : {with_dpe}/{count} · avec année constr. : {with_year}/{count}")
     lines.append(f"- avec code postal : {with_postal}/{count}")
+    with_floor = sum(1 for l in listings if getattr(l, "floor", None) is not None)
+    with_elev = sum(1 for l in listings if getattr(l, "has_elevator", None) is not None)
+    with_terr = sum(1 for l in listings if getattr(l, "has_terrace", None) is not None)
+    lines.append(f"- avec étage : {with_floor}/{count} · ascenseur : {with_elev}/{count} · terrasse : {with_terr}/{count}")
     lines.append("- échantillon :")
     for l in listings[:5]:
         pm2 = _price_m2(l) or 0

@@ -50,7 +50,42 @@ def _price_pillar_from_listing(
         listing_price_m2=listing_price_m2,
         dpe=listing.get("dpe"),
         construction_year=listing.get("construction_year"),
+        attrs=_amenity_attrs(listing),
     )
+
+
+_AMENITY_KEYS = (
+    "floor", "has_elevator", "has_terrace", "has_balcony",
+    "has_cellar", "parking", "bedrooms", "condo_fees",
+)
+
+
+def _amenity_attrs(listing: Dict[str, Any]) -> Dict[str, Any]:
+    return {k: listing.get(k) for k in _AMENITY_KEYS}
+
+
+def _amenity_actions(listing: Dict[str, Any]) -> Dict[str, list]:
+    """Points de vérification / leviers déterministes tirés des critères affinés
+    (chantier C). Factuels, jamais estimatifs : on signale, on n'évalue pas."""
+    check, negotiation = [], []
+    floor = listing.get("floor")
+    if isinstance(floor, int) and floor >= 3 and listing.get("has_elevator") is False:
+        check.append(
+            f"Accès au {floor}e étage sans ascenseur (déménagement, accessibilité, revente)"
+        )
+        negotiation.append(f"{floor}e étage sans ascenseur")
+    fees = listing.get("condo_fees")
+    if fees:
+        check.append(
+            f"Charges de copropriété annoncées : {int(fees)} €/an — à intégrer au budget"
+        )
+    return {"check": check, "negotiation": negotiation}
+
+
+def _merge_unique(base: list, extra: list) -> list:
+    """Concatène en évitant les doublons (insensible à la casse/espaces)."""
+    seen = {str(x).strip().lower() for x in base}
+    return list(base) + [x for x in extra if str(x).strip().lower() not in seen]
 
 
 def run_full_analysis(raw_text: str, district_override: str = "") -> dict:
@@ -90,10 +125,11 @@ def run_full_analysis(raw_text: str, district_override: str = "") -> dict:
         semantic_pillar=semantic_result,
     )
 
+    extra = _amenity_actions(listing)
     actions = {
-        "check": semantic_result["to_check"],
+        "check": _merge_unique(semantic_result["to_check"], extra["check"]),
         "questions": semantic_result["questions"],
-        "negotiation": semantic_result["negotiation_levers"],
+        "negotiation": _merge_unique(semantic_result["negotiation_levers"], extra["negotiation"]),
     }
 
     return {
