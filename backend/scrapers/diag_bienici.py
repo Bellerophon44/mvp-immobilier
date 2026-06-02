@@ -105,18 +105,9 @@ def step3_scrape() -> None:
               f"{l.price_total:>10.0f} €  ({pm2:.0f} €/m²)  district={l.district}")
 
 
-def step4_low_tail(zone_ids: list) -> None:
-    """Ausculte la queue basse : biens résidentiels 'buy' qui passent les filtres
-    actuels mais au prix/m² le plus faible. Affiche leurs champs discriminants
-    pour comprendre ce qui tire la médiane Metz vers le bas (parkings/caves/lots
-    déguisés ? studios dégradés ? programmes ?)."""
-    print("\n" + "=" * 70)
-    print("ÉTAPE 4 — Queue basse des biens valides (champs discriminants)")
-    print("-" * 70)
-    if not zone_ids:
-        print("  (pas de zoneIds, on saute)")
-        return
-
+def _collect_valid_rows(zone_ids: list) -> list:
+    """Biens résidentiels 'buy' qui passent les filtres prix/m² actuels, avec
+    leur ad brut (pour les champs discriminants)."""
     rows = []
     for page in range(20):
         data = fetch_json(ADS_URL, params=_build_filters(zone_ids, page))
@@ -134,28 +125,44 @@ def step4_low_tail(zone_ids: list) -> None:
             if surf <= 0 or price <= 0:
                 continue
             pm2 = price / surf
-            if pm2 < 800 or pm2 > 12000:
-                continue
-            rows.append((pm2, price, surf, a))
+            if 800 <= pm2 <= 12000:
+                rows.append((pm2, price, surf, a))
         if len(ads) < 50:
             break
-
-    if not rows:
-        print("  (aucun bien)")
-        return
-
     rows.sort(key=lambda r: r[0])
+    return rows
+
+
+def low_price_tail_md(city: str = CITY) -> str:
+    """Markdown : queue basse des biens valides (pour le harnais de diagnostic).
+    Révèle ce qui tire la médiane vers le bas avant de resserrer les filtres."""
+    zone_ids = discover_zone_ids(city)
+    if not zone_ids:
+        return f"## Queue basse bienici ({city})\n\n_(pas de zoneId)_\n"
+    rows = _collect_valid_rows(zone_ids)
+    if not rows:
+        return f"## Queue basse bienici ({city})\n\n_(aucun bien)_\n"
+
     n = len(rows)
     deciles = [rows[int(n * q / 10)][0] for q in range(1, 10)]
-    print(f"  {n} biens valides. Déciles prix/m² : "
-          + " ".join(f"{d:.0f}" for d in deciles))
-    print("  25 biens les moins chers au m² :")
-    for pm2, price, surf, a in rows[:25]:
-        print(f"    {pm2:6.0f} €/m² | {price:>9.0f} € | {surf:5.0f} m² | "
-              f"type={_safe(a.get('propertyType')):9} "
-              f"pièces={_safe(a.get('roomsQuantity')):3} "
-              f"neuf={_safe(a.get('newProperty')):5} "
-              f"| {_safe(a.get('title'), 48)}")
+    lines = [
+        f"## Queue basse bienici ({city}) — {n} biens valides",
+        "- déciles prix/m² : " + " · ".join(f"{d:.0f}" for d in deciles),
+        "- 20 biens les moins chers au m² (champs discriminants) :",
+    ]
+    for pm2, price, surf, a in rows[:20]:
+        lines.append(
+            f"  - {pm2:.0f} €/m² | {price:.0f} € | {surf:.0f} m² | "
+            f"type={_safe(a.get('propertyType'))} "
+            f"pièces={_safe(a.get('roomsQuantity'))} "
+            f"neuf={_safe(a.get('newProperty'))} | {_safe(a.get('title'), 60)}"
+        )
+    return "\n".join(lines) + "\n"
+
+
+def step4_low_tail(zone_ids: list) -> None:
+    print("\n" + "=" * 70)
+    print(low_price_tail_md())
 
 
 def main() -> None:

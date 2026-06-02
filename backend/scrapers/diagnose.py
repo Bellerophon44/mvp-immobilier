@@ -122,7 +122,18 @@ def diagnose_sources(only: Optional[str] = None) -> tuple[str, bool]:
         blocks.append(block)
 
     header = f"## Diagnostic scrapers ({len(names)} source(s))\n\n"
-    return header + "\n".join(blocks), any_fail
+    report = header + "\n".join(blocks)
+
+    # Section dédiée : queue basse bienici (champs discriminants) pour traquer
+    # ce qui tire la médiane Metz vers le bas.
+    if "bienici" in names:
+        try:
+            from scrapers.diag_bienici import low_price_tail_md
+            report += "\n\n---\n\n" + low_price_tail_md()
+        except Exception as e:
+            logger.warning("low_price_tail_md a échoué : %s", e)
+
+    return report, any_fail
 
 
 def _representative_card_html(soup, max_len: int = 3500) -> Optional[str]:
