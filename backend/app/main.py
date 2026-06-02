@@ -54,6 +54,9 @@ def _startup() -> None:
 class AnalyzeRequest(BaseModel):
     raw_text: Optional[str] = None
     url: Optional[str] = None
+    # Quartier choisi par l'utilisateur (sélecteur front) pour affiner une
+    # analyse restée au niveau ville. Optionnel ; prime sur l'extraction.
+    district: Optional[str] = None
 
 
 class AnalyzeResponse(BaseModel):
@@ -265,7 +268,7 @@ def analyze(payload: AnalyzeRequest):
         raw_content = fetched
 
     try:
-        return run_full_analysis(raw_content)
+        return run_full_analysis(raw_content, district_override=payload.district or "")
     except Exception as e:
         raise HTTPException(
             status_code=500,

@@ -285,6 +285,11 @@ def compute_price_market_pillar(
                 "une référence fiable."
             ),
             "confidence": "Faible",
+            "scope": None,
+            "scope_name": None,
+            "dpe_band": None,
+            "n_comparables": 0,
+            "refinable": False,
         }
 
     positioning = interpret_price_positioning(listing_price_m2, market_stats)
@@ -295,4 +300,12 @@ def compute_price_market_pillar(
         "verdict": positioning["verdict"],
         "explanation": explanation,
         "confidence": compute_confidence(market_stats),
+        # Périmètre exposé en clair pour un affichage structuré (badge) côté front.
+        "scope": market_stats["scope"],
+        "scope_name": market_stats["scope_name"],
+        "dpe_band": market_stats["dpe_band"],
+        "n_comparables": market_stats["count"],
+        # Au niveau ville : l'analyse pourrait être affinée si l'utilisateur
+        # précisait le quartier (déclenche le sélecteur côté front).
+        "refinable": market_stats["scope"] == "ville",
     }
