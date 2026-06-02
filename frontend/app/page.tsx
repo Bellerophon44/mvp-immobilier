@@ -40,7 +40,10 @@ function riskVerdictToScore(verdict: string): number {
 
 function scopeLabel(p: ApiResult["pillars"][number]): string | null {
   if (!p.scope || !p.scope_name) return null;
-  const base = p.scope === "quartier" ? `Quartier ${p.scope_name}` : p.scope_name;
+  const base =
+    p.scope === "quartier" ? `Quartier ${p.scope_name}`
+    : p.scope === "secteur" ? `Secteur ${p.scope_name}`
+    : p.scope_name;
   const band = p.dpe_band ? ` · DPE ${p.dpe_band}` : "";
   const n = p.n_comparables ? ` · ${p.n_comparables} comparables` : "";
   return `${base}${band}${n}`;

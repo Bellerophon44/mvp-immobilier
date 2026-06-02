@@ -86,6 +86,9 @@ def build_source_report(name: str, listings: list[PropertyListing]) -> tuple[str
         f"({band_ratio:.0%})"
     )
     lines.append(f"- sans district : {no_district}/{count}")
+    districts = Counter(l.district for l in listings if l.district)
+    if districts:
+        lines.append(f"- quartiers distincts ({len(districts)}) : {dict(districts.most_common(12))}")
     with_dpe = sum(1 for l in listings if getattr(l, "dpe", None))
     with_year = sum(1 for l in listings if getattr(l, "construction_year", None))
     with_postal = sum(1 for l in listings if getattr(l, "postal_code", None))
