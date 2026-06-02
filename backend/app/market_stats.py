@@ -137,39 +137,47 @@ def interpret_price_positioning(
     market_stats: Dict[str, Any]
 ) -> Dict[str, str]:
     """
-    Interprète le positionnement du prix
-    par rapport au marché observable.
+    Interprète le positionnement du prix par rapport à la **distribution**
+    observée (quartiles), et non à un simple écart en % sur la médiane. Le
+    marché local est souvent très dispersé (ex. Metz : Borny ~900 €/m² vs
+    centre ~3000) : comparer à la fourchette interquartile évite de juger
+    "fortement sur‑positionné" un bien qui reste dans les niveaux constatés.
     """
 
-    median = market_stats["median"]
-    gap = (listing_price_m2 - median) / median
+    q1 = market_stats["q1"]
+    q3 = market_stats["q3"]
+    iqr = max(q3 - q1, 0.0)
+    upper_fence = q3 + 1.5 * iqr  # clôture haute de Tukey
 
-    # Seuils MVP explicables
-    aligned_threshold = 0.10        # ±10 %
-    warning_threshold = 0.25        # +25 %
+    def _r(v: float) -> int:
+        return int(round(v))
 
-    if abs(gap) <= aligned_threshold:
-        verdict = "Plutôt aligné"
-        explanation = (
-            "Le prix se situe dans la fourchette observée "
-            "pour des biens comparables sur ce marché local."
-        )
-    elif gap > aligned_threshold and gap <= warning_threshold:
-        verdict = "Légèrement sur‑positionné"
-        explanation = (
-            "Le prix est supérieur à la tendance observée, "
-            "mais reste dans une zone couramment constatée."
-        )
-    elif gap > warning_threshold:
-        verdict = "Fortement sur‑positionné"
-        explanation = (
-            "Le prix est nettement au‑dessus des niveaux observés "
-            "pour des biens similaires."
-        )
-    else:
+    if listing_price_m2 <= q1:
         verdict = "Sous‑positionné"
         explanation = (
-            "Le prix est inférieur aux tendances observées sur ce marché local."
+            f"Le prix au m² est sous la fourchette courante observée "
+            f"({_r(q1)}–{_r(q3)} €/m²) pour des biens comparables. À vérifier : "
+            "état, étage, travaux ou particularité qui le justifierait."
+        )
+    elif listing_price_m2 <= q3:
+        verdict = "Plutôt aligné"
+        explanation = (
+            f"Le prix au m² se situe dans la fourchette courante observée "
+            f"({_r(q1)}–{_r(q3)} €/m²) pour des biens comparables sur ce "
+            "marché local."
+        )
+    elif listing_price_m2 <= upper_fence:
+        verdict = "Légèrement sur‑positionné"
+        explanation = (
+            f"Le prix au m² dépasse la fourchette courante (au‑delà de "
+            f"{_r(q3)} €/m²) mais reste dans les niveaux hauts déjà constatés "
+            "localement."
+        )
+    else:
+        verdict = "Fortement sur‑positionné"
+        explanation = (
+            f"Le prix au m² dépasse nettement les niveaux observés "
+            f"(au‑delà de {_r(upper_fence)} €/m²) pour des biens similaires."
         )
 
     return {
