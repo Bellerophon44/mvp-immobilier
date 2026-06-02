@@ -142,12 +142,9 @@ def diagnose_sources(only: Optional[str] = None) -> tuple[str, bool]:
     # ce qui tire la médiane Metz vers le bas.
     if "bienici" in names:
         try:
-            from scrapers.diag_bienici import (
-                low_price_tail_md, field_audit_md, deep_pagination_probe_md,
-            )
+            from scrapers.diag_bienici import low_price_tail_md, field_audit_md
             report += "\n\n---\n\n" + low_price_tail_md()
             report += "\n\n---\n\n" + field_audit_md()
-            report += "\n\n---\n\n" + deep_pagination_probe_md()
         except Exception as e:
             logger.warning("diagnostic bienici étendu a échoué : %s", e)
         try:
