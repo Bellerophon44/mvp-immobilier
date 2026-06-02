@@ -2,6 +2,12 @@ export interface ApiPillar {
   label: string;
   verdict: string;
   explanation: string;
+  // Périmètre structuré du pilier prix (les autres piliers ne les renseignent pas).
+  scope?: "quartier" | "ville" | null;
+  scope_name?: string | null;
+  dpe_band?: string | null;
+  n_comparables?: number | null;
+  refinable?: boolean;
 }
 
 export interface ApiResult {
@@ -16,9 +22,15 @@ export interface ApiResult {
   };
 }
 
-export async function analyzeListing(input: string, mode: "url" | "text"): Promise<ApiResult> {
+export async function analyzeListing(
+  input: string,
+  mode: "url" | "text",
+  district?: string,
+): Promise<ApiResult> {
   const trimmed = input.trim();
-  const body = mode === "url" ? { url: trimmed } : { raw_text: trimmed };
+  const body: Record<string, string> =
+    mode === "url" ? { url: trimmed } : { raw_text: trimmed };
+  if (district) body.district = district;
 
   const response = await fetch(
     process.env.NEXT_PUBLIC_API_URL + "/analyze",
