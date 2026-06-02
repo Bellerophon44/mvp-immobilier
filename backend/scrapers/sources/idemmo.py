@@ -7,12 +7,15 @@ from bs4 import BeautifulSoup
 
 from scrapers.base import (
     canonical_city,
+    extract_construction_year,
     fetch_page,
     generate_stable_id,
     infer_property_type,
     normalize_price,
     normalize_surface,
 )
+
+_VALID_DPE = {"A", "B", "C", "D", "E", "F", "G"}
 from scrapers.models import PropertyListing
 from scrapers.registry import register
 
@@ -57,13 +60,19 @@ def _parse_card(card) -> Optional[PropertyListing]:
         if not city:
             return None
 
+        title_text = link.get_text(" ", strip=True)
+        dpe_raw = _meta_text(card, "es_property_dpe_energie_lettre")
+        dpe = dpe_raw.upper() if dpe_raw and dpe_raw.upper() in _VALID_DPE else None
+
         return PropertyListing(
             id=generate_stable_id(SOURCE_NAME, external_id),
             source=SOURCE_NAME,
             city=canonical_city(city),
-            property_type=infer_property_type(link.get_text(" ", strip=True)),
+            property_type=infer_property_type(title_text),
             surface_m2=surface,
             price_total=price,
+            dpe=dpe,
+            construction_year=extract_construction_year(title_text),
         )
     except Exception:
         return None

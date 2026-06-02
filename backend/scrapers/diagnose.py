@@ -86,6 +86,9 @@ def build_source_report(name: str, listings: list[PropertyListing]) -> tuple[str
         f"({band_ratio:.0%})"
     )
     lines.append(f"- sans district : {no_district}/{count}")
+    with_dpe = sum(1 for l in listings if getattr(l, "dpe", None))
+    with_year = sum(1 for l in listings if getattr(l, "construction_year", None))
+    lines.append(f"- avec DPE : {with_dpe}/{count} · avec année constr. : {with_year}/{count}")
     lines.append("- échantillon :")
     for l in listings[:5]:
         pm2 = _price_m2(l) or 0
@@ -128,10 +131,11 @@ def diagnose_sources(only: Optional[str] = None) -> tuple[str, bool]:
     # ce qui tire la médiane Metz vers le bas.
     if "bienici" in names:
         try:
-            from scrapers.diag_bienici import low_price_tail_md
+            from scrapers.diag_bienici import low_price_tail_md, field_audit_md
             report += "\n\n---\n\n" + low_price_tail_md()
+            report += "\n\n---\n\n" + field_audit_md()
         except Exception as e:
-            logger.warning("low_price_tail_md a échoué : %s", e)
+            logger.warning("diagnostic bienici étendu a échoué : %s", e)
 
     return report, any_fail
 

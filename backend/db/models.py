@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Float, DateTime
+from sqlalchemy import Column, String, Float, Integer, DateTime
 from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime
 
@@ -30,6 +30,10 @@ class Comparable(Base):
     surface_m2 = Column(Float, nullable=False)
     price_total = Column(Float, nullable=False)
     price_m2 = Column(Float, nullable=False)
+
+    # Critères affinés (chantier B) — nullable, taux de remplissage variable
+    dpe = Column(String, nullable=True)               # lettre A-G
+    construction_year = Column(Integer, nullable=True)
 
     # Date de collecte
     collected_at = Column(DateTime, default=datetime.utcnow)
