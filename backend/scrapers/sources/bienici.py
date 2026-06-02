@@ -7,6 +7,7 @@ from scrapers.base import (
     generate_stable_id,
     canonical_city,
     canonical_district,
+    normalize_postal_code,
     _session,
     REQUEST_TIMEOUT,
 )
@@ -110,6 +111,20 @@ def _scalar(value) -> Optional[float]:
     return None
 
 
+def _extract_postal(ad: dict) -> Optional[str]:
+    """Code postal d'une annonce bien'ici. Le nom exact du champ est confirmé par
+    l'audit (scrapers.diag_bienici.field_audit_md) ; on teste les candidats
+    plausibles pour rester robuste, et on retombe sur le bloc district."""
+    for key in ("postalCode", "cityZipCode", "zipCode"):
+        pc = normalize_postal_code(ad.get(key))
+        if pc:
+            return pc
+    district = ad.get("district")
+    if isinstance(district, dict):
+        return normalize_postal_code(district.get("postalCode"))
+    return None
+
+
 def _parse_listing(ad: dict) -> Optional[PropertyListing]:
     # On ne garde que les ventes classiques. L'API renvoie 'buy' pour une
     # vente standard et 'lifeAnnuitySale' pour un viager — qu'on rejette
@@ -134,6 +149,8 @@ def _parse_listing(ad: dict) -> Optional[PropertyListing]:
     district = ad.get("district")
     district_name = district.get("name") if isinstance(district, dict) else None
 
+    postal_code = _extract_postal(ad)
+
     dpe = ad.get("energyClassification")
     dpe = dpe.upper() if isinstance(dpe, str) and dpe.upper() in _VALID_DPE else None
 
@@ -146,6 +163,7 @@ def _parse_listing(ad: dict) -> Optional[PropertyListing]:
             source=SOURCE_NAME,
             city=canonical_city(ad.get("city")),
             district=canonical_district(district_name, ad.get("city")),
+            postal_code=postal_code,
             property_type=property_type,
             surface_m2=surface,
             price_total=price,

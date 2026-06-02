@@ -11,6 +11,7 @@ class PropertyListing:
     surface_m2: float
     price_total: float
     district: Optional[str] = None
+    postal_code: Optional[str] = None      # code postal 5 chiffres, sinon None
     dpe: Optional[str] = None              # lettre A-G, sinon None
     construction_year: Optional[int] = None
 

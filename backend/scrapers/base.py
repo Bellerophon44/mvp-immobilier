@@ -268,6 +268,15 @@ def extract_construction_year(text: str) -> Optional[int]:
     return year if 1600 <= year <= 2100 else None
 
 
+def normalize_postal_code(value: Any) -> Optional[str]:
+    """Code postal français (5 chiffres) extrait d'une valeur quelconque, sinon
+    None. Tolère un libellé ('Metz (57000)', '57000 Metz') ou un nombre."""
+    if value is None:
+        return None
+    m = re.search(r"\b(\d{5})\b", str(value))
+    return m.group(1) if m else None
+
+
 def construction_epoch(year: Optional[int], is_new: bool = False) -> Optional[str]:
     """Époque dérivée (signal), pas stockée : 'neuf' / 'récent' / 'ancien'.
 

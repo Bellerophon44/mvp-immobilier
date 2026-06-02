@@ -35,6 +35,7 @@ SessionLocal = sessionmaker(
 _ADD_COLUMNS = {
     "dpe": "ALTER TABLE comparables ADD COLUMN dpe VARCHAR",
     "construction_year": "ALTER TABLE comparables ADD COLUMN construction_year INTEGER",
+    "postal_code": "ALTER TABLE comparables ADD COLUMN postal_code VARCHAR",
 }
 
 

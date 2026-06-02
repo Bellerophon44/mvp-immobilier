@@ -16,6 +16,7 @@ from ingestion.save import (
     MIN_PRICE_M2,
     MAX_PRICE_M2,
     OUT_OF_SCOPE_CITIES,
+    IN_SCOPE_DEPARTMENT,
 )
 from scrapers.base import canonical_city, canonical_district
 
@@ -78,6 +79,7 @@ class ComparableIn(BaseModel):
     surface_m2: float
     price_total: float
     district: Optional[str] = None
+    postal_code: Optional[str] = None
     dpe: Optional[str] = None
     construction_year: Optional[int] = None
 
@@ -173,7 +175,7 @@ def comparables_maintenance(
     }
 
     db = SessionLocal()
-    purged_band = purged_zone = renamed = renamed_district = 0
+    purged_band = purged_zone = purged_dept = renamed = renamed_district = 0
     try:
         for c in db.query(Comparable).all():
             if c.price_m2 is None or c.price_m2 < MIN_PRICE_M2 or c.price_m2 > MAX_PRICE_M2:
@@ -185,6 +187,14 @@ def comparables_maintenance(
             canon = canonical_city(c.city)
             if canon in out_of_scope:
                 purged_zone += 1
+                if not payload.dry_run:
+                    db.delete(c)
+                continue
+
+            # Code postal connu hors Moselle : purge fiable (les lignes sans
+            # code postal restent couvertes par la blocklist de noms ci-dessus).
+            if c.postal_code and not c.postal_code.startswith(IN_SCOPE_DEPARTMENT):
+                purged_dept += 1
                 if not payload.dry_run:
                     db.delete(c)
                 continue
@@ -210,6 +220,7 @@ def comparables_maintenance(
         "dry_run": payload.dry_run,
         "purged_band": purged_band,
         "purged_zone": purged_zone,
+        "purged_dept": purged_dept,
         "renamed": renamed,
         "renamed_district": renamed_district,
         "total_after": total_after,
