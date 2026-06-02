@@ -125,6 +125,50 @@ def _extract_postal(ad: dict) -> Optional[str]:
     return None
 
 
+def _as_bool(value) -> Optional[bool]:
+    return value if isinstance(value, bool) else None
+
+
+def _as_int(value) -> Optional[int]:
+    if isinstance(value, bool):
+        return None
+    return int(value) if isinstance(value, (int, float)) and value >= 0 else None
+
+
+def _as_float(value) -> Optional[float]:
+    if isinstance(value, bool):
+        return None
+    return float(value) if isinstance(value, (int, float)) and value >= 0 else None
+
+
+def _has_feature(ad: dict, flag_key: str, qty_key: str) -> Optional[bool]:
+    """Présence d'un équipement : flag booléen direct, sinon déduit d'un compteur
+    (>0), sinon None si l'API n'expose ni l'un ni l'autre."""
+    flag = ad.get(flag_key)
+    if isinstance(flag, bool):
+        return flag
+    qty = ad.get(qty_key)
+    if isinstance(qty, (int, float)) and not isinstance(qty, bool):
+        return qty > 0
+    return None
+
+
+def _extract_amenities(ad: dict) -> dict:
+    """Critères affinés (chantier C) exposés par l'API bien'ici. Noms de champs
+    confirmés par l'audit (field_audit_md). Tous nullables : absent -> None."""
+    return {
+        "floor": _as_int(ad.get("floor")),
+        "has_elevator": _as_bool(ad.get("hasElevator")),
+        "has_terrace": _has_feature(ad, "hasTerrace", "terracesQuantity"),
+        "has_balcony": _has_feature(ad, "hasBalcony", "balconyQuantity"),
+        "is_condo": _as_bool(ad.get("isInCondominium")),
+        "condo_fees": _as_float(ad.get("annualCondominiumFees")),
+        "has_cellar": _has_feature(ad, "hasCellar", "cellarsOrUndergroundsQuantity"),
+        "parking": _as_int(ad.get("parkingPlacesQuantity")),
+        "bedrooms": _as_int(ad.get("bedroomsQuantity")),
+    }
+
+
 def _parse_listing(ad: dict) -> Optional[PropertyListing]:
     # On ne garde que les ventes classiques. L'API renvoie 'buy' pour une
     # vente standard et 'lifeAnnuitySale' pour un viager — qu'on rejette
@@ -169,6 +213,7 @@ def _parse_listing(ad: dict) -> Optional[PropertyListing]:
             price_total=price,
             dpe=dpe,
             construction_year=construction_year,
+            **_extract_amenities(ad),
         )
     except (KeyError, TypeError):
         return None

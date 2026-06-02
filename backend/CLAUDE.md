@@ -226,6 +226,8 @@ class Comparable(Base):
     price_m2      = Column(Float, nullable=False)
     dpe                = Column(String, nullable=True)   # lettre A-G (chantier B)
     construction_year  = Column(Integer, nullable=True)  # (chantier B)
+    floor / has_elevator / has_terrace / has_balcony / is_condo /
+    condo_fees / has_cellar / parking / bedrooms         # critères affinés (chantier C)
     collected_at  = Column(DateTime, default=datetime.utcnow)
 ```
 
@@ -244,6 +246,19 @@ class Comparable(Base):
 >
 > **B3 — extraction LLM** : `llm_semantic` extrait aussi `dpe` + `construction_year`
 > de l'annonce analysée (sinon `null`).
+>
+> **Chantier C (critères de confort)** : `floor`, `has_elevator`, `has_terrace`,
+> `has_balcony`, `is_condo`, `condo_fees`, `has_cellar`, `parking`, `bedrooms`
+> (nullable, micro-migration idempotente). Captés par bien'ici (`_extract_amenities`,
+> noms de champs confirmés par `field_audit_md` : `floor` 82 %, `hasElevator` 78 %,
+> `hasTerrace`/`terracesQuantity`, `isInCondominium`, `annualCondominiumFees`...) ;
+> sources HTML → `None`. Surfacés **des deux façons**, sans estimation :
+> 1) **signal factuel** ajouté à l'explication du pilier prix (`_amenity_phrases` :
+>    « 4e étage sans ascenseur, avec terrasse... ») — verdict/score inchangés ;
+> 2) **actions déterministes** (`analysis._amenity_actions`) fusionnées (dédup) aux
+>    listes du LLM : étage élevé sans ascenseur → vérification + levier de négo,
+>    charges de copropriété → à intégrer au budget. `llm_semantic` extrait ces
+>    champs de l'annonce analysée.
 
 État : **5 sources** actives (bienici, benedic, laveine_immo, idemmo,
 immoheytienne) → ~1100+ annonces brutes/run, couverture Moselle élargie et

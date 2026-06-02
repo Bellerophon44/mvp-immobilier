@@ -211,13 +211,42 @@ def interpret_price_positioning(
     return {"verdict": verdict, "explanation": explanation}
 
 
+def _amenity_phrases(attrs: Optional[Dict[str, Any]]) -> List[str]:
+    """Mentions factuelles des critères affinés du bien (chantier C), sans
+    estimation : étage/ascenseur, terrasse, balcon, cave, parking."""
+    if not attrs:
+        return []
+    phrases = []
+    floor = attrs.get("floor")
+    elevator = attrs.get("has_elevator")
+    if isinstance(floor, int):
+        loc = "rez-de-chaussée" if floor == 0 else f"{floor}er étage" if floor == 1 else f"{floor}e étage"
+        if elevator is False and floor >= 2:
+            loc += " sans ascenseur"
+        phrases.append(loc)
+    elif elevator is False:
+        phrases.append("sans ascenseur")
+    if attrs.get("has_terrace"):
+        phrases.append("avec terrasse")
+    if attrs.get("has_balcony"):
+        phrases.append("avec balcon")
+    if attrs.get("has_cellar"):
+        phrases.append("avec cave")
+    parking = attrs.get("parking")
+    if isinstance(parking, int) and parking > 0:
+        phrases.append(f"{parking} place{'s' if parking > 1 else ''} de parking")
+    return phrases
+
+
 def _criteria_signal(
     dpe: Optional[str],
     epoch: Optional[str],
     market_stats: Dict[str, Any],
+    attrs: Optional[Dict[str, Any]] = None,
 ) -> str:
     """Signal explicatif (factuel, sans estimation de prix) : situe le DPE et
-    l'époque du bien par rapport au profil des comparables. Couche 2 : enrichit
+    l'époque du bien par rapport au profil des comparables, et rappelle ses
+    critères affinés (étage, ascenseur, terrasse...). Couche 2 : enrichit
     l'explication, ne touche ni le verdict ni le score."""
     parts = []
     if dpe:
@@ -235,6 +264,7 @@ def _criteria_signal(
     if epoch:
         parts.append({"neuf": "bien neuf", "récent": "construction récente",
                       "ancien": "construction ancienne"}.get(epoch, epoch))
+    parts.extend(_amenity_phrases(attrs))
     if not parts:
         return ""
     return " À pondérer : " + ", ".join(parts) + "."
@@ -267,6 +297,7 @@ def compute_price_market_pillar(
     listing_price_m2: float,
     dpe: Optional[str] = None,
     construction_year: Optional[int] = None,
+    attrs: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Pilier Prix / Marché appelé par analysis.py."""
     market_stats = compute_market_stats(
@@ -294,7 +325,7 @@ def compute_price_market_pillar(
 
     positioning = interpret_price_positioning(listing_price_m2, market_stats)
     epoch = construction_epoch(construction_year)
-    explanation = positioning["explanation"] + _criteria_signal(dpe, epoch, market_stats)
+    explanation = positioning["explanation"] + _criteria_signal(dpe, epoch, market_stats, attrs)
 
     return {
         "verdict": positioning["verdict"],
