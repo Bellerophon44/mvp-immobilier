@@ -105,10 +105,64 @@ def step3_scrape() -> None:
               f"{l.price_total:>10.0f} €  ({pm2:.0f} €/m²)  district={l.district}")
 
 
+def step4_low_tail(zone_ids: list) -> None:
+    """Ausculte la queue basse : biens résidentiels 'buy' qui passent les filtres
+    actuels mais au prix/m² le plus faible. Affiche leurs champs discriminants
+    pour comprendre ce qui tire la médiane Metz vers le bas (parkings/caves/lots
+    déguisés ? studios dégradés ? programmes ?)."""
+    print("\n" + "=" * 70)
+    print("ÉTAPE 4 — Queue basse des biens valides (champs discriminants)")
+    print("-" * 70)
+    if not zone_ids:
+        print("  (pas de zoneIds, on saute)")
+        return
+
+    rows = []
+    for page in range(20):
+        data = fetch_json(ADS_URL, params=_build_filters(zone_ids, page))
+        if not isinstance(data, dict):
+            break
+        ads = data.get("realEstateAds", [])
+        if not ads:
+            break
+        for a in ads:
+            if a.get("adType") != "buy":
+                continue
+            price, surf = a.get("price"), a.get("surfaceArea")
+            if not isinstance(price, (int, float)) or not isinstance(surf, (int, float)):
+                continue
+            if surf <= 0 or price <= 0:
+                continue
+            pm2 = price / surf
+            if pm2 < 800 or pm2 > 12000:
+                continue
+            rows.append((pm2, price, surf, a))
+        if len(ads) < 50:
+            break
+
+    if not rows:
+        print("  (aucun bien)")
+        return
+
+    rows.sort(key=lambda r: r[0])
+    n = len(rows)
+    deciles = [rows[int(n * q / 10)][0] for q in range(1, 10)]
+    print(f"  {n} biens valides. Déciles prix/m² : "
+          + " ".join(f"{d:.0f}" for d in deciles))
+    print("  25 biens les moins chers au m² :")
+    for pm2, price, surf, a in rows[:25]:
+        print(f"    {pm2:6.0f} €/m² | {price:>9.0f} € | {surf:5.0f} m² | "
+              f"type={_safe(a.get('propertyType')):9} "
+              f"pièces={_safe(a.get('roomsQuantity')):3} "
+              f"neuf={_safe(a.get('newProperty')):5} "
+              f"| {_safe(a.get('title'), 48)}")
+
+
 def main() -> None:
     zone_ids = step1_zone()
     step2_raw(zone_ids)
     step3_scrape()
+    step4_low_tail(zone_ids)
     print("\n" + "=" * 70)
     print("Succès attendu : total bas, dépt 57, prix/m² réalistes (~2000-3500).")
 
