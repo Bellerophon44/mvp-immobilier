@@ -120,6 +120,7 @@ def diagnose_sources(only: Optional[str] = None) -> tuple[str, bool]:
         )
 
     blocks, any_fail = [], False
+    scraped: dict[str, list] = {}
     for name in names:
         logger.info("Diagnostic de la source '%s'...", name)
         try:
@@ -129,6 +130,7 @@ def diagnose_sources(only: Optional[str] = None) -> tuple[str, bool]:
             blocks.append(f"### `{name}` — FAIL (exception)\n- `{type(e).__name__}: {e}`\n")
             any_fail = True
             continue
+        scraped[name] = listings
         status, block = build_source_report(name, listings)
         any_fail = any_fail or status == "fail"
         blocks.append(block)
@@ -145,8 +147,45 @@ def diagnose_sources(only: Optional[str] = None) -> tuple[str, bool]:
             report += "\n\n---\n\n" + field_audit_md()
         except Exception as e:
             logger.warning("diagnostic bienici étendu a échoué : %s", e)
+        try:
+            report += "\n\n---\n\n" + sector_depth_md(scraped.get("bienici", []))
+        except Exception as e:
+            logger.warning("mesure profondeur secteur a échoué : %s", e)
 
     return report, any_fail
+
+
+def sector_depth_md(listings: list, surface: float = 70.0,
+                    prop_type: str = "appartement") -> str:
+    """Profondeur de la cascade pour un bien représentatif : combien de
+    comparables chaque quartier / secteur réunit dans la fenêtre type+surface
+    (±20%), face au seuil d'affinage. Révèle pourquoi l'analyse retombe (ou non)
+    au niveau ville. Mesure sur les annonces scrapées (≈ contenu de la base)."""
+    from collections import Counter
+    from app.market_stats import _SECTOR_DISTRICTS, MIN_REFINED_COMPARABLES
+
+    lo, hi = surface * 0.8, surface * 1.2
+    in_win = [l for l in listings
+              if l.property_type == prop_type and l.surface_m2 and lo <= l.surface_m2 <= hi]
+    by_q = Counter(l.district for l in in_win if l.district)
+
+    def flag(c: int) -> str:
+        return "OK" if c >= MIN_REFINED_COMPARABLES else "< seuil"
+
+    lines = [
+        f"## Profondeur quartier/secteur (bienici) — {prop_type} {surface:.0f} m²",
+        f"- fenêtre surface ±20% : {lo:.0f}–{hi:.0f} m² · seuil d'affinage : "
+        f"{MIN_REFINED_COMPARABLES}",
+        f"- {len(in_win)} biens dans la fenêtre (sur {len(listings)} scrapés)",
+        "### Par quartier (dans la fenêtre)",
+    ]
+    for q, c in by_q.most_common():
+        lines.append(f"  - {q} : {c} [{flag(c)}]")
+    lines.append("### Par secteur (somme des quartiers du secteur)")
+    for sec, dists in _SECTOR_DISTRICTS.items():
+        c = sum(by_q.get(d, 0) for d in dists)
+        lines.append(f"  - {sec} : {c} [{flag(c)}]  ({', '.join(dists)})")
+    return "\n".join(lines) + "\n"
 
 
 def _representative_card_html(soup, max_len: int = 3500) -> Optional[str]:
