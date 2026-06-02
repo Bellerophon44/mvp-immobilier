@@ -232,6 +232,8 @@ def main() -> None:
     step3_scrape()
     step4_low_tail(zone_ids)
     print("\n" + "=" * 70)
+    print(field_audit_md())
+    print("\n" + "=" * 70)
     print("Succès attendu : total bas, dépt 57, prix/m² réalistes (~2000-3500).")
 
 
