@@ -25,6 +25,12 @@ OUT_OF_SCOPE_CITIES = {
     "Jarville-La-Malgrange",
 }
 
+# Filtre de périmètre fiable quand le code postal est connu : on ne garde que la
+# Moselle (dépt 57). Complète OUT_OF_SCOPE_CITIES (blocklist de noms), qui reste
+# le seul recours pour les sources sans code postal. N'écarte JAMAIS un bien dont
+# le code postal est absent — sinon on perdrait les sources qui ne l'exposent pas.
+IN_SCOPE_DEPARTMENT = "57"
+
 
 def save_comparables(listings: List[Dict[str, Any]]) -> int:
     """
@@ -63,11 +69,17 @@ def save_comparables(listings: List[Dict[str, Any]]) -> int:
                 rejected_zone += 1
                 continue
 
+            postal_code = ad.get("postal_code")
+            if postal_code and not postal_code.startswith(IN_SCOPE_DEPARTMENT):
+                rejected_zone += 1
+                continue
+
             comparable = Comparable(
                 id=ad["id"],
                 source=ad["source"],
                 city=city,
                 district=ad.get("district"),
+                postal_code=postal_code,
                 property_type=ad["property_type"],
                 surface_m2=surface,
                 price_total=price,

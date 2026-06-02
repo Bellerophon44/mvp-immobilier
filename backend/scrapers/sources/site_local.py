@@ -11,6 +11,7 @@ from scrapers.base import (
     extract_dpe,
     fetch_page,
     generate_stable_id,
+    normalize_postal_code,
     normalize_price,
 )
 from scrapers.models import PropertyListing
@@ -91,11 +92,13 @@ def _parse_card(card) -> Optional[PropertyListing]:
             return None
 
         card_text = card.get_text(" ", strip=True)
+        city_text = city_el.get_text(strip=True)
 
         return PropertyListing(
             id=generate_stable_id(SOURCE_NAME, external_id),
             source=SOURCE_NAME,
-            city=canonical_city(_extract_city(city_el.get_text(strip=True))),
+            city=canonical_city(_extract_city(city_text)),
+            postal_code=normalize_postal_code(city_text),
             property_type=_extract_property_type(title_text),
             surface_m2=surface,
             price_total=price,

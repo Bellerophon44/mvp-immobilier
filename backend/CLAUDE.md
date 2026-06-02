@@ -219,6 +219,7 @@ class Comparable(Base):
     source        = Column(String, nullable=False)    # ex "bienici"
     city          = Column(String, nullable=False)    # normalisé (Casse-Titre)
     district      = Column(String, nullable=True)
+    postal_code   = Column(String, nullable=True)      # code postal 5 chiffres (filtre dépt 57)
     property_type = Column(String, nullable=False)    # "appartement" | "maison"
     surface_m2    = Column(Float, nullable=False)
     price_total   = Column(Float, nullable=False)
@@ -464,17 +465,15 @@ questions, negotiation}`). Le frontend code en dur l'ordre des piliers
   DNS pour valider l'IP réelle, donc partiellement contournable.
 
 ### Pistes d'optimisation / automatisation
-- **Filtre zone par code postal (au lieu d'une blocklist de noms)** : le filtre
-  de périmètre actuel (`OUT_OF_SCOPE_CITIES` dans `ingestion/save.py`) écarte des
-  communes par leur **nom canonique** — fiable seulement pour les communes déjà
-  listées, et impossible de distinguer un dépt 57 d'un 54 sans donnée
-  supplémentaire. Le fix durable : **capter le code postal à la collecte**
-  (ajouter `postal_code` à `PropertyListing` + colonne `Comparable`), puis
-  filtrer sur `postal_code[:2] == "57"` (Moselle). La plupart des sources
-  l'exposent (bienici via l'API ; laveine via "(57530)" déjà présent mais
-  actuellement supprimé par `_extract_city`). Permettrait aussi un futur
-  filtrage par secteur/agglo plus fin. À industrialiser via le harnais de
-  diagnostic habituel.
+- **Filtre zone par code postal** — *implémenté*. `postal_code` (5 chiffres) est
+  capté à la collecte (`PropertyListing` + colonne `Comparable` + micro-migration)
+  par bien'ici (`_extract_postal`, clés candidates + repli district) et laveine
+  (le "(57530)" du libellé ville). À l'ingestion (`ingestion/save.py`,
+  `IN_SCOPE_DEPARTMENT = "57"`) et en maintenance (`purged_dept`), un bien dont le
+  code postal est **connu et hors dépt 57** est écarté ; un bien **sans** code
+  postal est conservé (repli sur la blocklist de noms `OUT_OF_SCOPE_CITIES`).
+  Étendre la capture aux agences HTML (benedic/idemmo/immoheytienne) au besoin ;
+  ouvre la voie à un filtrage par secteur/agglo plus fin.
 
 ---
 

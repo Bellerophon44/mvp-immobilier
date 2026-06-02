@@ -4,6 +4,7 @@ import hashlib
 import logging
 import re
 import unicodedata
+from datetime import datetime
 from typing import Any, Optional
 
 import requests
@@ -267,13 +268,26 @@ def extract_construction_year(text: str) -> Optional[int]:
     return year if 1600 <= year <= 2100 else None
 
 
+def normalize_postal_code(value: Any) -> Optional[str]:
+    """Code postal français (5 chiffres) extrait d'une valeur quelconque, sinon
+    None. Tolère un libellé ('Metz (57000)', '57000 Metz') ou un nombre."""
+    if value is None:
+        return None
+    m = re.search(r"\b(\d{5})\b", str(value))
+    return m.group(1) if m else None
+
+
 def construction_epoch(year: Optional[int], is_new: bool = False) -> Optional[str]:
-    """Époque dérivée (signal), pas stockée : 'neuf' / 'récent' / 'ancien'."""
+    """Époque dérivée (signal), pas stockée : 'neuf' / 'récent' / 'ancien'.
+
+    'neuf' est réservé au vrai neuf : flag source explicite, ou millésime de
+    l'année en cours / précédente (sortie de chantier). Un bien de quelques
+    années est 'récent', pas 'neuf' (sinon le signal décrédibilise l'analyse)."""
     if is_new:
         return "neuf"
     if not year:
         return None
-    if year >= 2015:
+    if year >= datetime.now().year - 1:
         return "neuf"
     if year >= 2000:
         return "récent"

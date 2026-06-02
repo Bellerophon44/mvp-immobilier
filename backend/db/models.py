@@ -22,6 +22,7 @@ class Comparable(Base):
     # Localisation
     city = Column(String, nullable=False)
     district = Column(String, nullable=True)
+    postal_code = Column(String, nullable=True)  # code postal 5 chiffres (filtre dépt)
 
     # Typologie du bien
     property_type = Column(String, nullable=False)

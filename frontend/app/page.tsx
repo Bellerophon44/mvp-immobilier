@@ -10,7 +10,8 @@ import LeversList from "../components/design/LeversList";
 import Wordmark from "../components/design/Wordmark";
 import ScopeBadge from "../components/design/ScopeBadge";
 import Footer from "../components/design/Footer";
-import { Copy } from "../components/design/Icons";
+import { Copy, MapPin } from "../components/design/Icons";
+import { METZ_DISTRICTS } from "../lib/districts";
 
 type AppState = "idle" | "analyzing" | "result";
 
@@ -35,6 +36,14 @@ function riskVerdictToScore(verdict: string): number {
   if (v.includes("faible")) return 25;
   if (v.includes("modéré") || v.includes("modere")) return 15;
   return 5;
+}
+
+function scopeLabel(p: ApiResult["pillars"][number]): string | null {
+  if (!p.scope || !p.scope_name) return null;
+  const base = p.scope === "quartier" ? `Quartier ${p.scope_name}` : p.scope_name;
+  const band = p.dpe_band ? ` · DPE ${p.dpe_band}` : "";
+  const n = p.n_comparables ? ` · ${p.n_comparables} comparables` : "";
+  return `${base}${band}${n}`;
 }
 
 function verdictColor(verdict: string): string {
@@ -126,10 +135,14 @@ export default function HomePage() {
   const [result, setResult] = useState<ApiResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  // Dernière entrée analysée, conservée pour ré-analyser avec un quartier choisi.
+  const [lastInput, setLastInput] = useState<AnalyzerMode | null>(null);
+  const [refining, setRefining] = useState(false);
 
   async function handleAnalyze({ mode, value }: AnalyzerMode) {
     setAppState("analyzing");
     setError(null);
+    setLastInput({ mode, value });
     try {
       const res = await analyzeListing(value, mode);
       setResult(res);
@@ -138,6 +151,22 @@ export default function HomePage() {
       const msg = e instanceof Error ? e.message : "Erreur lors de l'analyse.";
       setError(msg);
       setAppState("idle");
+    }
+  }
+
+  // Ré-analyse à l'échelle d'un quartier précisé par l'utilisateur (#6-A).
+  async function handleRefine(district: string) {
+    if (!lastInput || !district) return;
+    setRefining(true);
+    setError(null);
+    try {
+      const res = await analyzeListing(lastInput.value, lastInput.mode, district);
+      setResult(res);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Erreur lors de l'analyse.";
+      setError(msg);
+    } finally {
+      setRefining(false);
     }
   }
 
@@ -332,7 +361,35 @@ export default function HomePage() {
                 borderRadius: 4,
                 padding: "16px 20px",
               }}>
-                <div className="t-eyebrow" style={{ marginBottom: 8 }}>{pricePillar.label}</div>
+                <div style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 12,
+                  marginBottom: 8,
+                  flexWrap: "wrap",
+                }}>
+                  <div className="t-eyebrow">{pricePillar.label}</div>
+                  {scopeLabel(pricePillar) && (
+                    <span style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                      padding: "4px 9px",
+                      border: "1px solid var(--stone-line)",
+                      borderRadius: 999,
+                      background: "var(--parchment)",
+                      color: "var(--ink-3)",
+                      fontFamily: "var(--font-sans)",
+                      fontSize: 11,
+                      lineHeight: 1,
+                      fontWeight: 500,
+                    }}>
+                      <MapPin size={12} style={{ color: "var(--stone)" }} />
+                      {scopeLabel(pricePillar)}
+                    </span>
+                  )}
+                </div>
                 <div style={{
                   fontFamily: "var(--font-sans)",
                   fontSize: 14,
@@ -341,6 +398,50 @@ export default function HomePage() {
                 }}>
                   {pricePillar.explanation}
                 </div>
+
+                {/* Affinage par quartier quand l'analyse est restée au niveau ville */}
+                {pricePillar.refinable && (
+                  <div style={{
+                    marginTop: 14,
+                    paddingTop: 14,
+                    borderTop: "1px solid var(--stone-line)",
+                  }}>
+                    <label style={{
+                      display: "block",
+                      fontFamily: "var(--font-sans)",
+                      fontSize: 13,
+                      color: "var(--ink-2)",
+                      lineHeight: 1.5,
+                      marginBottom: 8,
+                    }}>
+                      Pour une analyse plus précise, dans quel quartier se situe ce bien ?
+                    </label>
+                    <select
+                      defaultValue=""
+                      disabled={refining}
+                      onChange={(e) => handleRefine(e.target.value)}
+                      style={{
+                        width: "100%",
+                        maxWidth: 320,
+                        padding: "9px 12px",
+                        background: "var(--parchment)",
+                        border: "1px solid var(--stone-line)",
+                        borderRadius: 4,
+                        fontFamily: "var(--font-sans)",
+                        fontSize: 14,
+                        color: "var(--ink)",
+                        cursor: refining ? "wait" : "pointer",
+                      }}
+                    >
+                      <option value="" disabled>
+                        {refining ? "Analyse en cours…" : "Choisir un quartier…"}
+                      </option>
+                      {METZ_DISTRICTS.map((d) => (
+                        <option key={d} value={d}>{d}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
             )}
 
