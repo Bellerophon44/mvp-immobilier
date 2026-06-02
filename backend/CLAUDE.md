@@ -438,6 +438,19 @@ questions, negotiation}`). Le frontend code en dur l'ordre des piliers
   localhost / IP privées RFC1918 / scheme non http(s)). Ne résout pas le
   DNS pour valider l'IP réelle, donc partiellement contournable.
 
+### Pistes d'optimisation / automatisation
+- **Filtre zone par code postal (au lieu d'une blocklist de noms)** : le filtre
+  de périmètre actuel (`OUT_OF_SCOPE_CITIES` dans `ingestion/save.py`) écarte des
+  communes par leur **nom canonique** — fiable seulement pour les communes déjà
+  listées, et impossible de distinguer un dépt 57 d'un 54 sans donnée
+  supplémentaire. Le fix durable : **capter le code postal à la collecte**
+  (ajouter `postal_code` à `PropertyListing` + colonne `Comparable`), puis
+  filtrer sur `postal_code[:2] == "57"` (Moselle). La plupart des sources
+  l'exposent (bienici via l'API ; laveine via "(57530)" déjà présent mais
+  actuellement supprimé par `_extract_city`). Permettrait aussi un futur
+  filtrage par secteur/agglo plus fin. À industrialiser via le harnais de
+  diagnostic habituel.
+
 ---
 
 ## 12. Conventions de code
