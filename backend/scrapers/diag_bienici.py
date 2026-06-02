@@ -20,6 +20,7 @@ from collections import Counter
 from scrapers.base import fetch_json
 from scrapers.sources.bienici import (
     ADS_URL,
+    PAGE_SIZE,
     discover_zone_ids,
     _build_filters,
     BieniciScraper,
