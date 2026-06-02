@@ -141,10 +141,12 @@ export default function HomePage() {
   // Dernière entrée analysée, conservée pour ré-analyser avec un quartier choisi.
   const [lastInput, setLastInput] = useState<AnalyzerMode | null>(null);
   const [refining, setRefining] = useState(false);
+  const [selectedDistrict, setSelectedDistrict] = useState("");
 
   async function handleAnalyze({ mode, value }: AnalyzerMode) {
     setAppState("analyzing");
     setError(null);
+    setSelectedDistrict("");
     setLastInput({ mode, value });
     try {
       const res = await analyzeListing(value, mode);
@@ -159,6 +161,7 @@ export default function HomePage() {
 
   // Ré-analyse à l'échelle d'un quartier précisé par l'utilisateur (#6-A).
   async function handleRefine(district: string) {
+    setSelectedDistrict(district);
     if (!lastInput || !district) return;
     setRefining(true);
     setError(null);
@@ -175,6 +178,8 @@ export default function HomePage() {
 
   function handleReset() {
     setResult(null);
+    setError(null);
+    setSelectedDistrict("");
     setAppState("idle");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -420,7 +425,7 @@ export default function HomePage() {
                       Pour une analyse plus précise, dans quel quartier se situe ce bien ?
                     </label>
                     <select
-                      defaultValue=""
+                      value={selectedDistrict}
                       disabled={refining}
                       onChange={(e) => handleRefine(e.target.value)}
                       style={{
@@ -436,13 +441,45 @@ export default function HomePage() {
                         cursor: refining ? "wait" : "pointer",
                       }}
                     >
-                      <option value="" disabled>
-                        {refining ? "Analyse en cours…" : "Choisir un quartier…"}
-                      </option>
+                      <option value="" disabled>Choisir un quartier…</option>
                       {METZ_DISTRICTS.map((d) => (
                         <option key={d} value={d}>{d}</option>
                       ))}
                     </select>
+
+                    {/* Retour visuel : la ré-analyse peut être lente (réveil du backend) */}
+                    {refining && (
+                      <div style={{
+                        marginTop: 10,
+                        fontFamily: "var(--font-sans)",
+                        fontSize: 13,
+                        fontStyle: "italic",
+                        color: "var(--ink-3)",
+                      }}>
+                        Analyse du quartier {selectedDistrict} en cours…
+                      </div>
+                    )}
+                    {!refining && error && (
+                      <div style={{
+                        marginTop: 10,
+                        fontFamily: "var(--font-sans)",
+                        fontSize: 13,
+                        color: "var(--brick-deep)",
+                      }}>
+                        {error}
+                      </div>
+                    )}
+                    {!refining && !error && selectedDistrict && (
+                      <div style={{
+                        marginTop: 10,
+                        fontFamily: "var(--font-sans)",
+                        fontSize: 13,
+                        color: "var(--ink-3)",
+                      }}>
+                        Trop peu de comparables dans {selectedDistrict} pour affiner —
+                        analyse maintenue à l&apos;échelle de la ville.
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
