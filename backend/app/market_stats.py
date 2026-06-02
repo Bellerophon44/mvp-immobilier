@@ -44,7 +44,7 @@ _SECTORS_RAW = {
     "Sablon": ["Sablon"],
     "Plantières-Queuleu": ["Plantières - Queuleu", "Queuleu", "Plantières"],
     "Magny": ["Magny"],
-    "Borny": ["Borny"],
+    "Borny": ["Borny", "Technopôle", "Grange-aux-Bois"],
     "Bellecroix - Vallières": ["Bellecroix", "Vallières-lès-Bordes", "Vallières"],
     "Centre Ville": ["Centre-Ville", "Ancienne-Ville", "Nouvelle Ville", "Les Îles", "Outre-Seille"],
 }
