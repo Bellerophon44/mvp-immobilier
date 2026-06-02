@@ -34,13 +34,19 @@ MIN_PROFILE = 5      # mini pour calculer un profil DPE/année de pool fiable
 # via canonical_district au chargement pour matcher les valeurs stockées (y
 # compris les formes composées de bien'ici, ex. 'Plantières - Queuleu').
 _SECTORS_RAW = {
-    # Libellés réels en base (confirmés par le diagnostic « quartiers distincts »)
-    # + formes mono proposées par le sélecteur front, pour que les deux chemins
-    # (district stocké et quartier choisi) tombent dans le bon secteur.
-    "Centre": ["Centre-Ville", "Ancienne-Ville", "Nouvelle Ville", "Les Îles", "Outre-Seille"],
-    "Sud": ["Sablon", "Plantières - Queuleu", "Queuleu", "Plantières", "Magny"],
-    "Est": ["Borny", "Bellecroix", "Vallières-lès-Bordes", "Vallières", "Grange-aux-Bois", "Technopôle"],
-    "Nord": ["Devant-les-Ponts", "Patrotte-Metz-Nord", "La Patrotte"],
+    # Découpage validé manuellement. Plusieurs secteurs ne contiennent qu'un seul
+    # quartier (volume déjà suffisant) : la cascade n'y gagne rien mais le secteur
+    # documente l'intention. Les regroupements utiles : Bellecroix+Vallières et
+    # les 4 quartiers du centre. Les formes mono (sélecteur front) sont rattachées
+    # à leur quartier réel pour que le choix utilisateur tombe sur le bon pool.
+    "Devant-les-Ponts": ["Devant-les-Ponts"],
+    "Patrotte-Metz-Nord": ["Patrotte-Metz-Nord", "La Patrotte"],
+    "Sablon": ["Sablon"],
+    "Plantières-Queuleu": ["Plantières - Queuleu", "Queuleu", "Plantières"],
+    "Magny": ["Magny"],
+    "Borny": ["Borny"],
+    "Bellecroix - Vallières": ["Bellecroix", "Vallières-lès-Bordes", "Vallières"],
+    "Centre Ville": ["Centre-Ville", "Ancienne-Ville", "Nouvelle Ville", "Les Îles", "Outre-Seille"],
 }
 
 
