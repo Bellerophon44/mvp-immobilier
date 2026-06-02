@@ -97,6 +97,7 @@ def compute_market_stats(
         surface_min=surface_min,
         surface_max=surface_max,
     )
+    used_district = bool(district)
     logger.info(
         "market_stats query: city=%r district=%r type=%r surface=[%.0f-%.0f] -> %d comparables",
         city, district, property_type, surface_min, surface_max, len(comparables),
@@ -112,6 +113,7 @@ def compute_market_stats(
             surface_min=surface_min,
             surface_max=surface_max,
         )
+        used_district = False
         logger.info(
             "market_stats fallback ville (district < %d): %d comparables",
             MIN_DISTRICT_COMPARABLES, len(comparables),
@@ -133,7 +135,9 @@ def compute_market_stats(
         "median": median,
         "q1": q1,
         "q3": q3,
-        "dispersion": dispersion
+        "dispersion": dispersion,
+        "scope": "quartier" if used_district else "ville",
+        "scope_name": district if used_district else city,
     }
 
 
@@ -158,34 +162,41 @@ def interpret_price_positioning(
     iqr = max(q3 - q1, 0.0)
     upper_fence = q3 + 1.5 * iqr  # clôture haute de Tukey
 
+    # Périmètre réellement utilisé (quartier précis ou ville), explicité pour
+    # que l'utilisateur sache à quoi le bien est comparé.
+    scope = market_stats.get("scope", "ville")
+    scope_name = market_stats.get("scope_name") or "ce marché local"
+    if scope == "quartier":
+        ctx = f"Dans le quartier {scope_name}"
+    else:
+        ctx = f"À l'échelle de {scope_name}"
+
     def _r(v: float) -> int:
         return int(round(v))
 
     if listing_price_m2 <= q1:
         verdict = "Sous‑positionné"
         explanation = (
-            f"Le prix au m² est sous la fourchette courante observée "
+            f"{ctx}, le prix au m² est sous la fourchette courante observée "
             f"({_r(q1)}–{_r(q3)} €/m²) pour des biens comparables. À vérifier : "
             "état, étage, travaux ou particularité qui le justifierait."
         )
     elif listing_price_m2 <= q3:
         verdict = "Plutôt aligné"
         explanation = (
-            f"Le prix au m² se situe dans la fourchette courante observée "
-            f"({_r(q1)}–{_r(q3)} €/m²) pour des biens comparables sur ce "
-            "marché local."
+            f"{ctx}, le prix au m² se situe dans la fourchette courante observée "
+            f"({_r(q1)}–{_r(q3)} €/m²) pour des biens comparables."
         )
     elif listing_price_m2 <= upper_fence:
         verdict = "Légèrement sur‑positionné"
         explanation = (
-            f"Le prix au m² dépasse la fourchette courante (au‑delà de "
-            f"{_r(q3)} €/m²) mais reste dans les niveaux hauts déjà constatés "
-            "localement."
+            f"{ctx}, le prix au m² dépasse la fourchette courante (au‑delà de "
+            f"{_r(q3)} €/m²) mais reste dans les niveaux hauts déjà constatés."
         )
     else:
         verdict = "Fortement sur‑positionné"
         explanation = (
-            f"Le prix au m² dépasse nettement les niveaux observés "
+            f"{ctx}, le prix au m² dépasse nettement les niveaux observés "
             f"(au‑delà de {_r(upper_fence)} €/m²) pour des biens similaires."
         )
 
