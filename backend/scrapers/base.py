@@ -210,6 +210,27 @@ def canonical_city(raw: Optional[str]) -> Optional[str]:
     return "-".join(s.capitalize() for s in segments)
 
 
+def canonical_district(raw: Optional[str], city: Optional[str] = None) -> Optional[str]:
+    """
+    Forme canonique d'un quartier, partagée par les sources et la requête
+    d'analyse, pour comparer un bien aux comparables du même quartier.
+
+    Gère le préfixe ville des libellés Bien'ici : 'Metz - Bellecroix' ->
+    'Bellecroix' ; 'Metz - Plantières - Queuleu' -> 'Plantieres-Queuleu' ;
+    'Metz' seul (pas de quartier) -> None. Réutilise canonical_city pour
+    l'uniformisation accents/séparateurs/casse.
+    """
+    if not raw:
+        return None
+    parts = [p.strip() for p in str(raw).split(" - ") if p.strip()]
+    # Retire un préfixe ville (1er segment) s'il correspond à la ville.
+    if city and parts and canonical_city(parts[0]) == canonical_city(city):
+        parts = parts[1:]
+    if not parts:
+        return None
+    return canonical_city(" - ".join(parts))
+
+
 def infer_property_type(text: str) -> str:
     """Déduction simple du type de bien depuis un texte libre."""
     t = (text or "").lower()

@@ -17,7 +17,7 @@ from ingestion.save import (
     MAX_PRICE_M2,
     OUT_OF_SCOPE_CITIES,
 )
-from scrapers.base import canonical_city
+from scrapers.base import canonical_city, canonical_district
 
 
 logging.basicConfig(level=logging.INFO, force=True)
@@ -171,7 +171,7 @@ def comparables_maintenance(
     }
 
     db = SessionLocal()
-    purged_band = purged_zone = renamed = 0
+    purged_band = purged_zone = renamed = renamed_district = 0
     try:
         for c in db.query(Comparable).all():
             if c.price_m2 is None or c.price_m2 < MIN_PRICE_M2 or c.price_m2 > MAX_PRICE_M2:
@@ -192,6 +192,12 @@ def comparables_maintenance(
                 if not payload.dry_run:
                     c.city = canon
 
+            canon_d = canonical_district(c.district, canon)
+            if canon_d != c.district:
+                renamed_district += 1
+                if not payload.dry_run:
+                    c.district = canon_d
+
         if not payload.dry_run:
             db.commit()
         total_after = db.query(Comparable).count()
@@ -203,6 +209,7 @@ def comparables_maintenance(
         "purged_band": purged_band,
         "purged_zone": purged_zone,
         "renamed": renamed,
+        "renamed_district": renamed_district,
         "total_after": total_after,
     }
     logger.info("ADMIN maintenance: %s", result)

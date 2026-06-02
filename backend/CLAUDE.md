@@ -313,6 +313,12 @@ HTTP 403), century21, orpi (rendu JS-only, pas de prix dans le HTML serveur).
   capitalise par segment → 'Montigny-lès-Metz', 'Montigny Les Metz' et
   'MONTIGNY-LES-METZ' deviennent tous 'Montigny-Les-Metz'. Indispensable pour que
   les comparables d'une même commune issus d'agences différentes s'agrègent.
+- `canonical_district` : idem pour les quartiers. Retire le préfixe ville des
+  libellés Bien'ici ('Metz - Bellecroix' -> 'Bellecroix', 'Metz' seul -> None) et
+  normalise. Appliqué côté stock (Bien'ici) ET requête (`market_stats`) pour
+  comparer un bien aux comparables du **même quartier**. Les quartiers composés
+  ('Plantières - Queuleu') ne matchent pas un mono-quartier extrait du texte
+  ('Queuleu') -> repli ville (limite connue).
 
 ### Outils dev (pas en prod)
 - `scrapers/recon.py` : exécution locale pour ausculter une URL d'agence
@@ -372,7 +378,8 @@ en ancien format) persistent. Cet endpoint les assainit en base :
 - **purge** les communes hors périmètre (`OUT_OF_SCOPE_CITIES`, dépt 54 /
   agglo nancéienne — `purged_zone`) ; `extra_out_of_scope: [...]` ajoute des
   villes ponctuelles ;
-- **ré-applique `canonical_city`** aux villes existantes (`renamed`).
+- **ré-applique `canonical_city`** aux villes existantes (`renamed`) et
+  `canonical_district` aux quartiers existants (`renamed_district`).
 
 `dry_run` est **true par défaut** (simulation, ne supprime rien) ; passer
 `{"dry_run": false}` pour appliquer. Renvoie les compteurs + `total_after`.

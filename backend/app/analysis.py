@@ -4,12 +4,15 @@ from typing import Any, Dict
 from app.llm_semantic import analyze_semantic
 from app.market_stats import compute_price_market_pillar
 from app.scoring import compute_global_score
+from scrapers.base import extract_district
 
 
 logger = logging.getLogger("analysis")
 
 
-def _price_pillar_from_listing(listing: Dict[str, Any]) -> Dict[str, Any]:
+def _price_pillar_from_listing(
+    listing: Dict[str, Any], raw_text: str = ""
+) -> Dict[str, Any]:
     """Construit le pilier prix/marché à partir des données extraites par le LLM.
 
     Renvoie un pilier "Indéterminé" si l'extraction est insuffisante.
@@ -31,9 +34,14 @@ def _price_pillar_from_listing(listing: Dict[str, Any]) -> Dict[str, Any]:
 
     listing_price_m2 = price_total / surface
 
+    # Quartier : priorité à l'extraction LLM ; sinon repli sur les localités
+    # connues du Grand Metz détectées dans le texte (augmente le taux de
+    # comparaison au niveau quartier).
+    district = listing.get("district") or extract_district(raw_text)
+
     return compute_price_market_pillar(
         city=city,
-        district=listing.get("district"),
+        district=district,
         property_type=property_type,
         surface_m2=surface,
         listing_price_m2=listing_price_m2,
@@ -44,7 +52,7 @@ def run_full_analysis(raw_text: str) -> dict:
     semantic_result = analyze_semantic(raw_text)
     listing = semantic_result.get("listing") or {}
     logger.info("LLM extracted listing: %s", listing)
-    price_market_pillar = _price_pillar_from_listing(listing)
+    price_market_pillar = _price_pillar_from_listing(listing, raw_text)
 
     pillars = [
         {
