@@ -4,6 +4,7 @@ import hashlib
 import logging
 import re
 import unicodedata
+from datetime import datetime
 from typing import Any, Optional
 
 import requests
@@ -268,12 +269,16 @@ def extract_construction_year(text: str) -> Optional[int]:
 
 
 def construction_epoch(year: Optional[int], is_new: bool = False) -> Optional[str]:
-    """Époque dérivée (signal), pas stockée : 'neuf' / 'récent' / 'ancien'."""
+    """Époque dérivée (signal), pas stockée : 'neuf' / 'récent' / 'ancien'.
+
+    'neuf' est réservé au vrai neuf : flag source explicite, ou millésime de
+    l'année en cours / précédente (sortie de chantier). Un bien de quelques
+    années est 'récent', pas 'neuf' (sinon le signal décrédibilise l'analyse)."""
     if is_new:
         return "neuf"
     if not year:
         return None
-    if year >= 2015:
+    if year >= datetime.now().year - 1:
         return "neuf"
     if year >= 2000:
         return "récent"
