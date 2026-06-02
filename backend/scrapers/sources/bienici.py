@@ -6,6 +6,7 @@ from scrapers.base import (
     fetch_json,
     generate_stable_id,
     canonical_city,
+    canonical_district,
     _session,
     REQUEST_TIMEOUT,
 )
@@ -136,7 +137,7 @@ def _parse_listing(ad: dict) -> Optional[PropertyListing]:
             id=generate_stable_id(SOURCE_NAME, str(ad["id"])),
             source=SOURCE_NAME,
             city=canonical_city(ad.get("city")),
-            district=district_name,
+            district=canonical_district(district_name, ad.get("city")),
             property_type=property_type,
             surface_m2=surface,
             price_total=price,
