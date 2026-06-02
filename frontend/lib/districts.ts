@@ -6,7 +6,9 @@
 // exclues — on demande ici "le quartier de Metz", pas la commune.
 export const METZ_DISTRICTS: string[] = [
   "Centre-Ville",
+  "Ancienne Ville",
   "Nouvelle Ville",
+  "Les Îles",
   "Sablon",
   "Queuleu",
   "Plantières",

@@ -27,6 +27,48 @@ MIN_COMPARABLES = 3  # plancher absolu (niveau ville)
 MIN_PROFILE = 5      # mini pour calculer un profil DPE/année de pool fiable
 
 
+# Secteurs de Metz : regroupements de quartiers adjacents. Quand un quartier est
+# trop creux pour des quartiles fiables, on emprunte aux quartiers voisins du
+# même secteur AVANT de retomber sur toute la ville — toujours 100% comparables
+# observés, jamais d'estimation. Les libellés bruts ci-dessous sont normalisés
+# via canonical_district au chargement pour matcher les valeurs stockées (y
+# compris les formes composées de bien'ici, ex. 'Plantières - Queuleu').
+_SECTORS_RAW = {
+    # Découpage validé manuellement. Plusieurs secteurs ne contiennent qu'un seul
+    # quartier (volume déjà suffisant) : la cascade n'y gagne rien mais le secteur
+    # documente l'intention. Les regroupements utiles : Bellecroix+Vallières et
+    # les 4 quartiers du centre. Les formes mono (sélecteur front) sont rattachées
+    # à leur quartier réel pour que le choix utilisateur tombe sur le bon pool.
+    "Devant-les-Ponts": ["Devant-les-Ponts"],
+    "Patrotte-Metz-Nord": ["Patrotte-Metz-Nord", "La Patrotte"],
+    "Sablon": ["Sablon"],
+    "Plantières-Queuleu": ["Plantières - Queuleu", "Queuleu", "Plantières"],
+    "Magny": ["Magny"],
+    "Borny": ["Borny", "Technopôle", "Grange-aux-Bois"],
+    "Bellecroix - Vallières": ["Bellecroix", "Vallières-lès-Bordes", "Vallières"],
+    "Centre Ville": ["Centre-Ville", "Ancienne-Ville", "Nouvelle Ville", "Les Îles", "Outre-Seille"],
+}
+
+
+def _build_sector_maps():
+    """Construit, à partir de _SECTORS_RAW, le mapping quartier_canonique ->
+    secteur et secteur -> liste de quartiers canoniques (pour le filtre SQL)."""
+    district_to_sector: Dict[str, str] = {}
+    sector_districts: Dict[str, List[str]] = {}
+    for sector, quartiers in _SECTORS_RAW.items():
+        canon = []
+        for q in quartiers:
+            cq = canonical_district(q, "Metz")
+            if cq and cq not in canon:
+                canon.append(cq)
+                district_to_sector[cq] = sector
+        sector_districts[sector] = canon
+    return district_to_sector, sector_districts
+
+
+_DISTRICT_TO_SECTOR, _SECTOR_DISTRICTS = _build_sector_maps()
+
+
 # ============================
 # Fonctions statistiques simples
 # ============================
@@ -50,8 +92,12 @@ def _fetch_comparables(
     surface_min: float,
     surface_max: float,
     dpe_letters: Optional[set] = None,
+    districts: Optional[List[str]] = None,
 ):
-    """Récupère les comparables selon des critères simples et explicables."""
+    """Récupère les comparables selon des critères simples et explicables.
+
+    `districts` (liste) filtre sur un ensemble de quartiers — utilisé pour le
+    périmètre secteur ; `district` (str) filtre sur un seul quartier."""
     db = SessionLocal()
     try:
         query = db.query(Comparable).filter(
@@ -60,7 +106,9 @@ def _fetch_comparables(
             Comparable.surface_m2 >= surface_min,
             Comparable.surface_m2 <= surface_max,
         )
-        if district:
+        if districts:
+            query = query.filter(Comparable.district.in_(districts))
+        elif district:
             query = query.filter(Comparable.district == district)
         if dpe_letters:
             query = query.filter(Comparable.dpe.in_(list(dpe_letters)))
@@ -93,42 +141,51 @@ def compute_market_stats(
     """
     Statistiques du marché local observable, via une cascade qui retient le
     périmètre le plus précis encore suffisamment peuplé :
-      quartier+DPE -> quartier -> ville+DPE -> ville.
-    Retourne None si même la ville n'a pas assez de comparables.
+      quartier+DPE -> quartier -> secteur+DPE -> secteur -> ville+DPE -> ville.
+    Le secteur (quartiers voisins) comble les quartiers creux sans diluer
+    jusqu'à toute la ville. Retourne None si même la ville est trop pauvre.
     """
     city = canonical_city(city)
     district = canonical_district(district, city)
     band = dpe_band(dpe)
     band_letters = DPE_BANDS.get(band) if band else None
 
+    sector = _DISTRICT_TO_SECTOR.get(district) if district else None
+    sector_districts = _SECTOR_DISTRICTS.get(sector) if sector else None
+
     surface_min = surface_m2 * 0.8
     surface_max = surface_m2 * 1.2
 
     # Niveaux candidats, du plus précis au plus large.
+    # Chaque candidat : (scope, scope_name, district, districts, band).
     candidates = []
     if district and band_letters:
-        candidates.append(("quartier", district, band))
+        candidates.append(("quartier", district, district, None, band))
     if district:
-        candidates.append(("quartier", district, None))
+        candidates.append(("quartier", district, district, None, None))
+    if sector_districts and band_letters:
+        candidates.append(("secteur", sector, None, sector_districts, band))
+    if sector_districts:
+        candidates.append(("secteur", sector, None, sector_districts, None))
     if band_letters:
-        candidates.append(("ville", None, band))
-    candidates.append(("ville", None, None))  # base
+        candidates.append(("ville", city, None, None, band))
+    candidates.append(("ville", city, None, None, None))  # base
 
     chosen = None
-    for scope, dist, b in candidates:
+    for scope, name, dist, dists, b in candidates:
         comparables = _fetch_comparables(
             city, dist, property_type, surface_min, surface_max,
-            DPE_BANDS.get(b) if b else None,
+            DPE_BANDS.get(b) if b else None, districts=dists,
         )
         is_base = (scope == "ville" and b is None)
         if is_base or len(comparables) >= MIN_REFINED_COMPARABLES:
-            chosen = (scope, dist, b, comparables)
+            chosen = (scope, name, b, comparables)
             break
 
-    scope, dist, b, comparables = chosen
+    scope, scope_name, b, comparables = chosen
     logger.info(
-        "market_stats: scope=%s district=%r dpe_band=%r -> %d comparables",
-        scope, dist, b, len(comparables),
+        "market_stats: scope=%s name=%r dpe_band=%r -> %d comparables",
+        scope, scope_name, b, len(comparables),
     )
 
     if len(comparables) < MIN_COMPARABLES:
@@ -146,7 +203,7 @@ def compute_market_stats(
         "q3": q3,
         "dispersion": q3 - q1,
         "scope": scope,
-        "scope_name": dist if scope == "quartier" else city,
+        "scope_name": scope_name,
         "dpe_band": b,
         **_pool_profile(comparables),
     }
@@ -159,7 +216,12 @@ def compute_market_stats(
 def _scope_context(market_stats: Dict[str, Any]) -> str:
     scope = market_stats.get("scope", "ville")
     name = market_stats.get("scope_name") or "ce marché local"
-    base = f"Dans le quartier {name}" if scope == "quartier" else f"À l'échelle de {name}"
+    if scope == "quartier":
+        base = f"Dans le quartier {name}"
+    elif scope == "secteur":
+        base = f"Dans le secteur {name} (quartiers voisins)"
+    else:
+        base = f"À l'échelle de {name}"
     if market_stats.get("dpe_band"):
         base += f" (DPE {market_stats['dpe_band']})"
     return base

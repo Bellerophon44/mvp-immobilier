@@ -3,7 +3,7 @@ export interface ApiPillar {
   verdict: string;
   explanation: string;
   // Périmètre structuré du pilier prix (les autres piliers ne les renseignent pas).
-  scope?: "quartier" | "ville" | null;
+  scope?: "quartier" | "secteur" | "ville" | null;
   scope_name?: string | null;
   dpe_band?: string | null;
   n_comparables?: number | null;
