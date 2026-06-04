@@ -330,6 +330,12 @@ class Comparable(Base):
 - Tests pytest sur `analysis.py`, `scoring.py`, `url_fetch.py` (au moins golden path)
 - Migration `@app.on_event` → `lifespan`
 - Monitoring : Sentry pour erreurs, Logflare/Axiom pour logs structurés
+- **Monitoring qualité IA (9.3) — différé** : à très faible trafic, un fallback
+  LLM est à peine observable. Pour l'instant, seul un **test de régression**
+  verrouille le marqueur loggable `LLM call failed`
+  (`backend/tests/test_llm_fallback.py`). Brancher une vraie alerte (compteur
+  persisté SQLite + cron GitHub Actions → issue/Slack) **quand le trafic
+  décollera**. Détail : `docs/specs/9.3-ANALYSE.md` / `9.3-SPEC.md`.
 - Cache LLM persistant (Redis Fly ou table SQLite)
 - Rate limiting sur `/analyze` (anti-abus)
 - Robots.txt côté frontend
