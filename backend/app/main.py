@@ -1,7 +1,7 @@
 import hmac
 import logging
 import os
-from typing import Optional, Dict, List
+from typing import Any, Optional, Dict, List
 
 from fastapi import FastAPI, HTTPException, Header, Body
 from fastapi.middleware.cors import CORSMiddleware
@@ -57,6 +57,9 @@ class AnalyzeRequest(BaseModel):
     # Quartier choisi par l'utilisateur (sélecteur front) pour affiner une
     # analyse restée au niveau ville. Optionnel ; prime sur l'extraction.
     district: Optional[str] = None
+    # Adresse saisie par l'utilisateur (alternative manuelle au géocodage de la
+    # couche C) : affine le feedback local (quartier déduit, adresse affichée).
+    address: Optional[str] = None
 
 
 class AnalyzeResponse(BaseModel):
@@ -65,6 +68,9 @@ class AnalyzeResponse(BaseModel):
     confidence: str
     pillars: list
     actions: Dict[str, list]
+    # Bloc "Contexte local" non-scoré (couche A "Ancrage local"). None si le
+    # quartier n'est pas reconnu.
+    local_context: Optional[Dict[str, Any]] = None
 
 
 # ---------------------------------------------------------------------------
@@ -277,7 +283,11 @@ def analyze(payload: AnalyzeRequest):
         raw_content = fetched
 
     try:
-        return run_full_analysis(raw_content, district_override=payload.district or "")
+        return run_full_analysis(
+            raw_content,
+            district_override=payload.district or "",
+            address=payload.address or "",
+        )
     except Exception as e:
         raise HTTPException(
             status_code=500,
