@@ -69,3 +69,13 @@ export function Copy(p: IconProps) {
     </Icon>
   );
 }
+
+export function Download(p: IconProps) {
+  return (
+    <Icon {...p}>
+      <path d="M12 4 V15" />
+      <path d="M8 11 L12 15 L16 11" />
+      <path d="M5 19 H19" />
+    </Icon>
+  );
+}
