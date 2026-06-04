@@ -11,7 +11,7 @@ import Wordmark from "../components/design/Wordmark";
 import ScopeBadge from "../components/design/ScopeBadge";
 import Footer from "../components/design/Footer";
 import FeedbackForm from "../components/design/FeedbackForm";
-import { Copy, MapPin } from "../components/design/Icons";
+import { Copy, Download, MapPin } from "../components/design/Icons";
 import { METZ_DISTRICTS } from "../lib/districts";
 
 type AppState = "idle" | "analyzing" | "result";
@@ -369,8 +369,8 @@ export default function HomePage() {
     });
   }
 
-  function handleCopy() {
-    if (!result) return;
+  function buildReportText(): string {
+    if (!result) return "";
     const lc = result.local_context;
     const lines = [
       `Score de cohérence : ${result.global_score} / 100`,
@@ -403,10 +403,29 @@ export default function HomePage() {
       "Leviers de négociation :",
       ...result.actions.negotiation.map((n) => `- ${n}`),
     ];
-    navigator.clipboard.writeText(lines.join("\n")).then(() => {
+    return lines.join("\n");
+  }
+
+  function handleCopy() {
+    if (!result) return;
+    navigator.clipboard.writeText(buildReportText()).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     });
+  }
+
+  function handleDownload() {
+    if (!result) return;
+    const blob = new Blob([buildReportText()], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const stamp = new Date().toISOString().slice(0, 10);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `analyse-cohérence-${stamp}.md`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
   }
 
   const pricePillar        = result?.pillars[0];
@@ -534,6 +553,23 @@ export default function HomePage() {
               }}>
                 <Copy size={14} />
                 {copied ? "Rapport copié" : "Copier le rapport"}
+              </button>
+              <button onClick={handleDownload} aria-label="Télécharger le rapport en .md" style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "9px 14px",
+                background: "var(--paper)",
+                border: "1px solid var(--stone-line)",
+                borderRadius: 4,
+                color: "var(--ink)",
+                fontFamily: "var(--font-sans)",
+                fontSize: 13,
+                fontWeight: 500,
+                cursor: "pointer",
+              }}>
+                <Download size={14} />
+                Télécharger (.md)
               </button>
             </div>
 
