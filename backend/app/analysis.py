@@ -3,7 +3,7 @@ from typing import Any, Dict
 
 from app.llm_semantic import analyze_semantic
 from app.market_stats import compute_price_market_pillar
-from app.metz_local import local_context
+from app.metz_local import assess_claims, local_context
 from app.scoring import compute_global_score
 from scrapers.base import extract_district
 
@@ -12,7 +12,8 @@ logger = logging.getLogger("analysis")
 
 
 def _price_pillar_from_listing(
-    listing: Dict[str, Any], raw_text: str = "", district_override: str = ""
+    listing: Dict[str, Any], raw_text: str = "", district_override: str = "",
+    address: str = "",
 ) -> Dict[str, Any]:
     """Construit le pilier prix/marché à partir des données extraites par le LLM.
 
@@ -38,7 +39,7 @@ def _price_pillar_from_listing(
 
     listing_price_m2 = price_total / surface
 
-    district = _resolve_district(listing, raw_text, district_override)
+    district = _resolve_district(listing, raw_text, district_override, address)
 
     return compute_price_market_pillar(
         city=city,
@@ -63,12 +64,20 @@ def _amenity_attrs(listing: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _resolve_district(
-    listing: Dict[str, Any], raw_text: str, district_override: str
+    listing: Dict[str, Any], raw_text: str, district_override: str, address: str = ""
 ) -> str:
-    """Quartier retenu pour l'analyse : choix explicite de l'utilisateur en
-    priorité absolue ; sinon extraction LLM ; sinon repli sur les localités
-    connues du Grand Metz détectées dans le texte."""
-    return district_override or listing.get("district") or extract_district(raw_text) or ""
+    """Quartier retenu pour l'analyse, par ordre de fiabilité décroissante :
+    choix explicite de l'utilisateur (sélecteur quartier) ; quartier déduit de
+    l'adresse saisie par l'utilisateur (alternative manuelle au géocodage) ;
+    extraction LLM ; repli sur les localités du Grand Metz détectées dans le texte.
+    """
+    return (
+        district_override
+        or (extract_district(address) if address else None)
+        or listing.get("district")
+        or extract_district(raw_text)
+        or ""
+    )
 
 
 def _amenity_actions(listing: Dict[str, Any]) -> Dict[str, list]:
@@ -98,19 +107,30 @@ def _merge_unique(base: list, extra: list) -> list:
     return list(base) + [x for x in extra if str(x).strip().lower() not in seen]
 
 
-def run_full_analysis(raw_text: str, district_override: str = "") -> dict:
+def run_full_analysis(
+    raw_text: str, district_override: str = "", address: str = ""
+) -> dict:
     semantic_result = analyze_semantic(raw_text)
     listing = semantic_result.get("listing") or {}
     logger.info("LLM extracted listing: %s", listing)
     price_market_pillar = _price_pillar_from_listing(
-        listing, raw_text, district_override
+        listing, raw_text, district_override, address
     )
 
     # Contexte local non-scoré (couche A "Ancrage local") : profil curaté du
     # quartier retenu, ou None s'il n'est pas reconnu (on n'affiche rien plutôt
-    # que d'inventer).
-    district = _resolve_district(listing, raw_text, district_override)
-    local_ctx = local_context(district, listing.get("city") or "Metz")
+    # que d'inventer). L'adresse saisie (alternative manuelle au géocodage) aide
+    # à fixer le quartier.
+    city = listing.get("city") or "Metz"
+    district = _resolve_district(listing, raw_text, district_override, address)
+    local_ctx = local_context(district, city)
+    if local_ctx is not None:
+        # Couche B : confronte les allégations locales de l'annonce au profil.
+        local_ctx["claims"] = assess_claims(
+            district, semantic_result.get("local_claims") or [], city
+        )
+        if address and address.strip():
+            local_ctx["address"] = address.strip()
 
     pillars = [
         {

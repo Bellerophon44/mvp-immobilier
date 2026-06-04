@@ -63,6 +63,9 @@ USER_PROMPT_TEMPLATE = """Analyse le texte d'annonce immobilière ci-dessous et 
   "risk_summary": string,
   "questions": [string],
   "negotiation_levers": [string],
+  "local_claims": [
+    {{ "text": string, "type": string }}
+  ],
   "listing": {{
     "city": string | null,
     "district": string | null,
@@ -91,6 +94,7 @@ Règles :
 - `risk_level` ∈ ["Faible", "Modéré", "Élevé"].
 - `questions` : points à clarifier AVANT la visite, formulés comme de vraies questions à poser au vendeur ou à l'agent (étage/ascenseur, charges, travaux, exposition, parking, nuisances, copropriété, etc.). Une liste unique, non redondante, sans estimation de prix.
 - `negotiation_levers` : arguments factuels mobilisables en négociation (intention distincte des questions), formulés en affirmations courtes.
+- `local_claims` : allégations de LOCALISATION / VOISINAGE affirmées par l'annonce (ex. "vue cathédrale", "proche gare", "5 min de l'A31", "quartier calme", "commerces à pied", "frontalier Luxembourg"). N'extraire QUE ce qui est affirmé dans le texte ; ne rien inventer. `text` = citation courte et fidèle. `type` ∈ ["centre","cathedrale","gare","transport","commerces","nature","ecoles","calme","a31","autre"]. Liste vide si aucune allégation locale.
 - `property_type` ∈ ["appartement", "maison", null].
 - `dpe` : lettre de classe énergie ∈ ["A","B","C","D","E","F","G"] si présente, sinon null (ne pas confondre avec le GES).
 - `construction_year` : année de construction (entier) si EXPLICITEMENT mentionnée, sinon null.
@@ -115,6 +119,7 @@ _FALLBACK = {
     "risk_summary": "Impossible d'évaluer les risques.",
     "questions": [],
     "negotiation_levers": [],
+    "local_claims": [],
     "listing": {
         "city": None,
         "district": None,
@@ -136,6 +141,32 @@ _FALLBACK = {
 
 
 _VALID_DPE = {"A", "B", "C", "D", "E", "F", "G"}
+
+_CLAIM_TYPES = {
+    "centre", "cathedrale", "gare", "transport", "commerces",
+    "nature", "ecoles", "calme", "a31", "autre",
+}
+
+
+def _coerce_claims(value):
+    """Normalise `local_claims` : liste de {text, type} avec type dans l'enum
+    (repli 'autre'), textes non vides tronqués. Tolère une liste de chaînes."""
+    if not isinstance(value, list):
+        return []
+    out = []
+    for item in value[:20]:
+        if isinstance(item, dict):
+            text = item.get("text")
+            ctype = item.get("type")
+        else:
+            text, ctype = item, None
+        if not isinstance(text, str) or not text.strip():
+            continue
+        out.append({
+            "text": text.strip()[:160],
+            "type": ctype if ctype in _CLAIM_TYPES else "autre",
+        })
+    return out
 
 
 def _coerce_dpe(value):
@@ -237,6 +268,7 @@ def analyze_semantic(raw_text: str) -> Dict[str, Any]:
         "risk_summary": result.get("risk_summary") or "",
         "questions": result.get("questions") or [],
         "negotiation_levers": result.get("negotiation_levers") or [],
+        "local_claims": _coerce_claims(result.get("local_claims")),
         "listing": listing,
     }
 

@@ -10,12 +10,22 @@ export interface ApiPillar {
   refinable?: boolean;
 }
 
-// Bloc "Contexte local" non-scoré (couche A "Ancrage local"). Absent / null si
-// le quartier n'est pas reconnu côté backend.
+// Allégation locale de l'annonce confrontée au profil de quartier (couche B).
+export interface LocalClaim {
+  text: string;
+  type: string;
+  status: "coherent" | "a_verifier" | "peu_plausible";
+  note: string;
+}
+
+// Bloc "Contexte local" non-scoré (couches A + B "Ancrage local"). Absent / null
+// si le quartier n'est pas reconnu côté backend.
 export interface LocalContext {
   district: string;
   summary: string;
   facts: { label: string; value: string }[];
+  claims?: LocalClaim[];
+  address?: string;
 }
 
 export interface ApiResult {
@@ -34,11 +44,13 @@ export async function analyzeListing(
   input: string,
   mode: "url" | "text",
   district?: string,
+  address?: string,
 ): Promise<ApiResult> {
   const trimmed = input.trim();
   const body: Record<string, string> =
     mode === "url" ? { url: trimmed } : { raw_text: trimmed };
   if (district) body.district = district;
+  if (address && address.trim()) body.address = address.trim();
 
   const response = await fetch(
     process.env.NEXT_PUBLIC_API_URL + "/analyze",

@@ -133,10 +133,23 @@ function SecondaryRow() {
   );
 }
 
-// Bloc "Contexte local" : profil curaté du quartier, volontairement non-scoré
+// Statut de cohérence d'une allégation locale (couche B) -> couleur / libellé.
+const CLAIM_STATUS: Record<string, { color: string; label: string }> = {
+  coherent: { color: "var(--moss)", label: "Cohérent" },
+  a_verifier: { color: "var(--ochre)", label: "À vérifier" },
+  peu_plausible: { color: "var(--brick)", label: "Peu plausible" },
+};
+
+function claimMeta(status: string) {
+  return CLAIM_STATUS[status] || CLAIM_STATUS.a_verifier;
+}
+
+// Bloc "Contexte local" : profil curaté du quartier (couche A) + contrôle de
+// cohérence des allégations de l'annonce (couche B). Volontairement non-scoré
 // (comme la carte prix). Distances approximatives au niveau du quartier — pas un
 // 4e pilier, on garde le score 40/30/30 et "pas de fausse précision".
 function LocalContextCard({ context }: { context: LocalContext }) {
+  const claims = context.claims || [];
   return (
     <div style={{
       background: "var(--paper)",
@@ -153,6 +166,16 @@ function LocalContextCard({ context }: { context: LocalContext }) {
         <MapPin size={14} style={{ color: "var(--stone)" }} />
         <div className="t-eyebrow">Contexte local — {context.district}</div>
       </div>
+      {context.address && (
+        <div style={{
+          fontFamily: "var(--font-sans)",
+          fontSize: 13,
+          color: "var(--ink-3)",
+          marginBottom: 8,
+        }}>
+          Adresse indiquée : {context.address}
+        </div>
+      )}
       <div style={{
         fontFamily: "var(--font-serif)",
         fontStyle: "italic",
@@ -187,6 +210,60 @@ function LocalContextCard({ context }: { context: LocalContext }) {
           </div>
         ))}
       </dl>
+
+      {/* Couche B : cohérence des allégations de l'annonce vs profil quartier */}
+      {claims.length > 0 && (
+        <div style={{
+          marginTop: 16,
+          paddingTop: 14,
+          borderTop: "1px solid var(--stone-line)",
+        }}>
+          <div className="t-eyebrow" style={{ marginBottom: 10 }}>
+            Allégations de l&apos;annonce
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {claims.map((c, i) => {
+              const meta = claimMeta(c.status);
+              return (
+                <div key={`${c.text}-${i}`} style={{ display: "flex", gap: 10 }}>
+                  <span style={{
+                    flexShrink: 0,
+                    marginTop: 2,
+                    width: 9,
+                    height: 9,
+                    borderRadius: 999,
+                    background: meta.color,
+                  }} />
+                  <div>
+                    <div style={{
+                      fontFamily: "var(--font-sans)",
+                      fontSize: 14,
+                      color: "var(--ink)",
+                      lineHeight: 1.4,
+                    }}>
+                      <span style={{ fontStyle: "italic" }}>« {c.text} »</span>
+                      {"  "}
+                      <span style={{ color: meta.color, fontWeight: 500, fontSize: 12 }}>
+                        · {meta.label}
+                      </span>
+                    </div>
+                    <div style={{
+                      fontFamily: "var(--font-sans)",
+                      fontSize: 13,
+                      color: "var(--ink-3)",
+                      lineHeight: 1.5,
+                      marginTop: 2,
+                    }}>
+                      {c.note}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <div style={{
         marginTop: 14,
         paddingTop: 12,
@@ -211,11 +288,15 @@ export default function HomePage() {
   const [lastInput, setLastInput] = useState<AnalyzerMode | null>(null);
   const [refining, setRefining] = useState(false);
   const [selectedDistrict, setSelectedDistrict] = useState("");
+  // Adresse saisie par l'utilisateur pour affiner le feedback local (alternative
+  // manuelle au géocodage de la couche C).
+  const [addressInput, setAddressInput] = useState("");
 
   async function handleAnalyze({ mode, value }: AnalyzerMode) {
     setAppState("analyzing");
     setError(null);
     setSelectedDistrict("");
+    setAddressInput("");
     setLastInput({ mode, value });
     try {
       const res = await analyzeListing(value, mode);
@@ -228,14 +309,14 @@ export default function HomePage() {
     }
   }
 
-  // Ré-analyse à l'échelle d'un quartier précisé par l'utilisateur (#6-A).
-  async function handleRefine(district: string) {
-    setSelectedDistrict(district);
-    if (!lastInput || !district) return;
+  // Ré-analyse affinée : par quartier (#6-A, pilier prix) et/ou par adresse
+  // saisie (feedback local, alternative manuelle au géocodage).
+  async function handleRefine(district: string, address: string) {
+    if (!lastInput || (!district && !address.trim())) return;
     setRefining(true);
     setError(null);
     try {
-      const res = await analyzeListing(lastInput.value, lastInput.mode, district);
+      const res = await analyzeListing(lastInput.value, lastInput.mode, district, address);
       setResult(res);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Erreur lors de l'analyse.";
@@ -245,10 +326,21 @@ export default function HomePage() {
     }
   }
 
+  function handleDistrictChange(district: string) {
+    setSelectedDistrict(district);
+    handleRefine(district, addressInput);
+  }
+
+  function handleAddressSubmit() {
+    if (!addressInput.trim()) return;
+    handleRefine(selectedDistrict, addressInput);
+  }
+
   function handleReset() {
     setResult(null);
     setError(null);
     setSelectedDistrict("");
+    setAddressInput("");
     setAppState("idle");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -266,8 +358,18 @@ export default function HomePage() {
         ? [
             "",
             `Contexte local — ${lc.district} :`,
+            ...(lc.address ? [`Adresse indiquée : ${lc.address}`] : []),
             lc.summary,
             ...lc.facts.map((f) => `- ${f.label} : ${f.value}`),
+            ...(lc.claims && lc.claims.length
+              ? [
+                  "",
+                  "Allégations de l'annonce :",
+                  ...lc.claims.map(
+                    (c) => `- « ${c.text} » [${claimMeta(c.status).label}] — ${c.note}`,
+                  ),
+                ]
+              : []),
           ]
         : []),
       "",
@@ -502,7 +604,7 @@ export default function HomePage() {
                     <select
                       value={selectedDistrict}
                       disabled={refining}
-                      onChange={(e) => handleRefine(e.target.value)}
+                      onChange={(e) => handleDistrictChange(e.target.value)}
                       style={{
                         width: "100%",
                         maxWidth: 320,
@@ -560,10 +662,98 @@ export default function HomePage() {
               </div>
             )}
 
-            {/* Contexte local (non-scoré) */}
-            {result.local_context && (
-              <LocalContextCard context={result.local_context} />
-            )}
+            {/* Ancrage local (non-scoré) : profil quartier (A) + cohérence des
+                allégations (B), et précision par adresse (alternative à la C). */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {result.local_context && (
+                <LocalContextCard context={result.local_context} />
+              )}
+
+              <div style={{
+                background: "var(--paper)",
+                border: "1px solid var(--stone-line)",
+                borderRadius: 4,
+                padding: "16px 20px",
+              }}>
+                <label
+                  htmlFor="address-refine"
+                  style={{
+                    display: "block",
+                    fontFamily: "var(--font-sans)",
+                    fontSize: 13,
+                    color: "var(--ink-2)",
+                    lineHeight: 1.5,
+                    marginBottom: 8,
+                  }}
+                >
+                  {result.local_context
+                    ? "Adresse exacte (optionnel) — pour préciser le feedback local"
+                    : "Quartier non détecté. Renseignez l'adresse pour obtenir le contexte local."}
+                </label>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <input
+                    id="address-refine"
+                    type="text"
+                    value={addressInput}
+                    disabled={refining}
+                    placeholder="ex. 4 rue Serpenoise, Metz"
+                    onChange={(e) => setAddressInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleAddressSubmit();
+                    }}
+                    style={{
+                      flex: "1 1 240px",
+                      padding: "9px 12px",
+                      background: "var(--parchment)",
+                      border: "1px solid var(--stone-line)",
+                      borderRadius: 4,
+                      fontFamily: "var(--font-sans)",
+                      fontSize: 14,
+                      color: "var(--ink)",
+                    }}
+                  />
+                  <button
+                    onClick={handleAddressSubmit}
+                    disabled={refining || !addressInput.trim()}
+                    style={{
+                      padding: "9px 16px",
+                      background: "var(--ink)",
+                      border: "1px solid var(--ink)",
+                      borderRadius: 4,
+                      color: "var(--paper)",
+                      fontFamily: "var(--font-sans)",
+                      fontSize: 13,
+                      fontWeight: 500,
+                      cursor: refining || !addressInput.trim() ? "default" : "pointer",
+                      opacity: refining || !addressInput.trim() ? 0.5 : 1,
+                    }}
+                  >
+                    Préciser
+                  </button>
+                </div>
+                {refining && (
+                  <div style={{
+                    marginTop: 10,
+                    fontFamily: "var(--font-sans)",
+                    fontSize: 13,
+                    fontStyle: "italic",
+                    color: "var(--ink-3)",
+                  }}>
+                    Mise à jour du feedback local en cours…
+                  </div>
+                )}
+                <div style={{
+                  marginTop: 10,
+                  fontFamily: "var(--font-sans)",
+                  fontSize: 12,
+                  color: "var(--ink-3)",
+                  lineHeight: 1.5,
+                }}>
+                  L&apos;adresse n&apos;affine que le feedback local — distances
+                  exactes au point précis à venir (géocodage).
+                </div>
+              </div>
+            </div>
 
             {/* Questions (fusion à-vérifier + questions) */}
             <ChecklistCard

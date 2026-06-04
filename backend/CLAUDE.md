@@ -481,7 +481,9 @@ system "Cohérence"). Côté contrat API :
 negotiation}`, `local_context` optionnel). Le frontend code en dur l'ordre des
 piliers `[prix, transparence, risques]`. Depuis le chantier A, `actions` n'a
 plus que **deux** listes (`questions` fusionne l'ancien `to_check`) ; le bloc
-`local_context` (non-scoré) porte le profil de quartier (couche A).
+`local_context` (non-scoré) porte le profil de quartier (couche A), la liste
+`claims` (couche B : `{text, type, status, note}`) et `address` (si saisie).
+`AnalyzeRequest` accepte `district` et `address` (tous deux optionnels).
 
 ---
 
@@ -553,18 +555,30 @@ la cohérence des **allégations locales** EST le produit. Trois couches :
   `Plantieres-Queuleu`), branché dans `run_full_analysis` → champ `local_context`
   de la réponse, rendu en carte « Contexte local » **non-scorée** côté front
   (`LocalContextCard`). Distances volontairement approximatives (« ~ ») : pas de
-  fausse précision. *Shippé sans géocodage.* Reste à faire : couches B et C.
-- **Couche B — allégations locales (LLM) + contrôle de cohérence** : `llm_semantic`
-  extrait `local_claims[]` ("vue cathédrale", "proche gare", "5 min A31"…) ; on les
-  **confronte au profil du quartier** → cohérent / peu plausible (ex. « 'vue
-  cathédrale' peu plausible depuis Borny »). C'est le cœur du positionnement :
-  transformer le marketing en affirmations vérifiables géographiquement. Peut
-  alimenter risque/négo.
+  fausse précision. *Shippé sans géocodage.*
+- **Couche B — allégations locales (LLM) + contrôle de cohérence** — FAIT
+  (2026-06-04) : `llm_semantic` extrait `local_claims[]` (`{text, type}`, type ∈
+  centre/cathedrale/gare/transport/commerces/nature/ecoles/calme/a31/autre) ;
+  `metz_local.assess_claims()` les **confronte au profil du quartier** (distances
+  numériques `_DIST_KM` + seuils déterministes) → statut `coherent` /
+  `a_verifier` / `peu_plausible` + note (ex. « 'vue cathédrale' peu plausible
+  depuis Borny, ~4,5 km du centre »). Branché dans `run_full_analysis` →
+  `local_context.claims`, rendu sous la carte « Contexte local » (pastilles de
+  statut). Cœur du positionnement : transformer le marketing en affirmations
+  vérifiables. Prudence : on ne contredit que le géographiquement douteux ; le
+  non-vérifiable reste « à vérifier », jamais « cohérent » par complaisance.
+  Pour l'instant **non-scoré** (n'alimente pas encore risque/négo).
+- **Champ adresse (alternative manuelle à la couche C)** — FAIT (2026-06-04) :
+  `AnalyzeRequest.address` (optionnel). À défaut de géocodage, l'utilisateur peut
+  saisir l'adresse (champ texte « Préciser », même esprit que le sélecteur de
+  quartier). Effet : `_resolve_district` en tire le quartier (priorité juste
+  après le sélecteur), ce qui débloque/affine contexte local + cohérence ;
+  l'adresse est affichée (`local_context.address`). Hook pour la vraie couche C.
 - **Couche C (plus tard) — géocodage adresse → distances exactes** (m/km) vers POI
-  curatés (cathédrale St-Étienne, Pompidou-Metz, gare, échangeur A31). Nécessite une
-  adresse (rare) + service de géocodage externe. Au niveau quartier on reste sur des
-  distances approx. (centroïde).
-- UI : nouvelle section **non-scorée** (comme la carte prix), pas un 4e pilier
+  curatés (cathédrale St-Étienne, Pompidou-Metz, gare, échangeur A31). Réutilisera
+  le champ `address` ci-dessus + un service de géocodage externe. Au niveau
+  quartier on reste sur des distances approx. (centroïde).
+- UI : section **non-scorée** (comme la carte prix), pas un 4e pilier
   (garde le score 40/30/30 stable + « pas de fausse précision »).
 
 ### Autres chantiers en attente

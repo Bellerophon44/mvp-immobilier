@@ -57,6 +57,9 @@ class AnalyzeRequest(BaseModel):
     # Quartier choisi par l'utilisateur (sélecteur front) pour affiner une
     # analyse restée au niveau ville. Optionnel ; prime sur l'extraction.
     district: Optional[str] = None
+    # Adresse saisie par l'utilisateur (alternative manuelle au géocodage de la
+    # couche C) : affine le feedback local (quartier déduit, adresse affichée).
+    address: Optional[str] = None
 
 
 class AnalyzeResponse(BaseModel):
@@ -280,7 +283,11 @@ def analyze(payload: AnalyzeRequest):
         raw_content = fetched
 
     try:
-        return run_full_analysis(raw_content, district_override=payload.district or "")
+        return run_full_analysis(
+            raw_content,
+            district_override=payload.district or "",
+            address=payload.address or "",
+        )
     except Exception as e:
         raise HTTPException(
             status_code=500,

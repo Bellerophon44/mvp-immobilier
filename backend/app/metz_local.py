@@ -127,6 +127,30 @@ _PROFILES: Dict[str, Dict[str, str]] = {
 }
 
 
+# Distances numériques approximatives (km) au niveau du quartier, pour le
+# contrôle de cohérence des allégations (couche B). center = centre / cathédrale
+# St-Étienne ; gare = gare Metz-Ville (Pompidou accolé). Volontairement grossières
+# (centroïde de quartier) : servent à juger le plausible, pas à mesurer.
+_DIST_KM: Dict[str, Dict[str, float]] = {
+    "Centre-Ville": {"center": 0.2, "gare": 0.8},
+    "Ancienne-Ville": {"center": 0.4, "gare": 1.0},
+    "Nouvelle-Ville": {"center": 1.0, "gare": 0.3},
+    "Les-Iles": {"center": 1.0, "gare": 1.8},
+    "Outre-Seille": {"center": 0.8, "gare": 1.3},
+    "Sablon": {"center": 1.8, "gare": 1.2},
+    "Queuleu": {"center": 3.0, "gare": 2.5},
+    "Plantieres": {"center": 2.5, "gare": 2.5},
+    "Bellecroix": {"center": 2.5, "gare": 2.8},
+    "Borny": {"center": 4.5, "gare": 4.5},
+    "Magny": {"center": 5.0, "gare": 4.5},
+    "Vallieres": {"center": 4.0, "gare": 4.0},
+    "Devant-Les-Ponts": {"center": 2.0, "gare": 2.5},
+    "La-Patrotte": {"center": 2.5, "gare": 3.0},
+    "Grange-Aux-Bois": {"center": 6.0, "gare": 6.0},
+    "Technopole": {"center": 3.5, "gare": 3.0},
+}
+
+
 # Variantes d'écriture / libellés composés -> clé canonique d'un profil existant.
 _ALIASES: Dict[str, str] = {
     "Centre": "Centre-Ville",
@@ -168,3 +192,94 @@ def local_context(district: Optional[str], city: Optional[str] = "Metz") -> Opti
         "summary": p["caractere"],
         "facts": facts,
     }
+
+
+# Statuts de cohérence d'une allégation locale (couche B).
+COHERENT = "coherent"
+A_VERIFIER = "a_verifier"
+PEU_PLAUSIBLE = "peu_plausible"
+
+
+def _km(value: float) -> str:
+    """Distance arrondie au demi-km, en notation française ('4,5', '2')."""
+    rounded = round(value * 2) / 2
+    text = f"{rounded:.1f}".rstrip("0").rstrip(".")
+    return text.replace(".", ",")
+
+
+def _assess_distance(km: float, near: float, far: float) -> str:
+    """Cohérent si <= near, peu plausible si > far, à vérifier entre les deux."""
+    if km <= near:
+        return COHERENT
+    if km > far:
+        return PEU_PLAUSIBLE
+    return A_VERIFIER
+
+
+def _assess_one(ctype: str, name: str, dist: Dict[str, float]) -> tuple:
+    """(status, note) pour une allégation, confrontée au profil du quartier.
+
+    Règle de prudence : on ne contredit que ce que la géographie de quartier rend
+    réellement douteux ; le reste (commerces, calme, écoles…) n'est pas vérifiable
+    depuis le profil -> 'à vérifier' neutre, jamais 'cohérent' par complaisance.
+    """
+    center = dist.get("center")
+    gare = dist.get("gare")
+
+    if ctype == "cathedrale":
+        status = _assess_distance(center, 1.0, 2.5)
+        if status == PEU_PLAUSIBLE:
+            return status, f"{name} est à ~{_km(center)} km du centre : une vue / proximité directe de la cathédrale est peu probable."
+        if status == A_VERIFIER:
+            return status, f"{name} n'est pas dans l'hypercentre : proximité de la cathédrale à confirmer."
+        return status, f"Cohérent : {name} est au cœur du centre."
+
+    if ctype == "centre":
+        status = _assess_distance(center, 1.5, 3.0)
+        if status == PEU_PLAUSIBLE:
+            return status, f"{name} est à ~{_km(center)} km du centre : « proche centre » est optimiste."
+        if status == A_VERIFIER:
+            return status, f"{name} est à distance intermédiaire du centre : à nuancer."
+        return status, f"Cohérent : {name} est proche du centre."
+
+    if ctype == "gare":
+        status = _assess_distance(gare, 1.2, 2.5)
+        if status == PEU_PLAUSIBLE:
+            return status, f"Gare à ~{_km(gare)} km de {name} : « proche gare » est peu plausible à pied."
+        if status == A_VERIFIER:
+            return status, f"Gare à ~{_km(gare)} km de {name} : proximité à confirmer (à pied vs en transport)."
+        return status, f"Cohérent : la gare est proche de {name}."
+
+    if ctype == "a31":
+        return COHERENT, "Cohérent : tout Metz est relié à l'A31 (axe vers le Luxembourg, bassin frontalier)."
+
+    # transport / commerces / nature / ecoles / calme / autre : non vérifiable
+    # depuis le profil de quartier.
+    return A_VERIFIER, "Allégation non vérifiable depuis le profil de quartier — à confirmer sur place."
+
+
+def assess_claims(
+    district: Optional[str],
+    claims: List[Dict[str, Any]],
+    city: Optional[str] = "Metz",
+) -> List[Dict[str, str]]:
+    """Confronte les allégations locales de l'annonce (couche B) au profil curaté
+    du quartier. Retourne [] si le quartier est inconnu (on ne peut rien affirmer)
+    ou s'il n'y a aucune allégation."""
+    key = _resolve_key(district, city)
+    if not key or not claims:
+        return []
+    name = _PROFILES[key]["name"]
+    dist = _DIST_KM.get(key, {"center": 0.0, "gare": 0.0})
+    out: List[Dict[str, str]] = []
+    for c in claims:
+        if isinstance(c, dict):
+            text = (c.get("text") or "").strip()
+            ctype = c.get("type") or "autre"
+        else:
+            text, ctype = str(c).strip(), "autre"
+        if not text:
+            continue
+        status, note = _assess_one(ctype, name, dist)
+        out.append({"text": text, "type": ctype, "status": status, "note": note})
+    return out
