@@ -25,6 +25,22 @@ BATCH_SIZE = 1000
 TIMEOUT = 60
 
 
+_REQUIRED_STR = ("id", "source", "city", "property_type")
+
+
+def _is_valid(item: dict) -> bool:
+    """Garde-fou client : un item incomplet (ex. ville absente) ferait échouer
+    tout le batch en 422 côté API. On les écarte avant l'envoi."""
+    for key in _REQUIRED_STR:
+        value = item.get(key)
+        if not isinstance(value, str) or not value.strip():
+            return False
+    surface, price = item.get("surface_m2"), item.get("price_total")
+    return (isinstance(surface, (int, float)) and not isinstance(surface, bool)
+            and isinstance(price, (int, float)) and not isinstance(price, bool)
+            and surface > 0 and price > 0)
+
+
 def _post_batch(backend_url: str, token: str, items: list) -> dict:
     url = backend_url.rstrip("/") + "/admin/comparables"
     data = json.dumps({"items": items}).encode("utf-8")
@@ -54,22 +70,31 @@ def main() -> int:
         logger.warning("Aucune annonce collectée — rien à pousser.")
         return 1
 
-    items = [l.to_dict() for l in listings]
+    raw = [l.to_dict() for l in listings]
+    items = [d for d in raw if _is_valid(d)]
+    dropped = len(raw) - len(items)
+    if dropped:
+        logger.warning("%d item(s) écartés (champs requis manquants).", dropped)
     logger.info("%d comparables collectés. Envoi vers %s", len(items), backend_url)
 
     total_saved = 0
+    failed_batches = 0
     for start in range(0, len(items), BATCH_SIZE):
         batch = items[start:start + BATCH_SIZE]
         try:
             result = _post_batch(backend_url, token, batch)
         except Exception as e:
+            # On n'abandonne pas tout le run pour un batch : les suivants
+            # (notamment les grandes surfaces, balayées en dernier) doivent passer.
             logger.error("Échec d'envoi du batch %d: %s", start // BATCH_SIZE, e)
-            return 1
+            failed_batches += 1
+            continue
         logger.info("Batch %d: %s", start // BATCH_SIZE, result)
         total_saved += result.get("saved", 0)
 
-    logger.info("Terminé. %d comparables enregistrés.", total_saved)
-    return 0
+    logger.info("Terminé. %d comparables enregistrés (%d batch(es) en échec).",
+                total_saved, failed_batches)
+    return 1 if failed_batches else 0
 
 
 if __name__ == "__main__":
