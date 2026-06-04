@@ -43,15 +43,20 @@
   secteurs**, correctif UX d'affinage, **collecte bien'ici par tranches de surface**
   (cause racine d'un pool biaisé petites surfaces) + robustesse collecte.
 
-### Roadmap prochaine session (détaillée dans `backend/CLAUDE.md` §11bis)
-1. **Fusionner les actions** : `to_check`+`questions` redondants → **une** liste de
-   **questions** (vendeur/agent) + leviers de négo.
-2. **Section « Ancrage local »** (différenciateur, faute de livre foncier) : profil
-   local curaté par quartier (gare, A31/Luxembourg frontaliers, cathédrale, Pompidou)
-   + extraction des **allégations locales** de l'annonce et **contrôle de cohérence**
-   géographique. Couche distances exactes (géocodage) plus tard. Section non-scorée.
-3. Secteur « Metz métropole » (communes limitrophes) ; rééquilibrage scoring ; dette
-   (lifespan, cache LLM persistant, tests).
+### Roadmap (détaillée dans `backend/CLAUDE.md` §11bis)
+1. **Fusionner les actions** — FAIT : une liste de **questions** (vendeur/agent) +
+   leviers de négo.
+2. **Section « Ancrage local »** (différenciateur, faute de livre foncier) — FAIT :
+   profil local curaté par quartier (gare, A31/Luxembourg frontaliers, cathédrale,
+   Pompidou) ; extraction des **allégations locales** de l'annonce + **contrôle de
+   cohérence** géographique (couche B) ; **géocodage de l'adresse** (BAN) pour des
+   distances exactes au bien, avec repli quartier (couche C). Section non-scorée.
+   - *Limite à optimiser* : distances **à vol d'oiseau**, pas un temps de trajet
+     réel (« 3 min à vol d'oiseau » ≠ « 7 min à pied » de la cathédrale ou « 12 min
+     en voiture » de l'A31). Brancher un routing isochrone plus tard.
+3. **Prochaines étapes** : faire peser la cohérence (couche B) sur le pilier risques ;
+   routing temps de trajet ; secteur « Metz métropole » (communes limitrophes) ;
+   rééquilibrage scoring ; dette (lifespan, cache LLM/géocodage persistant, tests).
 
 ---
 
