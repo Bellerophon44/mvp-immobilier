@@ -336,6 +336,13 @@ class Comparable(Base):
   (`backend/tests/test_llm_fallback.py`). Brancher une vraie alerte (compteur
   persisté SQLite + cron GitHub Actions → issue/Slack) **quand le trafic
   décollera**. Détail : `docs/specs/9.3-ANALYSE.md` / `9.3-SPEC.md`.
+- **Contenu SEO (9.5) — différé** : acquisition SEO = hypothèse non validée
+  (§2.4), effet lent, et automatiser la rédaction = risque éditorial/légal. À
+  reprendre via : socle SEO 0-dépendance (`sitemap.ts` + `robots.ts` +
+  `metadataBase`/OpenGraph), scaffold blog en composants `.tsx` statiques (pas de
+  MDX), 1 article pilote rédigé puis **relu humainement**, 20 sujets long-tail.
+  Prérequis : `NEXT_PUBLIC_SITE_URL` (URL Vercel prod). Détail :
+  `docs/specs/9.5-ANALYSE.md`.
 - Cache LLM persistant (Redis Fly ou table SQLite)
 - Rate limiting sur `/analyze` (anti-abus)
 - Robots.txt côté frontend
