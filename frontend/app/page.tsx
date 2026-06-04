@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { analyzeListing, ApiResult, LocalContext } from "../lib/api";
+import { analyzeListing, sendFeedback, ApiResult, LocalContext } from "../lib/api";
 import AnalyzerInput, { AnalyzerMode } from "../components/design/AnalyzerInput";
 import VerdictHeader from "../components/design/VerdictHeader";
 import PillarBar from "../components/design/PillarBar";
@@ -10,6 +10,7 @@ import LeversList from "../components/design/LeversList";
 import Wordmark from "../components/design/Wordmark";
 import ScopeBadge from "../components/design/ScopeBadge";
 import Footer from "../components/design/Footer";
+import FeedbackForm from "../components/design/FeedbackForm";
 import { Copy, MapPin } from "../components/design/Icons";
 import { METZ_DISTRICTS } from "../lib/districts";
 
@@ -290,6 +291,10 @@ export default function HomePage() {
   const [lastInput, setLastInput] = useState<AnalyzerMode | null>(null);
   const [refining, setRefining] = useState(false);
   const [selectedDistrict, setSelectedDistrict] = useState("");
+  // Identifiant opaque genere cote client, joint au feedback pour relier un
+  // retour a une analyse sans modifier le contrat /analyze.
+  const [analysisId, setAnalysisId] = useState("");
+  const [feedbackSent, setFeedbackSent] = useState(false);
   // Adresse saisie par l'utilisateur pour affiner le feedback local (alternative
   // manuelle au géocodage de la couche C).
   const [addressInput, setAddressInput] = useState("");
@@ -300,9 +305,11 @@ export default function HomePage() {
     setSelectedDistrict("");
     setAddressInput("");
     setLastInput({ mode, value });
+    setFeedbackSent(false);
     try {
       const res = await analyzeListing(value, mode);
       setResult(res);
+      setAnalysisId(crypto.randomUUID());
       setAppState("result");
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Erreur lors de l'analyse.";
@@ -317,9 +324,11 @@ export default function HomePage() {
     if (!lastInput || (!district && !address.trim())) return;
     setRefining(true);
     setError(null);
+    setFeedbackSent(false);
     try {
       const res = await analyzeListing(lastInput.value, lastInput.mode, district, address);
       setResult(res);
+      setAnalysisId(crypto.randomUUID());
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Erreur lors de l'analyse.";
       setError(msg);
@@ -342,9 +351,22 @@ export default function HomePage() {
     setResult(null);
     setError(null);
     setSelectedDistrict("");
+    setFeedbackSent(false);
     setAddressInput("");
     setAppState("idle");
     window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  async function handleFeedback(rating: number, comment: string) {
+    if (!result) return;
+    setFeedbackSent(true);
+    await sendFeedback({
+      rating,
+      comment: comment || undefined,
+      analysis_id: analysisId || undefined,
+      global_score: result.global_score,
+      verdict: result.verdict,
+    });
   }
 
   function handleCopy() {
@@ -767,6 +789,9 @@ export default function HomePage() {
             <LeversList
               items={result.actions.negotiation.map((n) => ({ quote: n }))}
             />
+
+            {/* Feedback utilisateur (9.7) */}
+            <FeedbackForm sent={feedbackSent} onSubmit={handleFeedback} />
           </div>
         )}
 
