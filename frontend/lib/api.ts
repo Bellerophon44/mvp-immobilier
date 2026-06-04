@@ -26,6 +26,9 @@ export interface LocalContext {
   facts: { label: string; value: string }[];
   claims?: LocalClaim[];
   address?: string;
+  // "adresse" = distances exactes (géocodage, couche C) ; "quartier" = repli sur
+  // le profil de quartier (distances approximatives).
+  precision?: "quartier" | "adresse";
 }
 
 export interface ApiResult {

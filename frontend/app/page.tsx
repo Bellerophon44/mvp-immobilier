@@ -273,7 +273,9 @@ function LocalContextCard({ context }: { context: LocalContext }) {
         color: "var(--ink-3)",
         lineHeight: 1.5,
       }}>
-        Repères indicatifs au niveau du quartier — non comptés dans le score.
+        {context.precision === "adresse"
+          ? "Distances à vol d'oiseau depuis l'adresse — non comptées dans le score (temps de trajet réel à venir)."
+          : "Repères indicatifs au niveau du quartier — non comptés dans le score."}
       </div>
     </div>
   );
@@ -749,8 +751,8 @@ export default function HomePage() {
                   color: "var(--ink-3)",
                   lineHeight: 1.5,
                 }}>
-                  L&apos;adresse n&apos;affine que le feedback local — distances
-                  exactes au point précis à venir (géocodage).
+                  L&apos;adresse est géocodée pour mesurer les distances exactes au
+                  bien ; à défaut, repli sur le profil du quartier.
                 </div>
               </div>
             </div>

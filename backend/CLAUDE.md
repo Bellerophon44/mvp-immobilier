@@ -482,8 +482,10 @@ negotiation}`, `local_context` optionnel). Le frontend code en dur l'ordre des
 piliers `[prix, transparence, risques]`. Depuis le chantier A, `actions` n'a
 plus que **deux** listes (`questions` fusionne l'ancien `to_check`) ; le bloc
 `local_context` (non-scoré) porte le profil de quartier (couche A), la liste
-`claims` (couche B : `{text, type, status, note}`) et `address` (si saisie).
-`AnalyzeRequest` accepte `district` et `address` (tous deux optionnels).
+`claims` (couche B : `{text, type, status, note}`), `address` (si saisie) et
+`precision` ∈ `{"quartier","adresse"}` (couche C : `"adresse"` = distances
+exactes géocodées, `"quartier"` = repli profil). `AnalyzeRequest` accepte
+`district` et `address` (tous deux optionnels).
 
 ---
 
@@ -499,6 +501,27 @@ plus que **deux** listes (`questions` fusionne l'ancien `to_check`) ; le bloc
   immoheytienne) apportent une part bien plus élevée de maisons et de communes
   limitrophes — à confirmer dans la durée (volume par commune encore faible
   hors Metz).
+
+### Ancrage local — limitations connues à optimiser
+- **Distance à vol d'oiseau ≠ temps de trajet réel.** La couche C (Haversine sur
+  `metz_local._POI`) mesure une distance en **ligne droite**. Or l'utilisateur
+  raisonne en **temps** : « 3 min à vol d'oiseau » peut être « 7 min à pied » de la
+  cathédrale ou « 12 min en voiture » de la bretelle A31 la plus proche (réseau
+  routier, sens uniques, ponts sur la Moselle, piétonnier du centre). *Optimisation* :
+  brancher un service de **routing isochrone** (OSRM, Google Distance Matrix, IGN
+  itinéraires…) pour afficher des temps porte-à-porte par mode (à pied / voiture /
+  transports). Tant que ce n'est pas fait, on étiquette explicitement « à vol
+  d'oiseau » côté front et on ne promet pas de temps de trajet.
+- **POI échangeur A31 approximatif** : `_POI["a31"]` est un point unique approché ;
+  un vrai calcul prendrait l'**accès autoroutier le plus proche** parmi plusieurs
+  échangeurs (Metz-Nord, Metz-Centre, Metz-Sud), idéalement via routing.
+- **Géocodage : cache mémoire seulement** (perdu au restart VM Fly), comme le LLM —
+  à migrer vers SQLite/Redis. Et **dépendance à un service externe** (BAN) : si
+  l'egress est bloqué, on reste en repli quartier sans le signaler à l'utilisateur
+  (choix assumé : ne pas inquiéter ; à reconsidérer si la BAN tombe souvent).
+- **Profils de quartier figés en dur** (`_PROFILES`, `_DIST_KM`) : distances au
+  centroïde saisies à la main. À terme, dériver les distances de centroïdes
+  géocodés plutôt que de valeurs manuelles.
 
 ### Côté technique
 - `@app.on_event("startup")` est **déprécié** (FastAPI lifespan moderne).
@@ -574,10 +597,20 @@ la cohérence des **allégations locales** EST le produit. Trois couches :
   quartier). Effet : `_resolve_district` en tire le quartier (priorité juste
   après le sélecteur), ce qui débloque/affine contexte local + cohérence ;
   l'adresse est affichée (`local_context.address`). Hook pour la vraie couche C.
-- **Couche C (plus tard) — géocodage adresse → distances exactes** (m/km) vers POI
-  curatés (cathédrale St-Étienne, Pompidou-Metz, gare, échangeur A31). Réutilisera
-  le champ `address` ci-dessus + un service de géocodage externe. Au niveau
-  quartier on reste sur des distances approx. (centroïde).
+- **Couche C — géocodage adresse → distances exactes** — FAIT (2026-06-04) :
+  `app/geocode.py` interroge la **Base Adresse Nationale** (api-adresse.data.gouv.fr,
+  gratuite, sans clé) : adresse → `{lat, lon, score, label}`, avec cache mémoire,
+  seuil de score (0.4), garde-fou département 57, et **repli silencieux** (None) sur
+  erreur réseau / score faible / hors périmètre. `metz_local` calcule alors les
+  distances exactes (Haversine) du bien aux POI curatés `_POI` (cathédrale,
+  Pompidou, gare, échangeur A31) → `local_context_from_coords` (facts précis,
+  `precision="adresse"`) et `claim_distances_from_coords` pour un contrôle de
+  cohérence (couche B) au bien près. Sans adresse / si géocodage échoue → on retombe
+  sur le profil de quartier (`precision="quartier"`). Front : note de bas de carte
+  adaptée ("distances à vol d'oiseau depuis l'adresse").
+  - **Prérequis infra** : la politique réseau de l'environnement doit autoriser
+    l'**egress HTTPS vers `api-adresse.data.gouv.fr`** (sinon 403/timeout → repli
+    quartier en continu). À vérifier sur Fly et sur Claude Code on the web.
 - UI : section **non-scorée** (comme la carte prix), pas un 4e pilier
   (garde le score 40/30/30 stable + « pas de fausse précision »).
 

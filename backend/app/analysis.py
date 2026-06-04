@@ -3,7 +3,13 @@ from typing import Any, Dict
 
 from app.llm_semantic import analyze_semantic
 from app.market_stats import compute_price_market_pillar
-from app.metz_local import assess_claims, local_context
+from app.geocode import geocode_address
+from app.metz_local import (
+    assess_claims,
+    claim_distances_from_coords,
+    local_context,
+    local_context_from_coords,
+)
 from app.scoring import compute_global_score
 from scrapers.base import extract_district
 
@@ -117,20 +123,30 @@ def run_full_analysis(
         listing, raw_text, district_override, address
     )
 
-    # Contexte local non-scoré (couche A "Ancrage local") : profil curaté du
-    # quartier retenu, ou None s'il n'est pas reconnu (on n'affiche rien plutôt
-    # que d'inventer). L'adresse saisie (alternative manuelle au géocodage) aide
-    # à fixer le quartier.
+    # Contexte local non-scoré ("Ancrage local"). L'adresse saisie est d'abord
+    # géocodée (couche C) pour des distances exactes ; à défaut (adresse absente,
+    # non géocodable, hors périmètre, réseau indisponible) on retombe sur le
+    # profil curaté du quartier (couches A/B).
     city = listing.get("city") or "Metz"
     district = _resolve_district(listing, raw_text, district_override, address)
-    local_ctx = local_context(district, city)
-    if local_ctx is not None:
-        # Couche B : confronte les allégations locales de l'annonce au profil.
-        local_ctx["claims"] = assess_claims(
-            district, semantic_result.get("local_claims") or [], city
+    claims = semantic_result.get("local_claims") or []
+    addr = (address or "").strip()
+
+    geo = geocode_address(addr, city) if addr else None
+    if geo is not None:
+        local_ctx = local_context_from_coords(
+            geo["lat"], geo["lon"], district, city, address=geo.get("label") or addr
         )
-        if address and address.strip():
-            local_ctx["address"] = address.strip()
+        local_ctx["claims"] = assess_claims(
+            district, claims, city,
+            dist_override=claim_distances_from_coords(geo["lat"], geo["lon"]),
+        )
+    else:
+        local_ctx = local_context(district, city)
+        if local_ctx is not None:
+            local_ctx["claims"] = assess_claims(district, claims, city)
+            if addr:
+                local_ctx["address"] = addr
 
     pillars = [
         {
