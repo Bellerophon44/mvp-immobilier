@@ -120,6 +120,7 @@ def diagnose_sources(only: Optional[str] = None) -> tuple[str, bool]:
         )
 
     blocks, any_fail = [], False
+    scraped: dict[str, list] = {}
     for name in names:
         logger.info("Diagnostic de la source '%s'...", name)
         try:
@@ -129,6 +130,7 @@ def diagnose_sources(only: Optional[str] = None) -> tuple[str, bool]:
             blocks.append(f"### `{name}` — FAIL (exception)\n- `{type(e).__name__}: {e}`\n")
             any_fail = True
             continue
+        scraped[name] = listings
         status, block = build_source_report(name, listings)
         any_fail = any_fail or status == "fail"
         blocks.append(block)
@@ -145,8 +147,73 @@ def diagnose_sources(only: Optional[str] = None) -> tuple[str, bool]:
             report += "\n\n---\n\n" + field_audit_md()
         except Exception as e:
             logger.warning("diagnostic bienici étendu a échoué : %s", e)
+        try:
+            report += "\n\n---\n\n" + sector_depth_md(scraped.get("bienici", []))
+        except Exception as e:
+            logger.warning("mesure profondeur secteur a échoué : %s", e)
 
     return report, any_fail
+
+
+def sector_depth_md(listings: list, surface: float = 70.0,
+                    prop_type: str = "appartement") -> str:
+    """Profondeur de la cascade pour un bien représentatif : combien de
+    comparables chaque quartier / secteur réunit dans la fenêtre type+surface
+    (±20%), face au seuil d'affinage. Révèle pourquoi l'analyse retombe (ou non)
+    au niveau ville. Mesure sur les annonces scrapées (≈ contenu de la base)."""
+    from collections import Counter
+    from app.market_stats import _SECTOR_DISTRICTS, MIN_REFINED_COMPARABLES
+
+    lo, hi = surface * 0.8, surface * 1.2
+    in_win = [l for l in listings
+              if l.property_type == prop_type and l.surface_m2 and lo <= l.surface_m2 <= hi]
+    by_q = Counter(l.district for l in in_win if l.district)
+
+    def flag(c: int) -> str:
+        return "OK" if c >= MIN_REFINED_COMPARABLES else "< seuil"
+
+    flats = [l for l in listings if l.property_type == prop_type and l.surface_m2]
+
+    lines = [
+        f"## Profondeur quartier/secteur (bienici) — {prop_type} {surface:.0f} m²",
+        f"- fenêtre surface ±20% : {lo:.0f}–{hi:.0f} m² · seuil d'affinage : "
+        f"{MIN_REFINED_COMPARABLES}",
+        f"- {len(in_win)} biens dans la fenêtre (sur {len(flats)} {prop_type}s)",
+    ]
+
+    # Histogramme des surfaces : la fenêtre ±20% est-elle juste trop étroite,
+    # ou la base manque-t-elle vraiment de profondeur ?
+    buckets = [(0, 40), (40, 55), (55, 70), (70, 85), (85, 100), (100, 1e9)]
+    lines.append("### Histogramme surfaces (appartements)")
+    for b_lo, b_hi in buckets:
+        c = sum(1 for l in flats if b_lo <= l.surface_m2 < b_hi)
+        label = f"{b_lo:.0f}-{b_hi:.0f} m²" if b_hi < 1e9 else f"{b_lo:.0f}+ m²"
+        lines.append(f"  - {label} : {c}")
+
+    # Sensibilité de la fenêtre : combien la ville et le meilleur secteur
+    # réuniraient à ±20 / 30 / 40 %.
+    lines.append("### Sensibilité fenêtre (ville / meilleur secteur)")
+    for pct in (0.2, 0.3, 0.4):
+        wlo, whi = surface * (1 - pct), surface * (1 + pct)
+        win = [l for l in flats if wlo <= l.surface_m2 <= whi]
+        bq = Counter(l.district for l in win if l.district)
+        best = max(
+            ((sec, sum(bq.get(d, 0) for d in dists)) for sec, dists in _SECTOR_DISTRICTS.items()),
+            key=lambda kv: kv[1], default=("-", 0),
+        )
+        lines.append(
+            f"  - ±{pct*100:.0f}% ({wlo:.0f}-{whi:.0f}) : ville={len(win)} · "
+            f"meilleur secteur={best[0]} {best[1]}"
+        )
+
+    lines.append("### Par quartier (fenêtre ±20%)")
+    for q, c in by_q.most_common():
+        lines.append(f"  - {q} : {c} [{flag(c)}]")
+    lines.append("### Par secteur (somme des quartiers, fenêtre ±20%)")
+    for sec, dists in _SECTOR_DISTRICTS.items():
+        c = sum(by_q.get(d, 0) for d in dists)
+        lines.append(f"  - {sec} : {c} [{flag(c)}]  ({', '.join(dists)})")
+    return "\n".join(lines) + "\n"
 
 
 def _representative_card_html(soup, max_len: int = 3500) -> Optional[str]:

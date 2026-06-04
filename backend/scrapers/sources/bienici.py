@@ -24,7 +24,20 @@ SUGGEST_URLS = [
 ]
 
 PAGE_SIZE = 50
-MAX_PAGES = 20  # jusqu'à 1000 annonces brutes par run avant filtrage
+# L'API plafonne la pagination à ~2500 résultats (offset 2500), alors que le
+# total dépasse 27000 et que le tri par défaut sert les PETITES surfaces d'abord.
+# Paginer plus loin ne suffit donc pas : on balaie par tranches de surface
+# (minArea/maxArea), chaque tranche faisant moins que le plafond, ce qui couvre
+# toutes les tailles. Plafond de pages par tranche, par sécurité.
+MAX_PAGES = 50
+
+# Tranches de surface (m²) balayées séparément. Fines sur le bas (dense) pour ne
+# pas heurter le plafond de pagination, plus larges sur le haut (rare). None = borne
+# ouverte. Couvre tout le spectre, studios comme grandes maisons.
+SURFACE_BUCKETS = [
+    (0, 25), (25, 35), (35, 45), (45, 55), (55, 65),
+    (65, 80), (80, 100), (100, 130), (130, None),
+]
 
 _VALID_DPE = {"A", "B", "C", "D", "E", "F", "G"}
 
@@ -86,16 +99,21 @@ def discover_zone_ids(city_name: str) -> list:
     return []
 
 
-def _build_filters(zone_ids: list, page: int) -> dict:
-    return {
-        "filters": json.dumps({
-            "size": PAGE_SIZE,
-            "from": page * PAGE_SIZE,
-            "filterType": "buy",
-            "propertyType": list(_PROPERTY_TYPE_MAP.keys()),
-            "zoneIdsByTypes": {"zoneIds": zone_ids},
-        })
+def _build_filters(zone_ids: list, page: int,
+                   min_area: Optional[float] = None,
+                   max_area: Optional[float] = None) -> dict:
+    filters = {
+        "size": PAGE_SIZE,
+        "from": page * PAGE_SIZE,
+        "filterType": "buy",
+        "propertyType": list(_PROPERTY_TYPE_MAP.keys()),
+        "zoneIdsByTypes": {"zoneIds": zone_ids},
     }
+    if min_area is not None:
+        filters["minArea"] = min_area
+    if max_area is not None:
+        filters["maxArea"] = max_area
+    return {"filters": json.dumps(filters)}
 
 
 def _scalar(value) -> Optional[float]:
@@ -229,24 +247,31 @@ class BieniciScraper:
             return []
 
         results = []
-        for page in range(MAX_PAGES):
-            data = fetch_json(ADS_URL, params=_build_filters(zone_ids, page))
-            if not data:
-                logger.warning("Bienici: no response on page %d.", page)
-                break
+        seen = set()
+        for min_area, max_area in SURFACE_BUCKETS:
+            for page in range(MAX_PAGES):
+                data = fetch_json(
+                    ADS_URL,
+                    params=_build_filters(zone_ids, page, min_area, max_area),
+                )
+                if not data:
+                    logger.warning("Bienici: no response (area %s-%s, page %d).",
+                                   min_area, max_area, page)
+                    break
 
-            ads = data.get("realEstateAds", [])
-            if not ads:
-                break
+                ads = data.get("realEstateAds", [])
+                if not ads:
+                    break
 
-            for ad in ads:
-                listing = _parse_listing(ad)
-                if listing:
-                    results.append(listing)
+                for ad in ads:
+                    listing = _parse_listing(ad)
+                    if listing and listing.id not in seen:
+                        seen.add(listing.id)
+                        results.append(listing)
 
-            if len(ads) < PAGE_SIZE:
-                break
+                if len(ads) < PAGE_SIZE:
+                    break
 
-        logger.info("Bienici: %d listings collected for '%s'.",
-                    len(results), self.city)
+        logger.info("Bienici: %d listings collected for '%s' (%d tranches surface).",
+                    len(results), self.city, len(SURFACE_BUCKETS))
         return results
