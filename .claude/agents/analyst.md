@@ -1,7 +1,7 @@
 ---
 name: analyst
 description: Analyse un requirement du CONTEXT.md face au code réel, challenge sa faisabilité, identifie dépendances/risques/anti-patterns et lève les questions structurantes pour l'humain. Lecture seule.
-tools: Read, Grep, Glob
+tools: Read, Grep, Glob, Write
 model: inherit
 ---
 

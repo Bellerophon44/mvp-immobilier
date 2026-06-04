@@ -31,6 +31,7 @@ Lis `.claude/lessons.md`, `docs/specs/<id>-SPEC.md`, et le diff
 VERDICT_REVIEWER: PASS|FAIL
 BLOQUANTS: <liste, ou "aucun">
 NON_BLOQUANTS: <suggestions>
-LECONS: <à consigner dans .claude/lessons.md si erreur récurrente>
+LECONS: <erreur récurrente, formulée pour être consignée par l'orchestrateur>
 ```
-FAIL dès qu'il y a un bloquant. Sans emoji, en français.
+N'édite PAS toi-même `.claude/lessons.md` : remonte la leçon dans le bloc
+LECONS. FAIL dès qu'il y a un bloquant. Sans emoji, en français.

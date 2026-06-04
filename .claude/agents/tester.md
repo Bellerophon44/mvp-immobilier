@@ -35,7 +35,9 @@ Rends un bloc structuré :
 VERDICT_TESTEUR: PASS|FAIL
 TESTS: <n passés>/<n total>
 FAILLES: <liste, ou "aucune">
-LECONS: <toute erreur récurrente à consigner dans .claude/lessons.md>
+LECONS: <toute erreur récurrente, formulée pour être consignée>
 ```
+N'édite PAS toi-même `.claude/lessons.md` : remonte la leçon dans le bloc
+LECONS, l'orchestrateur la consigne (et ajoute le test de régression associé).
 Ne déclare PASS que si tous les critères d'acceptation sont couverts ET verts.
 Sans emoji.

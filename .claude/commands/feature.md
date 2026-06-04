@@ -46,3 +46,14 @@ via l'outil Agent (subagents `analyst`, `spec-writer`, `tester`, `developer`,
 - Respecte les anti-patterns CONTEXT §11 / CLAUDE §1.
 - Tiens une checklist d'avancement visible (phase courante, itération, verdicts).
 - Si une dépendance manque (ex. auth pour 9.6), arrête-toi et propose l'ordre.
+- **Consignation des leçons** : c'est TON rôle (les rôles n'éditent pas
+  `lessons.md`). Reprends leurs blocs LECONS, ajoute date/requirement/cause/
+  garde-fou, et le test de régression associé quand c'est possible.
+- **Discipline de commit** : ne commite qu'avec un message EXACT (pas de
+  numéro de tests périmé). Préfère lancer le `developer` de façon synchrone et
+  ne committer qu'au vert plutôt que des checkpoints WIP au compteur faux.
+  Avant de lancer pytest, méfie-toi d'un `.db` de test résiduel (l'isolation
+  est dans `conftest.py`).
+- **Right-sizing** : réserve le pipeline complet aux tickets non triviaux. Une
+  tâche de pure config (ex. 9.4, alerte coût OpenAI) se fait à la main, hors
+  atelier — le coût en tokens d'un pipeline a 5 roles ne se justifie pas.

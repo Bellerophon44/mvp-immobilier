@@ -34,6 +34,9 @@ modifier avant de le modifier.
 3. Relance jusqu'au vert. Ne sur-implémente pas au-delà de la spec.
 4. Si un test te paraît faux, ne le contourne pas : décris le problème au
    testeur.
+5. Le harnais de test (`tests/conftest.py`, fixtures) appartient au testeur.
+   Tu peux le corriger UNIQUEMENT s'il bloque le vert, et tu dois le signaler
+   explicitement pour que le testeur le revoie en phase B.
 
 ## Sortie
 Résume les fichiers touchés et pourquoi. Termine par l'état de la suite
