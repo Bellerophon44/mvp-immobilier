@@ -5,12 +5,12 @@ from typing import Optional, Dict, List
 
 from fastapi import FastAPI, HTTPException, Header, Body
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.analysis import run_full_analysis
 from app.url_fetch import fetch_listing_text
 from db.session import init_db, SessionLocal
-from db.models import Comparable
+from db.models import Comparable, Feedback
 from ingestion.save import (
     save_comparables,
     MIN_PRICE_M2,
@@ -23,6 +23,7 @@ from scrapers.base import canonical_city, canonical_district
 
 logging.basicConfig(level=logging.INFO, force=True)
 logger = logging.getLogger("mvp")
+feedback_logger = logging.getLogger("feedback")
 
 
 app = FastAPI(
@@ -65,6 +66,15 @@ class AnalyzeResponse(BaseModel):
     confidence: str
     pillars: list
     actions: Dict[str, list]
+
+
+class FeedbackIn(BaseModel):
+    rating: int = Field(ge=1, le=5)
+    comment: Optional[str] = Field(default=None, max_length=1000)
+    analysis_id: Optional[str] = None
+    global_score: Optional[int] = None
+    verdict: Optional[str] = None
+    prompt_variant: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------
@@ -283,3 +293,30 @@ def analyze(payload: AnalyzeRequest):
             status_code=500,
             detail=f"Erreur lors de l'analyse : {str(e)}",
         )
+
+
+@app.post("/feedback", status_code=201)
+def submit_feedback(payload: FeedbackIn) -> dict:
+    db = SessionLocal()
+    try:
+        row = Feedback(
+            rating=payload.rating,
+            comment=payload.comment,
+            analysis_id=payload.analysis_id,
+            global_score=payload.global_score,
+            verdict=payload.verdict,
+            prompt_variant=payload.prompt_variant,
+        )
+        db.add(row)
+        db.commit()
+    finally:
+        db.close()
+
+    # Le contenu du commentaire n'est jamais journalise (donnees perso possibles).
+    feedback_logger.info(
+        "FEEDBACK in: rating=%d has_comment=%s analysis_id=%s",
+        payload.rating,
+        bool(payload.comment),
+        payload.analysis_id,
+    )
+    return {"status": "ok"}

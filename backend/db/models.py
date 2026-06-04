@@ -49,3 +49,22 @@ class Comparable(Base):
 
     # Date de collecte
     collected_at = Column(DateTime, default=datetime.utcnow)
+
+
+class Feedback(Base):
+    """
+    Retour utilisateur post-analyse, a finalite interne (amelioration prompt LLM
+    et wording UX). Minimisation RGPD : ni IP, ni identifiant, ni extrait d'annonce.
+    """
+
+    __tablename__ = "feedback"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    rating = Column(Integer, nullable=False)
+    comment = Column(String, nullable=True)
+    analysis_id = Column(String, nullable=True)
+    global_score = Column(Integer, nullable=True)
+    verdict = Column(String, nullable=True)
+    # Pre-cablage 9.8 (A/B prompts), aucune logique en 9.7.
+    prompt_variant = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)

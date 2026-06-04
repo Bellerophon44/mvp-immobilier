@@ -19,7 +19,7 @@ export default function Footer() {
         <Wordmark compact size={18} />
         <span>MVP · Metz / Moselle uniquement</span>
       </div>
-      <div>Aucune donnée conservée · Comparables locaux</div>
+      <div>Analyses non conservées · Vos retours sont enregistrés · Comparables locaux</div>
     </footer>
   );
 }

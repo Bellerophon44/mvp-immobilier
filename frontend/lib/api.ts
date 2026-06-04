@@ -54,3 +54,28 @@ export async function analyzeListing(
 
   return response.json();
 }
+
+export interface FeedbackPayload {
+  rating: number;
+  comment?: string;
+  analysis_id?: string;
+  global_score?: number;
+  verdict?: string;
+}
+
+// Envoi non bloquant : un echec de feedback ne doit jamais degrader l'UX.
+export async function sendFeedback(payload: FeedbackPayload): Promise<boolean> {
+  try {
+    const response = await fetch(
+      process.env.NEXT_PUBLIC_API_URL + "/feedback",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      }
+    );
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
