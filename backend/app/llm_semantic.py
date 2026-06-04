@@ -61,7 +61,6 @@ USER_PROMPT_TEMPLATE = """Analyse le texte d'annonce immobilière ci-dessous et 
   "risk_level": string,
   "summary": string,
   "risk_summary": string,
-  "to_check": [string],
   "questions": [string],
   "negotiation_levers": [string],
   "listing": {{
@@ -90,6 +89,8 @@ Règles :
 - `transparency_score` est un entier entre 0 et 100.
 - `verdict` ∈ ["Bonne", "Moyenne", "Faible"].
 - `risk_level` ∈ ["Faible", "Modéré", "Élevé"].
+- `questions` : points à clarifier AVANT la visite, formulés comme de vraies questions à poser au vendeur ou à l'agent (étage/ascenseur, charges, travaux, exposition, parking, nuisances, copropriété, etc.). Une liste unique, non redondante, sans estimation de prix.
+- `negotiation_levers` : arguments factuels mobilisables en négociation (intention distincte des questions), formulés en affirmations courtes.
 - `property_type` ∈ ["appartement", "maison", null].
 - `dpe` : lettre de classe énergie ∈ ["A","B","C","D","E","F","G"] si présente, sinon null (ne pas confondre avec le GES).
 - `construction_year` : année de construction (entier) si EXPLICITEMENT mentionnée, sinon null.
@@ -112,7 +113,6 @@ _FALLBACK = {
     "risk_level": "Modéré",
     "summary": "Analyse indisponible.",
     "risk_summary": "Impossible d'évaluer les risques.",
-    "to_check": [],
     "questions": [],
     "negotiation_levers": [],
     "listing": {
@@ -235,7 +235,6 @@ def analyze_semantic(raw_text: str) -> Dict[str, Any]:
         "risk_level": result.get("risk_level") or "Modéré",
         "summary": result.get("summary") or "",
         "risk_summary": result.get("risk_summary") or "",
-        "to_check": result.get("to_check") or [],
         "questions": result.get("questions") or [],
         "negotiation_levers": result.get("negotiation_levers") or [],
         "listing": listing,

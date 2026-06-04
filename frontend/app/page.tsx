@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { analyzeListing, ApiResult } from "../lib/api";
+import { analyzeListing, ApiResult, LocalContext } from "../lib/api";
 import AnalyzerInput, { AnalyzerMode } from "../components/design/AnalyzerInput";
 import VerdictHeader from "../components/design/VerdictHeader";
 import PillarBar from "../components/design/PillarBar";
@@ -133,6 +133,75 @@ function SecondaryRow() {
   );
 }
 
+// Bloc "Contexte local" : profil curaté du quartier, volontairement non-scoré
+// (comme la carte prix). Distances approximatives au niveau du quartier — pas un
+// 4e pilier, on garde le score 40/30/30 et "pas de fausse précision".
+function LocalContextCard({ context }: { context: LocalContext }) {
+  return (
+    <div style={{
+      background: "var(--paper)",
+      border: "1px solid var(--stone-line)",
+      borderRadius: 4,
+      padding: "16px 20px",
+    }}>
+      <div style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        marginBottom: 8,
+      }}>
+        <MapPin size={14} style={{ color: "var(--stone)" }} />
+        <div className="t-eyebrow">Contexte local — {context.district}</div>
+      </div>
+      <div style={{
+        fontFamily: "var(--font-serif)",
+        fontStyle: "italic",
+        fontSize: 18,
+        color: "var(--ink-2)",
+        lineHeight: 1.35,
+        marginBottom: 14,
+      }}>
+        {context.summary}
+      </div>
+      <dl style={{ margin: 0, display: "flex", flexDirection: "column", gap: 10 }}>
+        {context.facts.map((f) => (
+          <div key={f.label} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <dt style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 11,
+              letterSpacing: "0.04em",
+              color: "var(--stone)",
+              textTransform: "uppercase",
+            }}>
+              {f.label}
+            </dt>
+            <dd style={{
+              margin: 0,
+              fontFamily: "var(--font-sans)",
+              fontSize: 14,
+              color: "var(--ink-2)",
+              lineHeight: 1.5,
+            }}>
+              {f.value}
+            </dd>
+          </div>
+        ))}
+      </dl>
+      <div style={{
+        marginTop: 14,
+        paddingTop: 12,
+        borderTop: "1px solid var(--stone-line)",
+        fontFamily: "var(--font-sans)",
+        fontSize: 12,
+        color: "var(--ink-3)",
+        lineHeight: 1.5,
+      }}>
+        Repères indicatifs au niveau du quartier — non comptés dans le score.
+      </div>
+    </div>
+  );
+}
+
 export default function HomePage() {
   const [appState, setAppState] = useState<AppState>("idle");
   const [result, setResult] = useState<ApiResult | null>(null);
@@ -186,17 +255,23 @@ export default function HomePage() {
 
   function handleCopy() {
     if (!result) return;
+    const lc = result.local_context;
     const lines = [
       `Score de cohérence : ${result.global_score} / 100`,
       `Verdict : ${result.verdict}`,
       `Confiance : ${result.confidence}`,
       "",
       ...result.pillars.map((p) => `${p.label} : ${p.verdict}\n${p.explanation}`),
+      ...(lc
+        ? [
+            "",
+            `Contexte local — ${lc.district} :`,
+            lc.summary,
+            ...lc.facts.map((f) => `- ${f.label} : ${f.value}`),
+          ]
+        : []),
       "",
-      "À vérifier avant la visite :",
-      ...result.actions.check.map((c) => `- ${c}`),
-      "",
-      "Questions à poser au vendeur :",
+      "Questions à poser (vendeur / agent) :",
       ...result.actions.questions.map((q) => `- ${q}`),
       "",
       "Leviers de négociation :",
@@ -485,15 +560,14 @@ export default function HomePage() {
               </div>
             )}
 
-            {/* À vérifier */}
-            <ChecklistCard
-              eyebrow="À vérifier avant la visite"
-              items={result.actions.check.map((c) => ({ title: c }))}
-            />
+            {/* Contexte local (non-scoré) */}
+            {result.local_context && (
+              <LocalContextCard context={result.local_context} />
+            )}
 
-            {/* Questions */}
+            {/* Questions (fusion à-vérifier + questions) */}
             <ChecklistCard
-              eyebrow="Questions à poser au vendeur"
+              eyebrow="Questions à poser (vendeur / agent)"
               items={result.actions.questions.map((q) => ({ title: q }))}
             />
 

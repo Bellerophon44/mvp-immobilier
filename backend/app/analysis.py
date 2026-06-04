@@ -3,6 +3,7 @@ from typing import Any, Dict
 
 from app.llm_semantic import analyze_semantic
 from app.market_stats import compute_price_market_pillar
+from app.metz_local import local_context
 from app.scoring import compute_global_score
 from scrapers.base import extract_district
 
@@ -37,10 +38,7 @@ def _price_pillar_from_listing(
 
     listing_price_m2 = price_total / surface
 
-    # Quartier : choix explicite de l'utilisateur en priorité absolue ; sinon
-    # extraction LLM ; sinon repli sur les localités connues du Grand Metz
-    # détectées dans le texte (augmente le taux de comparaison au niveau quartier).
-    district = district_override or listing.get("district") or extract_district(raw_text)
+    district = _resolve_district(listing, raw_text, district_override)
 
     return compute_price_market_pillar(
         city=city,
@@ -64,22 +62,34 @@ def _amenity_attrs(listing: Dict[str, Any]) -> Dict[str, Any]:
     return {k: listing.get(k) for k in _AMENITY_KEYS}
 
 
+def _resolve_district(
+    listing: Dict[str, Any], raw_text: str, district_override: str
+) -> str:
+    """Quartier retenu pour l'analyse : choix explicite de l'utilisateur en
+    priorité absolue ; sinon extraction LLM ; sinon repli sur les localités
+    connues du Grand Metz détectées dans le texte."""
+    return district_override or listing.get("district") or extract_district(raw_text) or ""
+
+
 def _amenity_actions(listing: Dict[str, Any]) -> Dict[str, list]:
-    """Points de vérification / leviers déterministes tirés des critères affinés
-    (chantier C). Factuels, jamais estimatifs : on signale, on n'évalue pas."""
-    check, negotiation = [], []
+    """Questions / leviers déterministes tirés des critères affinés. Factuels,
+    jamais estimatifs : on interroge ou on signale, on n'évalue pas. Les items
+    sont formulés en questions pour rejoindre la liste unique `questions`."""
+    questions, negotiation = [], []
     floor = listing.get("floor")
     if isinstance(floor, int) and floor >= 3 and listing.get("has_elevator") is False:
-        check.append(
-            f"Accès au {floor}e étage sans ascenseur (déménagement, accessibilité, revente)"
+        questions.append(
+            f"Le bien est au {floor}e étage sans ascenseur : comment se passe l'accès "
+            "au quotidien (déménagement, accessibilité) et est-ce un frein à la revente ?"
         )
         negotiation.append(f"{floor}e étage sans ascenseur")
     fees = listing.get("condo_fees")
     if fees:
-        check.append(
-            f"Charges de copropriété annoncées : {int(fees)} €/an — à intégrer au budget"
+        questions.append(
+            f"Que couvrent les charges de copropriété annoncées ({int(fees)} €/an) "
+            "et ont-elles évolué récemment ?"
         )
-    return {"check": check, "negotiation": negotiation}
+    return {"questions": questions, "negotiation": negotiation}
 
 
 def _merge_unique(base: list, extra: list) -> list:
@@ -95,6 +105,12 @@ def run_full_analysis(raw_text: str, district_override: str = "") -> dict:
     price_market_pillar = _price_pillar_from_listing(
         listing, raw_text, district_override
     )
+
+    # Contexte local non-scoré (couche A "Ancrage local") : profil curaté du
+    # quartier retenu, ou None s'il n'est pas reconnu (on n'affiche rien plutôt
+    # que d'inventer).
+    district = _resolve_district(listing, raw_text, district_override)
+    local_ctx = local_context(district, listing.get("city") or "Metz")
 
     pillars = [
         {
@@ -127,8 +143,7 @@ def run_full_analysis(raw_text: str, district_override: str = "") -> dict:
 
     extra = _amenity_actions(listing)
     actions = {
-        "check": _merge_unique(semantic_result["to_check"], extra["check"]),
-        "questions": semantic_result["questions"],
+        "questions": _merge_unique(semantic_result["questions"], extra["questions"]),
         "negotiation": _merge_unique(semantic_result["negotiation_levers"], extra["negotiation"]),
     }
 
@@ -138,4 +153,5 @@ def run_full_analysis(raw_text: str, district_override: str = "") -> dict:
         "confidence": score_block["confidence"],
         "pillars": pillars,
         "actions": actions,
+        "local_context": local_ctx,
     }

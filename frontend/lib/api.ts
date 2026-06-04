@@ -10,16 +10,24 @@ export interface ApiPillar {
   refinable?: boolean;
 }
 
+// Bloc "Contexte local" non-scoré (couche A "Ancrage local"). Absent / null si
+// le quartier n'est pas reconnu côté backend.
+export interface LocalContext {
+  district: string;
+  summary: string;
+  facts: { label: string; value: string }[];
+}
+
 export interface ApiResult {
   global_score: number;
   verdict: string;
   confidence: string;
   pillars: ApiPillar[];
   actions: {
-    check: string[];
     questions: string[];
     negotiation: string[];
   };
+  local_context?: LocalContext | null;
 }
 
 export async function analyzeListing(

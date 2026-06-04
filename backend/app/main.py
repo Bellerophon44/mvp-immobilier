@@ -1,7 +1,7 @@
 import hmac
 import logging
 import os
-from typing import Optional, Dict, List
+from typing import Any, Optional, Dict, List
 
 from fastapi import FastAPI, HTTPException, Header, Body
 from fastapi.middleware.cors import CORSMiddleware
@@ -65,6 +65,9 @@ class AnalyzeResponse(BaseModel):
     confidence: str
     pillars: list
     actions: Dict[str, list]
+    # Bloc "Contexte local" non-scoré (couche A "Ancrage local"). None si le
+    # quartier n'est pas reconnu.
+    local_context: Optional[Dict[str, Any]] = None
 
 
 # ---------------------------------------------------------------------------
