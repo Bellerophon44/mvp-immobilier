@@ -211,6 +211,10 @@ def _parse_listing(ad: dict) -> Optional[PropertyListing]:
     district = ad.get("district")
     district_name = district.get("name") if isinstance(district, dict) else None
 
+    city = canonical_city(ad.get("city"))
+    if not city:
+        return None  # annonce sans ville exploitable -> inutile comme comparable
+
     postal_code = _extract_postal(ad)
 
     dpe = ad.get("energyClassification")
@@ -223,7 +227,7 @@ def _parse_listing(ad: dict) -> Optional[PropertyListing]:
         return PropertyListing(
             id=generate_stable_id(SOURCE_NAME, str(ad["id"])),
             source=SOURCE_NAME,
-            city=canonical_city(ad.get("city")),
+            city=city,
             district=canonical_district(district_name, ad.get("city")),
             postal_code=postal_code,
             property_type=property_type,
