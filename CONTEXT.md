@@ -4,7 +4,54 @@
 > agents, workflows) avant toute action sur le projet. Couvre la stratégie,
 > le produit, la technique, l'opérationnel et les opportunités d'automatisation.
 >
-> **Dernière mise à jour :** 2026-05-25 — après refresh UI pour tests utilisateurs
+> **Dernière mise à jour :** 2026-06-04 — pilier prix affiné + collecte bien'ici
+> repensée. **⚠️ Les sections 4 à 7 et 10 ci-dessous sont partiellement
+> historiques** (rédigées en mai) ; l'état réel à jour est résumé en **§0** et,
+> côté technique fin, dans [`backend/CLAUDE.md`](backend/CLAUDE.md) (source de
+> vérité technique). La vision (§1-3) et les anti-patterns (§11) restent valides.
+
+---
+
+## 0. État actuel (2026-06-04) — snapshot de vérité
+
+### Stack réelle
+- **Backend** : Python 3.12, FastAPI sur **Fly.io** (`backend-frosty-sound-441-docker`,
+  région cdg, Docker explicite, volume SQLite `/data`, auto-stop). **Pas de Railway.**
+- **Frontend** : **Next.js 16** App Router sur Vercel, design system « Cohérence »
+  (palette ink/parchment/brick/moss/ochre, fonts Instrument Serif/Geist), composants
+  sous `frontend/components/design/`. **Pas l'UI bleue de transition décrite en §2.3.**
+- **CI** : 3 GitHub Actions — `collect.yml` (collecte hebdo lundi 04:00 + manuel),
+  `diagnose-scrapers.yml` (sur PR touchant les scrapers → commentaire de diagnostic),
+  `deploy-backend.yml` (deploy Fly sur merge `main`).
+- **Branche de dev courante** : `claude/clever-gates-xXqfp` (l'ancienne
+  `claude/analyze-mvp-immobilier-vtne5` est périmée).
+
+### Données & pilier prix (le gros du travail récent)
+- **5 scrapers** réels et actifs : `bienici` (API JSON, **balayage par tranches de
+  surface**), `benedic`, `idemmo`, `immoheytienne`, `laveine_immo` (HTML).
+- Base prod **~17,7k comparables** (vs « DB vide » en §4.3, désormais faux), toutes
+  tailles, ~2,6k maisons. DPE ~82 % / année ~37 % / étage-ascenseur ~60 % / code
+  postal ~100 % (bien'ici).
+- Le **pilier « Prix vs marché »** fonctionne : cascade
+  `quartier → secteur → ville` (×bande DPE), fenêtre surface ±20 %, quartiles,
+  filtre périmètre par **code postal (dépt 57)**, signal explicatif non-estimatif
+  (DPE/époque/étage/terrasse…). Front : **sélecteur de quartier** + **chip de
+  périmètre dynamique**.
+- Chantiers livrés cette session : époque resserrée, périmètre structuré + badge,
+  filtre code postal, sélecteur de quartier, **critères de confort** (étage,
+  ascenseur, terrasse, copro, charges, cave, parking, chambres), **cascade
+  secteurs**, correctif UX d'affinage, **collecte bien'ici par tranches de surface**
+  (cause racine d'un pool biaisé petites surfaces) + robustesse collecte.
+
+### Roadmap prochaine session (détaillée dans `backend/CLAUDE.md` §11bis)
+1. **Fusionner les actions** : `to_check`+`questions` redondants → **une** liste de
+   **questions** (vendeur/agent) + leviers de négo.
+2. **Section « Ancrage local »** (différenciateur, faute de livre foncier) : profil
+   local curaté par quartier (gare, A31/Luxembourg frontaliers, cathédrale, Pompidou)
+   + extraction des **allégations locales** de l'annonce et **contrôle de cohérence**
+   géographique. Couche distances exactes (géocodage) plus tard. Section non-scorée.
+3. Secteur « Metz métropole » (communes limitrophes) ; rééquilibrage scoring ; dette
+   (lifespan, cache LLM persistant, tests).
 
 ---
 
