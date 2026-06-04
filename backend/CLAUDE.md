@@ -5,7 +5,8 @@
 > [`/CONTEXT.md`](../CONTEXT.md) à la racine du repo (source de vérité).
 > Ce fichier-ci se concentre sur l'état technique courant du backend.
 >
-> **Dernière mise à jour :** 2026-05-31 (5 sources + harnais de diagnostic CI)
+> **Dernière mise à jour :** 2026-06-04 (collecte bien'ici par tranches de surface
+> → base ~17,7k comparables toutes tailles ; cascade secteurs ; critères de confort)
 
 ---
 
@@ -239,8 +240,9 @@ class Comparable(Base):
 >
 > **B2 — usage hybride (`market_stats`)** : la sélection des comparables suit une
 > **cascade** retenant le périmètre le plus précis encore peuplé (≥10) :
-> `quartier+bandeDPE → quartier → ville+bandeDPE → ville` (bandes DPE larges
-> A-B / C-D / E-G, cf. `dpe_band`). En plus, un **signal explicatif** (couche 2,
+> `quartier+bandeDPE → quartier → secteur+bandeDPE → secteur → ville+bandeDPE → ville`
+> (bandes DPE larges A-B / C-D / E-G, cf. `dpe_band` ; niveau **secteur** = chantier
+> #6, cf. §8). En plus, un **signal explicatif** (couche 2,
 > non-estimatif) situe le DPE/époque du bien vs le profil du pool, ajouté à
 > l'explication — **verdict et score inchangés**.
 >
@@ -259,12 +261,30 @@ class Comparable(Base):
 >    listes du LLM : étage élevé sans ascenseur → vérification + levier de négo,
 >    charges de copropriété → à intégrer au budget. `llm_semantic` extrait ces
 >    champs de l'annonce analysée.
+>
+> **Chantier #6 (cascade secteurs)** : niveau intermédiaire `quartier → secteur →
+> ville` dans `market_stats` pour qu'un quartier creux emprunte aux quartiers
+> voisins (100 % comparables observés). `_SECTORS_RAW` (carte validée des secteurs
+> messins : Centre Ville, Sablon, Plantières-Queuleu, Devant-les-Ponts,
+> Patrotte-Metz-Nord, Borny [+Technopôle/Grange], Bellecroix-Vallières, Magny) est
+> **normalisée via `canonical_district` au chargement** → matche les libellés
+> stockés, formes composées bien'ici incluses. Le front (sélecteur de quartier)
+> envoie `district` à `/analyze` (override prioritaire) ; le pilier prix expose
+> `scope`/`scope_name`/`dpe_band`/`n_comparables`/`refinable` → chip dynamique.
+> *Limite connue* : quelques formes composées rares (`Grange-Aux-Bois-Grigy-Technopole`,
+> `Metz-Devant-Les-Ponts`) pas encore mappées à un secteur (sans impact : niveau
+> quartier ou repli ville).
 
 État : **5 sources** actives (bienici, benedic, laveine_immo, idemmo,
-immoheytienne) → ~1100+ annonces brutes/run, couverture Moselle élargie et
-nettement plus de **maisons** qu'avec Bien'ici seul. La ville est stockée sous
-forme canonique (`canonical_city`) ; un garde-fou prix/m² [800-12000] est
-appliqué à l'ingestion (`ingestion/save.py`) à toutes les sources.
+immoheytienne). Depuis le **balayage par tranches de surface** de bien'ici (juin
+2026, cf. §8), un run collecte **~17,4k annonces bien'ici** (toutes tailles, dont
+~2,6k maisons) + ~350 des agences → base prod **~17,7k comparables** (vs ~1,1k
+avant). Couverture des 12-16 quartiers messins largement au-dessus du seuil
+d'affinage pour toutes les tailles. La ville est stockée sous forme canonique
+(`canonical_city`) ; un garde-fou prix/m² [800-12000] est appliqué à l'ingestion
+(`ingestion/save.py`) à toutes les sources. `jobs/push_comparables` **filtre les
+items invalides** (ville manquante…) et **ne s'arrête plus sur un batch en échec**
+(robustesse collecte, juin 2026).
 
 Seuils dans `market_stats.py` :
 - Fenêtre surface : ±20%
@@ -296,7 +316,16 @@ protections anti-bot des frontaux.
   (ex. Metz = `["-450381"]`). C'est l'ID interne Bien'ici, **pas** l'INSEE.
 - Endpoint annonces : `https://www.bienici.com/realEstateAds.json`
   avec `filterType=buy` + `zoneIdsByTypes.zoneIds`
-- **Pagination** : 50/page, jusqu'à 20 pages = 1000 annonces brutes / run
+- **Collecte par tranches de surface** (juin 2026) : l'API trie par **petites
+  surfaces d'abord** et **plafonne la pagination à ~2500 résultats** (offset 2500)
+  alors que le total dépasse 27k. Lire les 1000 premières annonces ne ramenait que
+  des studios (aucun appartement > 70 m² en base → pilier prix faussé). On **balaie
+  donc par tranches de surface** (`SURFACE_BUCKETS`, `minArea`/`maxArea`), chaque
+  tranche paginée jusqu'à épuisement, dédup par id → couverture de **toutes les
+  tailles** + gros volume (~17,4k). Diagnostiquer via `scrapers.diagnose`
+  (histogramme surfaces, profondeur quartier/secteur) ; sonde de pagination
+  ponctuelle disponible dans `diag_bienici.deep_pagination_probe_md`.
+- **Pagination historique** : 50/page (avant le balayage par tranches)
 - **Filtres qualité** dans `_parse_listing` :
   - `adType == "buy"` uniquement (rejette `lifeAnnuitySale` viagers et `rent`)
   - Type résidentiel uniquement (flat/studio/loft/duplex/house/villa/castle/townhouse/manor)
@@ -489,6 +518,55 @@ questions, negotiation}`). Le frontend code en dur l'ordre des piliers
   postal est conservé (repli sur la blocklist de noms `OUT_OF_SCOPE_CITIES`).
   Étendre la capture aux agences HTML (benedic/idemmo/immoheytienne) au besoin ;
   ouvre la voie à un filtrage par secteur/agglo plus fin.
+
+---
+
+## 11bis. Prochaine session — roadmap produit (proposé, non implémenté)
+
+Décidé en fin de session du 2026-06-04 après validation du pilier prix affiné.
+Deux chantiers prioritaires, dans l'esprit « cohérence vs observable, pas
+d'estimation » :
+
+### A) Fusionner les sections d'actions (questions > affirmations)
+Aujourd'hui 3 listes : `to_check`, `questions`, `negotiation_levers`. **`to_check`
+et `questions` sont redondants** (mêmes sujets : étage, ascenseur, terrasse,
+chambres, charges, parking). Cible : **2 listes**.
+- **« Questions à poser (vendeur / agent) »** = fusion `to_check`+`questions`,
+  formulées en **questions** (plus actionnable qu'une affirmation), dédupées.
+- **« Leviers de négociation »** = inchangé (intention distincte).
+- Touches : `llm_semantic` (prompt → une seule liste `questions` + `negotiation`),
+  `analysis._amenity_actions` (items formulés en questions), `app/main.py`
+  (`actions{questions, negotiation}`), front (`page.tsx` : une carte de moins +
+  `handleCopy`), `lib/api.ts`. Effort : faible.
+
+### B) Section « Ancrage local » — le différenciateur (pas de livre foncier)
+Toute la valeur de l'app est le **positionnement local** ; faute de livre foncier,
+la cohérence des **allégations locales** EST le produit. Trois couches :
+- **Couche A — profil local de quartier (curaté, déterministe, factuel)** :
+  `app/metz_local.py` = dict quartier → {distance approx. centre/cathédrale, gare
+  Metz-Ville, accès A31 + temps Luxembourg (attrait **frontalier**), Centre
+  Pompidou-Metz, caractère}. Affiché en bloc « Contexte local » non-scoré.
+  *Shippable sans géocodage.*
+- **Couche B — allégations locales (LLM) + contrôle de cohérence** : `llm_semantic`
+  extrait `local_claims[]` ("vue cathédrale", "proche gare", "5 min A31"…) ; on les
+  **confronte au profil du quartier** → cohérent / peu plausible (ex. « 'vue
+  cathédrale' peu plausible depuis Borny »). C'est le cœur du positionnement :
+  transformer le marketing en affirmations vérifiables géographiquement. Peut
+  alimenter risque/négo.
+- **Couche C (plus tard) — géocodage adresse → distances exactes** (m/km) vers POI
+  curatés (cathédrale St-Étienne, Pompidou-Metz, gare, échangeur A31). Nécessite une
+  adresse (rare) + service de géocodage externe. Au niveau quartier on reste sur des
+  distances approx. (centroïde).
+- UI : nouvelle section **non-scorée** (comme la carte prix), pas un 4e pilier
+  (garde le score 40/30/30 stable + « pas de fausse précision »).
+
+### Autres chantiers en attente
+- **Secteur « Metz métropole »** : niveau au-dessus de la ville regroupant les
+  communes limitrophes (Montigny, Woippy, Marly, Le Ban-Saint-Martin…), où Magny et
+  les biens hors Metz-intra pourraient puiser.
+- Mapper les formes composées rares à un secteur (`_SECTORS_RAW`).
+- Rééquilibrage `scoring.py` (cf. §11) ; migration `on_event`→lifespan ; cache LLM
+  persistant ; tests pytest.
 
 ---
 
