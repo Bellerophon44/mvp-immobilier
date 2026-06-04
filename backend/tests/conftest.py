@@ -1,10 +1,18 @@
 import os
 import tempfile
 
-# Isolation : base SQLite jetable + clé OpenAI factice AVANT tout import app,
-# pour que les tests ne touchent ni la prod ni le réseau.
-_tmp_db = os.path.join(tempfile.gettempdir(), "mvp_test_comparables.db")
-os.environ.setdefault("DATABASE_PATH", _tmp_db)
+# Isolation : base SQLite jetable dediee + cle OpenAI factice AVANT tout import
+# app, pour que les tests ne touchent ni la prod ni le reseau.
+#
+# On FORCE (et non setdefault) le chemin de la base de test : un DATABASE_PATH
+# preexistant dans l'environnement (dev local, conteneur prod : /data/...) serait
+# sinon respecte, puis efface par le os.remove ci-dessous -> suppression
+# destructive d'une vraie base. Le fichier porte un suffixe pid pour eviter toute
+# collision avec une base reelle et entre executions paralleles.
+_tmp_db = os.path.join(
+    tempfile.gettempdir(), f"mvp_test_feedback_{os.getpid()}.db"
+)
+os.environ["DATABASE_PATH"] = _tmp_db
 os.environ.setdefault("OPENAI_API_KEY", "test-key-not-used")
 
 # Repartir d'une base vierge a chaque session : sinon les lignes persistees par
