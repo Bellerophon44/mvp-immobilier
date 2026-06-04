@@ -343,6 +343,12 @@ class Comparable(Base):
   MDX), 1 article pilote rédigé puis **relu humainement**, 20 sujets long-tail.
   Prérequis : `NEXT_PUBLIC_SITE_URL` (URL Vercel prod). Détail :
   `docs/specs/9.5-ANALYSE.md`.
+- **A/B testing de prompts (9.8) — différé** : prématuré au trafic quasi nul
+  (jamais significatif ; rolling refresh auto = sur-apprentissage du bruit). Le
+  backend est pré-câblé (colonne `Feedback.prompt_variant`). 1re étape bon marché
+  à la reprise : **fermer la chaîne front** (`FeedbackPayload` + `handleFeedback`
+  envoient `prompt_variant`). Puis infra de variante OFF par défaut + corrélation
+  (cf. nœud `analysis_id` client). Détail : `docs/specs/9.8-ANALYSE.md`.
 - Cache LLM persistant (Redis Fly ou table SQLite)
 - Rate limiting sur `/analyze` (anti-abus)
 - Robots.txt côté frontend
