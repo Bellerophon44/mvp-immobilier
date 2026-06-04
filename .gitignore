@@ -35,5 +35,14 @@ frontend/package-lock.json
 frontend/.claude/
 backend/.claude/
 
+# ...sauf l'atelier d'agents (asset partage, versionne pour reutilisation)
+!.claude/
+.claude/*
+!.claude/agents/
+!.claude/commands/
+!.claude/atelier/
+!.claude/lessons.md
+.claude/settings.local.json
+
 # recon dumps (local scraper reconnaissance)
 recon_dumps/
