@@ -148,11 +148,22 @@ def run_full_analysis(
             if addr:
                 local_ctx["address"] = addr
 
+    score_block = compute_global_score(
+        price_pillar=price_market_pillar,
+        semantic_pillar=semantic_result,
+    )
+    breakdown = score_block["breakdown"]
+
+    # `points`/`max` exposent la part de chaque pilier dans le score global, pour
+    # que le front affiche les mêmes nombres (global = prix + transparence +
+    # risque) au lieu de recalculer des barres divergentes.
     pillars = [
         {
             "label": "Prix vs marché local",
             "verdict": price_market_pillar["verdict"],
             "explanation": price_market_pillar["explanation"],
+            "points": breakdown["price"],
+            "max": 40,
             # Périmètre structuré pour l'affichage (badge dynamique côté front).
             "scope": price_market_pillar.get("scope"),
             "scope_name": price_market_pillar.get("scope_name"),
@@ -164,18 +175,17 @@ def run_full_analysis(
             "label": "Transparence de l'annonce",
             "verdict": semantic_result["verdict"],
             "explanation": semantic_result["summary"],
+            "points": breakdown["transparency"],
+            "max": 30,
         },
         {
             "label": "Risques et incertitudes",
             "verdict": semantic_result["risk_level"],
             "explanation": semantic_result["risk_summary"],
+            "points": breakdown["risk"],
+            "max": 30,
         },
     ]
-
-    score_block = compute_global_score(
-        price_pillar=price_market_pillar,
-        semantic_pillar=semantic_result,
-    )
 
     extra = _amenity_actions(listing)
     actions = {

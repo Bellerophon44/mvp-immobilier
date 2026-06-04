@@ -5,8 +5,8 @@
 > [`/CONTEXT.md`](../CONTEXT.md) à la racine du repo (source de vérité).
 > Ce fichier-ci se concentre sur l'état technique courant du backend.
 >
-> **Dernière mise à jour :** 2026-06-04 (collecte bien'ici par tranches de surface
-> → base ~17,7k comparables toutes tailles ; cascade secteurs ; critères de confort)
+> **Dernière mise à jour :** 2026-06-04 (scoring 40/30/30 = somme exacte des
+> piliers ; cascade élargie au niveau **métropole** ; ancrage local couches A/B/C)
 
 ---
 
@@ -240,9 +240,10 @@ class Comparable(Base):
 >
 > **B2 — usage hybride (`market_stats`)** : la sélection des comparables suit une
 > **cascade** retenant le périmètre le plus précis encore peuplé (≥10) :
-> `quartier+bandeDPE → quartier → secteur+bandeDPE → secteur → ville+bandeDPE → ville`
-> (bandes DPE larges A-B / C-D / E-G, cf. `dpe_band` ; niveau **secteur** = chantier
-> #6, cf. §8). En plus, un **signal explicatif** (couche 2,
+> `quartier+bandeDPE → quartier → secteur+bandeDPE → secteur → ville+bandeDPE →
+> ville → métropole+bandeDPE → métropole` (bandes DPE larges A-B / C-D / E-G, cf.
+> `dpe_band` ; niveau **secteur** = chantier #6 ; niveau **métropole** = communes
+> limitrophes, cf. §11 « Secteur Metz métropole »). En plus, un **signal explicatif** (couche 2,
 > non-estimatif) situe le DPE/époque du bien vs le profil du pool, ajouté à
 > l'explication — **verdict et score inchangés**.
 >
@@ -479,8 +480,10 @@ system "Cohérence"). Côté contrat API :
 **Côté backend, retenir** : la réponse `/analyze` doit garder ce schéma
 (`global_score`, `verdict`, `confidence`, `pillars[]`, `actions{questions,
 negotiation}`, `local_context` optionnel). Le frontend code en dur l'ordre des
-piliers `[prix, transparence, risques]`. Depuis le chantier A, `actions` n'a
-plus que **deux** listes (`questions` fusionne l'ancien `to_check`) ; le bloc
+piliers `[prix, transparence, risques]`. Chaque pilier porte `points`/`max`
+(prix /40, transparence /30, risque /30) : **le score global est exactement la
+somme des `points`** (cf. §11, scoring 40/30/30). Depuis le chantier A, `actions`
+n'a plus que **deux** listes (`questions` fusionne l'ancien `to_check`) ; le bloc
 `local_context` (non-scoré) porte le profil de quartier (couche A), la liste
 `claims` (couche B : `{text, type, status, note}`), `address` (si saisie) et
 `precision` ∈ `{"quartier","adresse"}` (couche C : `"adresse"` = distances
@@ -492,10 +495,15 @@ exactes géocodées, `"quartier"` = repli profil). `AnalyzeRequest` accepte
 ## 11. Limitations connues et dette technique
 
 ### Côté produit / scoring
-- **Pondération du score** : `scoring.py` donne 40 pts au pilier prix.
-  Quand un bien est transparent, à faible risque, mais nettement sur-positionné,
-  le score peut descendre jusqu'à 50/100 → verdict "Risque élevé", ce qui
-  est trop sévère sémantiquement. À reprendre avec la charte produit.
+- **Pondération du score 40 / 30 / 30** (prix / transparence / risque = 100) :
+  `compute_global_score` renvoie un `breakdown` par pilier et le score global est
+  **exactement la somme** prix(/40)+transparence(/30)+risque(/30). Le front
+  affiche ces `points` (pilier prix /40 + pilier sémantique /60 = global), il ne
+  recalcule plus de barres divergentes. *(Corrigé 2026-06-04 : avant, transparence
+  et risque plafonnaient à 25 → max 90, et le front recomputait les barres depuis
+  les verdicts → `52 ≠ 10+48`.)* Reste discutable : un bien transparent et peu
+  risqué mais fortement sur-positionné plafonne vers 72/100 — sévérité du pilier
+  prix à rediscuter avec la charte produit, mais désormais cohérente à la lecture.
 - **Couverture maisons** : Bien'ici ne renvoie ~1% de maisons pour Metz
   intra-muros. Les sources HTML d'agences ajoutées (benedic, idemmo,
   immoheytienne) apportent une part bien plus élevée de maisons et de communes
@@ -614,13 +622,22 @@ la cohérence des **allégations locales** EST le produit. Trois couches :
 - UI : section **non-scorée** (comme la carte prix), pas un 4e pilier
   (garde le score 40/30/30 stable + « pas de fausse précision »).
 
+### Secteur « Metz métropole » — FAIT (2026-06-04)
+Niveau **au-dessus de la ville** dans la cascade `market_stats` : `_METRO_CITIES`
+(Metz + communes limitrophes : Montigny, Woippy, Marly, Le Ban-Saint-Martin,
+Longeville, Saint-Julien, Scy-Chazelles, Plappeville, Lessy, Augny). La cascade
+devient `quartier → secteur → ville → métropole` (× bande DPE). `_fetch_comparables`
+accepte un ensemble de communes (`cities`). Règles : la **ville reste préférée dès
+`MIN_COMPARABLES` (3)** — on n'élargit à la métropole que si la commune est trop
+creuse (pas de dilution d'un pool communal exploitable) ; la métropole n'est
+mobilisée que si le bien est **dans** le périmètre (sinon pas d'élargissement à des
+communes étrangères, ex. Thionville → None). Scope `"metropole"` exposé au front
+(badge), `refinable` gardé à Metz uniquement. Vérifié sur DB temporaire.
+
 ### Autres chantiers en attente
-- **Secteur « Metz métropole »** : niveau au-dessus de la ville regroupant les
-  communes limitrophes (Montigny, Woippy, Marly, Le Ban-Saint-Martin…), où Magny et
-  les biens hors Metz-intra pourraient puiser.
 - Mapper les formes composées rares à un secteur (`_SECTORS_RAW`).
-- Rééquilibrage `scoring.py` (cf. §11) ; migration `on_event`→lifespan ; cache LLM
-  persistant ; tests pytest.
+- Rééquilibrage `scoring.py` (sévérité pilier prix, cf. §11) ; migration
+  `on_event`→lifespan ; cache LLM persistant ; tests pytest.
 
 ---
 

@@ -413,11 +413,16 @@ export default function HomePage() {
   const transparencyPillar = result?.pillars[1];
   const riskPillar         = result?.pillars[2];
 
-  const priceScore = pricePillar ? priceVerdictToScore(pricePillar.verdict) : 0;
-  const semanticRaw =
-    (transparencyPillar ? transparencyVerdictToScore(transparencyPillar.verdict) : 0) +
-    (riskPillar ? riskVerdictToScore(riskPillar.verdict) : 0);
-  const semanticScore = Math.round(semanticRaw * 60 / 50);
+  // Barres = points exacts renvoyés par le backend, pour que
+  // prix + sémantique = score global. Repli sur l'heuristique de verdict
+  // seulement si l'API ne fournit pas encore `points` (anciennes réponses).
+  const priceScore = pricePillar?.points
+    ?? (pricePillar ? priceVerdictToScore(pricePillar.verdict) : 0);
+  const semanticScore =
+    (transparencyPillar?.points
+      ?? (transparencyPillar ? Math.round(transparencyVerdictToScore(transparencyPillar.verdict) * 30 / 25) : 0)) +
+    (riskPillar?.points
+      ?? (riskPillar ? Math.round(riskVerdictToScore(riskPillar.verdict) * 30 / 25) : 0));
 
   const verdictSummary = transparencyPillar?.explanation || pricePillar?.explanation || "";
 
