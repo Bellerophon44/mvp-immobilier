@@ -330,12 +330,9 @@ class Comparable(Base):
 - Tests pytest sur `analysis.py`, `scoring.py`, `url_fetch.py` (au moins golden path)
 - Migration `@app.on_event` → `lifespan`
 - Monitoring : Sentry pour erreurs, Logflare/Axiom pour logs structurés
-- **Monitoring qualité IA (9.3) — différé** : à très faible trafic, un fallback
-  LLM est à peine observable. Pour l'instant, seul un **test de régression**
-  verrouille le marqueur loggable `LLM call failed`
-  (`backend/tests/test_llm_fallback.py`). Brancher une vraie alerte (compteur
-  persisté SQLite + cron GitHub Actions → issue/Slack) **quand le trafic
-  décollera**. Détail : `docs/specs/9.3-ANALYSE.md` / `9.3-SPEC.md`.
+- **Automatisations 9.x (9.3 monitoring IA, 9.5 SEO, 9.6 watchlist, 9.8 A/B) —
+  différées** : statut, findings, risques et workarounds détaillés en **§9**
+  (source canonique) ; analyses complètes dans `docs/specs/9.X-ANALYSE.md`.
 - Cache LLM persistant (Redis Fly ou table SQLite)
 - Rate limiting sur `/analyze` (anti-abus)
 - Robots.txt côté frontend
@@ -345,78 +342,182 @@ class Comparable(Base):
 
 ## 9. Opportunités d'automatisation (input pour agents et workflows)
 
-Les automatisations ci-dessous sont des candidats logiques pour des agents
-Claude Code ou workflows planifiés. Chacune est décrite avec son trigger, ses
-inputs/outputs, ses dépendances, et son effort estimé.
+> **Mise à jour 2026-06-05.** Les requirements 9.2→9.8 ont été passés un par un
+> dans l'**atelier d'agents** (`.claude/`, voir `.claude/atelier/README.md`) :
+> analyse → spec → tests → dev → revue adversariale, avec gates humaines. Chaque
+> requirement porte ci-dessous : un **statut**, la **version complète (cible)**
+> conservée pour reprise ultérieure, les **findings / challenges / risques** de
+> l'analyse, et le **workaround léger** réellement retenu. Le détail complet de
+> chaque analyse est versionné dans `docs/specs/9.X-ANALYSE.md` (et `-SPEC.md`
+> quand un livrable a été produit).
+>
+> **Légende statut** : ✅ Fait · ⚠️ Partiel (workaround livré, version complète
+> différée) · ⏸️ Différé · ⬜ À faire (hors atelier).
+>
+> **Fil rouge des analyses** : à **trafic quasi nul** (MVP en phase de test) et
+> **sans domaine email** ni **auth** ni **rate-limit**, plusieurs requirements
+> sont **prématurés ou bloqués par des prérequis externes**. La stratégie retenue
+> a été de livrer à chaque fois la **version la plus légère qui apporte de la
+> valeur sans dette**, et de documenter la version lourde pour plus tard.
 
-### 9.1 [agent ingestion] Alimenter la base des comparables
-- **Objectif** : faire passer le pilier "Prix vs marché" de "Indéterminé" à un verdict réel
-- **Trigger** : cron quotidien ou hebdomadaire (ex. 4h du matin)
-- **Étapes** :
-  1. Identifier les sites cibles accessibles (sans anti-bot) — idemmo.fr testé OK ; en ajouter 2-3 (orpi-metz, century21-metz, agences locales)
-  2. Pour chaque site : implémenter un module `scrapers/<site>.py` avec sélecteurs CSS spécifiques (analyser le DOM, écrire les sélecteurs)
-  3. Lancer le job ; ingérer via `ingestion/save.py` (utilise `merge` pour update sans doublon)
-  4. Loguer le nombre d'annonces récupérées / sauvegardées
-- **Dépendances** : aucune nouvelle clé API, juste des respects de fréquence raisonnable (1 req/s max conseillé)
-- **Légalité** : vérifier robots.txt de chaque site, ne pas redistribuer le contenu brut (seulement les agrégats statistiques)
-- **Effort agent** : moyen (analyse de DOM + écriture de sélecteurs résilients)
-- **Trigger possible** : GitHub Action cron, ou `fly machine run` schedulé
-- **Fichiers à créer/modifier** : `backend/scrapers/<site>.py`, `backend/jobs/collect_<region>.py`, possiblement un module `scrapers/registry.py` pour orchestrer
+### 9.1 [agent ingestion] Alimenter la base des comparables — ✅ Fait
+**Statut : ✅ Fait.** 5 scrapers actifs (bienici, benedic, idemmo, immoheytienne,
+laveine_immo), base prod **~17,7k comparables**, collecte CI hebdo (`collect.yml`)
++ harnais de diagnostic en PR (`diagnose-scrapers.yml`). Voir `backend/CLAUDE.md`
+§8-9. Le pilier « Prix vs marché » est passé de « Indéterminé » à opérationnel.
+- **Version cible** (rappel) : cron + modules `scrapers/sources/<site>.py` à
+  sélecteurs CSS, ingestion via `ingestion/save.py`, agrégats seulement (pas de
+  redistribution brute).
+- **Reste possible** : ajouter d'autres agences accessibles (registre + harnais
+  déjà en place : déposer un fichier `sources/<agence>.py`, lire le diagnostic PR).
 
-### 9.2 [workflow] Envoyer un email récapitulatif après une analyse
-- **Objectif** : engagement / rétention / création d'asset propre à l'utilisateur
-- **Trigger** : `POST /analyze` réussi
-- **Étapes** :
-  1. Ajouter un champ `email` optionnel dans `AnalyzeRequest`
-  2. Côté frontend : checkbox "Recevez-moi cette analyse par mail" + champ email
-  3. Côté backend : à la fin de `/analyze`, si email présent, déclencher l'envoi async
-  4. Format mail : HTML simple avec score, verdict, 3 piliers, 3 listes d'actions
-- **Dépendances** : 
-  - Provider d'envoi : Resend (recommandé, free tier 100 mails/jour), ou Postmark, ou Brevo
-  - Secret Fly : `RESEND_API_KEY` (ou équivalent)
-  - Domaine vérifié pour expéditeur (ex. `noreply@mvp-immobilier.fr`)
-- **Conformité RGPD** : checkbox de consentement explicite, mention "vos données ne sont pas réutilisées"
-- **Effort** : 2-3h (backend send + template HTML + frontend champ + tests)
-- **Fichiers à créer** : `backend/app/email.py` (client Resend), template HTML inline ou via Jinja2
+### 9.2 [workflow] Email récapitulatif après une analyse — ⚠️ Partiel
+**Statut : ⚠️ Partiel.** Livré : **export client `.md`** du rapport (bouton
+« Télécharger (.md) », PR #54). **Email différé** (prérequis externes manquants).
+Specs : `docs/specs/9.2-ANALYSE.md`, `docs/specs/9.2-SPEC.md`.
 
-### 9.3 [agent qualité] Monitoring qualité IA
-- **Objectif** : détecter automatiquement quand l'IA donne des réponses fallback (signal de dégradation)
-- **Trigger** : log warning détecté ("LLM call failed" ou retour `_FALLBACK`)
-- **Étapes** : tail des logs Fly → si seuil de fallbacks/heure dépassé → notification Slack/email
-- **Dépendances** : Better Stack (anciennement Logtail), ou intégration Fly logs → webhook
-- **Effort** : 1-2h
+- **Version complète (cible, conservée)** : à la fin d'un `/analyze` réussi, si
+  l'utilisateur fournit un email + consentement, lui envoyer le récap (score,
+  verdict, piliers, actions) par mail. Conception cible arbitrée : endpoint
+  **séparé** `POST /send-report` recevant le résultat déjà calculé (zéro coût
+  LLM, contrat `/analyze` intact, pattern `/feedback`) ; **ne rien stocker** (D1,
+  minimisation) ; Resend via `requests` (zéro dépendance) ; template HTML inline +
+  texte ; **pas d'envoi sur fallback LLM** ; consentement explicite (case non
+  pré-cochée) ; mention « vos données ne sont pas réutilisées ». Fichier cible :
+  `backend/app/email.py`.
+- **Prérequis EXTERNES bloquants (action humaine)** : (1) **acquérir un domaine**
+  expéditeur (le projet n'en a pas, §3.2), (2) compte Resend + **vérification DNS
+  SPF/DKIM**, (3) secret `RESEND_API_KEY` (`fly secrets`).
+- **Challenges / risques** : **relais de spam ouvert** (endpoint d'envoi sans
+  rate-limit — dette §8 — peut cramer la réputation d'un domaine neuf) ; **RGPD**
+  (email = donnée perso) ; valeur engagement **non validée** (§2.4) ; ne pas
+  redistribuer l'annonce brute (§11.3) ; ne pas envoyer le fallback LLM.
+- **Workaround léger retenu** : export client (le bouton « Copier » existait déjà ;
+  ajout d'un téléchargement `.md` qui réutilise `buildReportText`) — couvre ~80 %
+  du besoin « garder mon analyse », **0 backend / 0 RGPD / 0 vendor / 0 domaine**.
 
-### 9.4 [workflow] Alertes coût OpenAI
-- **Objectif** : éviter une facture surprise
-- **Trigger** : webhook OpenAI Usage Alerts (configurable sur platform.openai.com)
-- **Étapes** : mettre un usage limit hard (ex. 20 €) + alerte douce à 80%
-- **Effort** : 5 min de config UI sur platform.openai.com (pas de code)
+### 9.3 [agent qualité] Monitoring qualité IA — ⚠️ Partiel
+**Statut : ⚠️ Partiel.** Livré : **test de régression** verrouillant le marqueur
+de dégradation (PR #55). **Alerte complète différée.** Specs :
+`docs/specs/9.3-ANALYSE.md`, `docs/specs/9.3-SPEC.md`.
 
-### 9.5 [agent contenu] Génération SEO long-tail
-- **Objectif** : créer du contenu pédagogique qui ramène du trafic ("Comment savoir si une annonce immobilière est honnête ?")
-- **Trigger** : manuel ou hebdomadaire
-- **Étapes** : agent Claude → liste de 20 questions d'acheteurs → 1 article par semaine → publication sur Vercel (pages MDX dans `frontend/app/blog/`)
-- **Effort** : moyen (squelette MDX à créer côté Next.js + agent de génération)
+- **Finding clé** : le fallback LLM est émis en **un seul point**
+  (`backend/app/llm_semantic.py:236-242`) — le « log warning » et le « retour
+  `_FALLBACK` » du requirement sont le **même événement**. Le seul signal loggable
+  est la chaîne **`LLM call failed`** (ERROR, logger `llm_semantic`) ; la variable
+  `_FALLBACK` n'apparaît jamais dans les logs.
+- **Version complète (cible, conservée)** : détection **persistée** en SQLite
+  (table `LlmFailure`, modèle `Feedback` à imiter) → taux/heure fiable **malgré
+  l'auto-stop Fly** (un compteur en mémoire est remis à zéro à chaque réveil) ;
+  endpoint `GET /admin/health/llm` (protégé `X-Admin-Token`, agrégats seulement) ;
+  cron GitHub Actions (modèle `collect.yml`) qui alerte au-delà d'un seuil
+  (proposition : ≥ 3 fallbacks ET > 50 % sur 60 min) via **issue GitHub** (zéro
+  secret externe) ou **webhook Slack**.
+- **Challenges / risques** : **prématuré au trafic quasi nul** (un fallback n'est
+  observable que si quelqu'un analyse pendant une panne OpenAI) ; **email écarté**
+  (pas de domaine, cf. 9.2) ; **vendor Better Stack sur-dimensionné** ; le
+  **polling réveille la VM** (contre l'auto-stop / sécurité financière §3.3) ; le
+  **cache LLM peut masquer** une panne (annonces déjà en cache servies sans appel).
+- **Workaround léger retenu** : test `backend/tests/test_llm_fallback.py` qui
+  garantit que le marqueur `LLM call failed` reste émis et explicite — tout
+  monitoring futur s'appuiera dessus. Coût nul, aucun changement de comportement.
 
-### 9.6 [workflow] Watchlist d'annonces avec re-analyse
-- **Objectif** : pousser à l'engagement régulier ; capter l'intention d'achat dans la durée
-- **Mécanique** :
-  1. L'utilisateur enregistre une annonce (lien)
-  2. Cron quotidien : fetch chaque annonce, comparer le hash du contenu
-  3. Si modifié (notamment baisse de prix) : email "Cette annonce a baissé de X €"
-- **Stack** : nouvelle table `Watchlist(id, user_email, url, last_hash, last_price, created_at)` ; reuse de `url_fetch.py`
-- **Effort** : 4-6h
-- **Pré-requis** : auth utilisateur (au moins email magic link)
+### 9.4 [workflow] Alertes coût OpenAI — ⬜ À faire (hors atelier)
+**Statut : ⬜ À faire.** Volontairement **hors atelier** (pure config UI, pas de
+code → le pipeline à 5 rôles ne se justifie pas, cf. règle right-sizing
+`.claude/commands/feature.md`).
+- **Action** : sur `platform.openai.com → Settings → Limits`, poser un **usage
+  limit hard** (ex. 20 €) + alerte douce à 80 %. ~5 min, aucune dépendance.
 
-### 9.7 [agent analytics] Collecte de feedback utilisateur post-analyse
-- **Objectif** : améliorer le prompt LLM et le wording UX
-- **Mécanique** : à la fin du résultat, micro-form "Cette analyse vous a-t-elle aidée ? 1-5", + champ libre. Stockage SQLite/Supabase.
-- **Effort** : 2h
+### 9.5 [agent contenu] Génération SEO long-tail — ⏸️ Différé
+**Statut : ⏸️ Différé.** Spec : `docs/specs/9.5-ANALYSE.md`.
+- **Version complète (cible, conservée)** : socle SEO **0-dépendance**
+  (`app/sitemap.ts` + `app/robots.ts` + `metadataBase`/OpenGraph + `generateMetadata`
+  par article) ; **scaffold blog en composants `.tsx` statiques** (server
+  components, **pas de MDX**) sous `frontend/app/blog/` ; agent qui propose
+  **sujets + plans**, **rédaction relue humainement** ; cadence 1 article/semaine
+  via PR de brouillon (jamais d'auto-merge sur du contenu).
+- **Findings** : pas de route blog, **MDX absent** (l'activer = 3 deps + config,
+  à rebours du minimalisme), **aucun socle SEO** (ni robots, ni sitemap, ni
+  `metadataBase`), `page.tsx` est `"use client"` (un article doit rester statique).
+- **Challenges / risques** : « MDX = SEO » est un **faux ami** ; **acquisition SEO
+  = hypothèse non validée** (§2.4) et **lente** (mois) ; **rédaction automatisée =
+  risque éditorial/légal majeur** vu le positionnement (juridiquement prudent, pas
+  d'estimation) → revue humaine obligatoire. Prérequis : `NEXT_PUBLIC_SITE_URL`
+  (URL Vercel prod) pour canonicals/sitemap.
+- **Workaround léger identifié (non encore livré)** : socle SEO seul (sitemap +
+  robots + metadata) répare la dette §8 sans pari éditorial ; ou 1 article pilote
+  `.tsx` relu, automatisation différée.
 
-### 9.8 [workflow] A/B testing de prompts
-- **Objectif** : optimiser progressivement la qualité d'analyse
-- **Mécanique** : 2 versions de `SYSTEM_PROMPT` actives en parallèle, split 50/50 par cookie/session ID, enregistrement de la satisfaction ; rolling refresh par variante gagnante
-- **Effort** : 3-4h, nécessite analytics et feedback en place (cf 9.7)
+### 9.6 [workflow] Watchlist d'annonces avec re-analyse — ⏸️ Différé
+**Statut : ⏸️ Différé.** Le chantier **le plus lourd** (cumule deux bloqueurs).
+Spec : `docs/specs/9.6-ANALYSE.md`.
+- **Version complète (cible, conservée)** : (1) l'utilisateur enregistre une
+  annonce (lien) ; (2) cron quotidien : `url_fetch` chaque annonce, compare le
+  **hash de contenu** ; (3) si baisse de prix → email « Cette annonce a baissé de
+  X € ». Stack : table `Watchlist(id, user_email, url, last_hash, last_price,
+  created_at)`, reuse `url_fetch.py`, cron type `collect.yml`.
+- **Prérequis EXTERNES bloquants (cumulés)** : (1) **AUTH utilisateur** —
+  inexistante (seul `X-Admin-Token` machine-à-machine existe) ; un **magic link**
+  est un **chantier entier** (envoi d'email + tokens + session + rate-limit +
+  parcours front) ; (2) **EMAIL** — bloqué par l'absence de domaine, **comme 9.2**.
+  9.6 hérite donc du blocage email **deux fois** (magic link **et** notification).
+- **Challenges / risques** : **saut de posture RGPD majeur** (stockage nominatif
+  durable + profilage + envoi récurrent ⇒ consentement, désinscription, rétention,
+  registre — à l'opposé de la minimisation assumée de `Feedback`) ; **coût** —
+  distinguer un **hash** (cheap) d'une **re-analyse LLM** (chère, ×annonces×jours,
+  peut dépasser le < 1 €/mois) ; **promesse intenable** sur les grands portails
+  (Leboncoin/SeLoger non-fetchables, anti-bot §4.3) ; **détection « baisse de
+  prix » non fiable** (le hash voit *un* changement, pas le prix — il n'y a pas de
+  scraper dédié par site arbitraire) ; **relais de spam** (pas de rate-limit).
+- **Workaround léger identifié (non livré)** : version **sans compte ni email** —
+  l'utilisateur garde ses annonces analysées en **localStorage** (« Mes
+  annonces ») + bouton **« re-analyser »** qui rejoue `/analyze` sur un lien
+  sauvegardé. Donne « garder + re-vérifier » sans auth/email/RGPD, mais **pas
+  d'alerte proactive** de baisse de prix.
+
+### 9.7 [agent analytics] Collecte de feedback utilisateur — ✅ Fait
+**Statut : ✅ Fait.** Pilote de l'atelier (PR #53). Specs :
+`docs/specs/9.7-ANALYSE.md`, `docs/specs/9.7-SPEC.md`.
+- **Livré** : table `feedback` (rating 1-5, comment ≤ 1000, `analysis_id`,
+  `global_score`, `verdict`, `prompt_variant` nullable [pré-câblage 9.8],
+  `created_at`) — **aucune IP ni identifiant** ; endpoint **`POST /feedback`**
+  public (201) ; validation Pydantic (422) ; logger `feedback` qui **ne journalise
+  jamais le commentaire** ; `FeedbackForm` côté front ; `analysis_id` généré
+  client (`crypto.randomUUID`) → **contrat `/analyze` intact** ; footer corrigé
+  (« Aucune donnée conservée » retiré) + micro-mention RGPD.
+- **Décisions** : stockage **SQLite** (pas de Supabase), modèle **D2** (sans
+  extrait d'annonce), anti-abus **léger** (validation, pas de slowapi), RGPD a+c.
+- **Suites notées** : politique de **rétention/purge** des feedbacks ; **rapports
+  d'exploitation** (corrélation note ↔ score/verdict, lecture commentaires).
+
+### 9.8 [workflow] A/B testing de prompts — ⏸️ Différé
+**Statut : ⏸️ Différé.** Backend **pré-câblé** par 9.7. Spec :
+`docs/specs/9.8-ANALYSE.md`.
+- **Version complète (cible, conservée)** : 2 versions de `SYSTEM_PROMPT` en
+  parallèle, split (≈50/50), enregistrement de la satisfaction (note 9.7) par
+  variante, bascule vers la variante gagnante.
+- **Acquis (pré-câblage 9.7)** : `Feedback.prompt_variant` (nullable) +
+  `FeedbackIn.prompt_variant` persisté + test de verrou. **Maillon manquant** :
+  le front n'envoie pas encore `prompt_variant` (`FeedbackPayload` +
+  `handleFeedback`).
+- **Nœud de conception** : la variante est choisie au backend à `/analyze`, mais
+  `analysis_id` est **généré côté client** et n'arrive qu'avec le feedback.
+  Options : (a) `/analyze` **renvoie** la variante → change `AnalyzeResponse`
+  (anti-pattern §11.9, MAJ `lib/api.ts`), corrélation **exacte** [reco si on
+  accepte le changement de contrat] ; (b) **dérivation déterministe** (hash de
+  `analysis_id`) → zéro changement de contrat, split « par contenu » imparfait ;
+  (c) table serveur → **bloquée** (analysis_id est client) ; (d) cookie/session →
+  **RGPD** + contredit la minimisation.
+- **Challenges / risques** : **prématuré** (jamais significatif au trafic quasi
+  nul, même constat que 9.3) ; **rolling refresh auto = sur-apprentissage du
+  bruit** ; le **cache LLM ignore le prompt** dans sa clé → re-sert sans repasser
+  par la sélection (fausse l'attribution) ; inclure la variante dans la clé corrige
+  mais peut **doubler les appels OpenAI** ; une variante B doit respecter les
+  **mêmes anti-patterns** (pas d'estimation, pas de conseil juridique).
+- **Workaround léger identifié (1re étape à la reprise)** : **fermer la chaîne
+  front `prompt_variant`** (no-risk), puis infra de variante **OFF par défaut**
+  (prod = 1 seul prompt), bascule **manuelle** quand le trafic le justifiera.
 
 ---
 
