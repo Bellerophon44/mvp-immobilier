@@ -34,6 +34,11 @@ comparables » (cf. `frontend/app/page.tsx`). → On promet **« quartier »**, 
 - **Cachet local** (`Seal` dans `components/design/Icons.tsx`) : anneau de sceau
   notarial + losange de marque, posé en or Jaumont en tête de la carte
   « Contexte local ». Unique signe local de l'UI.
+- **Cachet à l'alérion** (`AlerionSeal`) : variante héraldique gravée, **réservée
+  aux grands formats (≥ 64 px)** — favicon, en-tête de rapport, page « à propos ».
+  Test de rendu (Pillow) : net à 64/120 px, illisible à 20 px (ailes/corps se
+  confondent) → l'UI 20 px garde le losange. Affiner l'alérion 20 px = passe
+  graphiste humaine (option (c) écartée pour l'instant).
 
 ## Roadmap (non livré, ordonné par ROI)
 

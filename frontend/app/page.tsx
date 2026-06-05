@@ -11,7 +11,7 @@ import Wordmark from "../components/design/Wordmark";
 import ScopeBadge from "../components/design/ScopeBadge";
 import Footer from "../components/design/Footer";
 import FeedbackForm from "../components/design/FeedbackForm";
-import { AlerionSeal, Copy, Download, MapPin } from "../components/design/Icons";
+import { Copy, Download, MapPin, Seal } from "../components/design/Icons";
 import { METZ_DISTRICTS } from "../lib/districts";
 
 type AppState = "idle" | "analyzing" | "result";
@@ -169,8 +169,9 @@ function LocalContextCard({ context }: { context: LocalContext }) {
           <MapPin size={14} style={{ color: "var(--stone)" }} />
           <div className="t-eyebrow">Contexte local — {context.district}</div>
         </div>
-        {/* Cachet « édition Metz » : alérion lorrain gravé, en or Jaumont. */}
-        <AlerionSeal size={20} style={{ color: "var(--jaumont)" }} />
+        {/* Cachet « édition Metz » : losange net à 20 px. L'alérion (AlerionSeal)
+            est réservé aux grands formats (≥ 64 px) où il reste lisible. */}
+        <Seal size={20} style={{ color: "var(--jaumont)" }} />
       </div>
       {context.address && (
         <div style={{

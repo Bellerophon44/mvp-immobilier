@@ -96,12 +96,12 @@ export function Seal(p: IconProps) {
 
 // Cachet à l'alérion — variante locale (voir docs/brand/METZ-LOCAL.md §2/§7 et
 // Design System/preview/brand-alerion.html). Réutilise l'anneau de sceau plein
-// du Seal, mais remplace le losange (et l'anneau pointillé intérieur, devenu
-// redondant) par un alérion lorrain gravé : aiglon héraldique ailes déployées,
-// sans bec ni pattes. Corps central, deux ailes déployées, petite queue
-// fourchue. Encré en or Jaumont via currentColor. L'anneau pointillé est retiré
-// pour libérer le champ central : c'est la seule façon de garder l'alérion
-// lisible à 20 px sans que les traits ne se touchent. SVG source :
+// du Seal, mais remplace le losange par un alérion lorrain gravé : aiglon
+// héraldique ailes déployées, sans bec ni pattes (corps central, deux ailes en
+// courbe, petite queue fourchue). Encré en or Jaumont via currentColor.
+// RÉSERVÉ AUX GRANDS FORMATS (≥ 64 px) : favicon, en-tête de rapport, page
+// « à propos ». À 20 px l'alérion devient illisible (ailes/corps se confondent)
+// — l'UI utilise alors le losange Seal. SVG source :
 // Design System/assets/icons/alerion.svg.
 export function AlerionSeal(p: IconProps) {
   return (
