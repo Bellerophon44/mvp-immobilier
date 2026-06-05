@@ -83,14 +83,34 @@ export function Download(p: IconProps) {
 // Cachet — sceau « contexte local » de l'édition Metz : l'anneau du sceau
 // notarial (confiance) + le losange de marque embossé au centre (le même mark
 // que le wordmark). Posé en or Jaumont, c'est le seul signe local de l'UI.
-// Évolution prévue (voir docs/brand/METZ-LOCAL.md) : remplacer le losange par
-// un alérion lorrain gravé, dessiné par un graphiste au même trait 1,5 px.
+// Conservé comme fallback du cachet à l'alérion (AlerionSeal ci-dessous).
 export function Seal(p: IconProps) {
   return (
     <Icon {...p}>
       <circle cx="12" cy="12" r="9" />
       <circle cx="12" cy="12" r="6.5" strokeDasharray="1 2" />
       <path d="M12 8.5 L15.5 12 L12 15.5 L8.5 12 Z" />
+    </Icon>
+  );
+}
+
+// Cachet à l'alérion — variante locale (voir docs/brand/METZ-LOCAL.md §2/§7 et
+// Design System/preview/brand-alerion.html). Réutilise l'anneau de sceau plein
+// du Seal, mais remplace le losange (et l'anneau pointillé intérieur, devenu
+// redondant) par un alérion lorrain gravé : aiglon héraldique ailes déployées,
+// sans bec ni pattes. Corps central, deux ailes déployées, petite queue
+// fourchue. Encré en or Jaumont via currentColor. L'anneau pointillé est retiré
+// pour libérer le champ central : c'est la seule façon de garder l'alérion
+// lisible à 20 px sans que les traits ne se touchent. SVG source :
+// Design System/assets/icons/alerion.svg.
+export function AlerionSeal(p: IconProps) {
+  return (
+    <Icon {...p}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 10.2 L12 14.6" />
+      <path d="M12 14.6 L11.1 15.4 M12 14.6 L12.9 15.4" />
+      <path d="M6.6 10.6 C 8.2 9.8 9 11.8 9.8 11.6 C 10.6 11.4 11.4 11 12 10.6" />
+      <path d="M17.4 10.6 C 15.8 9.8 15 11.8 14.2 11.6 C 13.4 11.4 12.6 11 12 10.6" />
     </Icon>
   );
 }
