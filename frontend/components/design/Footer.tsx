@@ -19,7 +19,12 @@ export default function Footer() {
         <Wordmark compact size={18} />
         <span>MVP · Metz / Moselle uniquement</span>
       </div>
-      <div>Analyses non conservées · Vos retours sont enregistrés · Comparables locaux</div>
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <a href="/methode" style={{ color: "var(--ink-3)", textDecoration: "none", fontWeight: 500 }}>
+          Méthode locale
+        </a>
+        <span>Analyses non conservées · Comparables locaux</span>
+      </div>
     </footer>
   );
 }

@@ -133,8 +133,9 @@ The visual language is **editorial-analytical**: it borrows from French print cu
 | Brick-deep | `--brick-deep` | `#6B2018` | *Déconseillé* verdict, hover state of brick CTAs. |
 | Moss (positive) | `--moss` | `#2E6E4F` | *Favorable* verdict only. |
 | Ochre (neutral signal) | `--ochre` | `#C28B3C` | *À creuser* verdict, "À vérifier" tags. |
+| Jaumont (local seal) | `--jaumont` | `#C9A14A` | **Édition Metz only.** Or de la pierre de Jaumont — the honey-gold limestone Metz is actually built from. Reserved for the "contexte local" seal; **not** an action accent. |
 
-There is **no blue, no purple, no gradient, no pastel**. The palette is intentionally earth-tone, drawn from the Lorraine sandstone Metz is built from.
+There is **no blue, no purple, no gradient, no pastel**. The palette is intentionally earth-tone. The brick accent gives the brand its edge; the **Jaumont gold** is the authentic colour of Metz stone (« la ville jaune ») and carries the local seal of each *édition*. See [`/docs/brand/METZ-LOCAL.md`](../docs/brand/METZ-LOCAL.md) and [`/docs/brand/LOCAL-ANCHORING.md`](../docs/brand/LOCAL-ANCHORING.md).
 
 ### Typography
 

@@ -1,0 +1,13 @@
+<!-- Alérion lorrain gravé — aiglon héraldique ailes déployées, sans bec ni
+     pattes (cf. armes du duché de Lorraine ; docs/brand/METZ-LOCAL.md §2/§7).
+     Glyphe central du cachet « édition Metz », encré en or Jaumont (#C9A14A)
+     via currentColor. Trait 1,5 px, sans remplissage. Dessiné pour rester
+     lisible à 20 px : corps central, deux ailes déployées en courbe, petite
+     queue fourchue. À poser à l'intérieur de l'anneau de sceau (voir le
+     composant AlerionSeal). -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M12 10.2 L12 14.6"></path>
+  <path d="M12 14.6 L11.1 15.4 M12 14.6 L12.9 15.4"></path>
+  <path d="M6.6 10.6 C 8.2 9.8 9 11.8 9.8 11.6 C 10.6 11.4 11.4 11 12 10.6"></path>
+  <path d="M17.4 10.6 C 15.8 9.8 15 11.8 14.2 11.6 C 13.4 11.4 12.6 11 12 10.6"></path>
+</svg>

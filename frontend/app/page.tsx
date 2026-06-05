@@ -11,7 +11,7 @@ import Wordmark from "../components/design/Wordmark";
 import ScopeBadge from "../components/design/ScopeBadge";
 import Footer from "../components/design/Footer";
 import FeedbackForm from "../components/design/FeedbackForm";
-import { Copy, Download, MapPin } from "../components/design/Icons";
+import { Copy, Download, MapPin, Seal, LorraineSeal } from "../components/design/Icons";
 import { METZ_DISTRICTS } from "../lib/districts";
 
 type AppState = "idle" | "analyzing" | "result";
@@ -114,7 +114,7 @@ function SecondaryRow() {
       borderTop: "1px solid var(--stone-line)",
     }}>
       {[
-        { n: "01", t: "Pilier prix", d: "Médiane locale et écart calculés sur ≥ 3 comparables." },
+        { n: "01", t: "Pilier prix", d: "Médiane du quartier et écart calculés sur ≥ 3 comparables messins." },
         { n: "02", t: "Pilier sémantique", d: "L'annonce est-elle claire ? Quels signaux manquent ?" },
         { n: "03", t: "Pilier global", d: "Score 0 – 100 et verdict en une phrase." },
       ].map((c) => (
@@ -130,6 +130,60 @@ function SecondaryRow() {
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+// Bloc « pourquoi local > national » : le parti pris d'ancrage. Énonce la
+// différence d'échelle (ville vs quartier) sans surpromettre — renvoie à la
+// page méthode pour le détail.
+function LocalEdgeSection() {
+  return (
+    <div style={{
+      paddingTop: 32,
+      borderTop: "1px solid var(--stone-line)",
+      display: "flex",
+      flexDirection: "column",
+      gap: 14,
+    }}>
+      <div className="t-eyebrow">L&apos;ancrage local, notre parti pris</div>
+      <div style={{
+        fontFamily: "var(--font-serif)",
+        fontSize: 24,
+        lineHeight: 1.2,
+        color: "var(--ink)",
+        maxWidth: 560,
+      }}>
+        Les sites nationaux raisonnent à l&apos;échelle de la ville.
+        Nous raisonnons à l&apos;échelle du quartier.
+      </div>
+      <p style={{
+        fontFamily: "var(--font-sans)",
+        fontSize: 15,
+        lineHeight: 1.6,
+        color: "var(--ink-2)",
+        margin: 0,
+        maxWidth: 560,
+      }}>
+        Un T3 à Queuleu et un T3 au Sablon n&apos;ont ni le même marché, ni le même
+        prix au m². Une médiane à l&apos;échelle de Metz lisse ces écarts et trompe.
+        Nous reconstituons le marché à partir des annonces réelles du secteur,
+        retenons les comparables à surface proche (±20 %, au moins trois), et
+        situons votre annonce dans ce contexte — pas dans une moyenne nationale.
+      </p>
+      <a href="/methode" style={{
+        fontFamily: "var(--font-sans)",
+        fontSize: 14,
+        fontWeight: 500,
+        color: "var(--brick)",
+        textDecoration: "none",
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
+        width: "fit-content",
+      }}>
+        Notre méthode locale, en détail →
+      </a>
     </div>
   );
 }
@@ -161,11 +215,17 @@ function LocalContextCard({ context }: { context: LocalContext }) {
       <div style={{
         display: "flex",
         alignItems: "center",
+        justifyContent: "space-between",
         gap: 8,
         marginBottom: 8,
       }}>
-        <MapPin size={14} style={{ color: "var(--stone)" }} />
-        <div className="t-eyebrow">Contexte local — {context.district}</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <MapPin size={14} style={{ color: "var(--stone)" }} />
+          <div className="t-eyebrow">Contexte local — {context.district}</div>
+        </div>
+        {/* Cachet « édition Metz » : losange net à 20 px. L'alérion (AlerionSeal)
+            est réservé aux grands formats (≥ 64 px) où il reste lisible. */}
+        <Seal size={20} style={{ color: "var(--jaumont)" }} />
       </div>
       {context.address && (
         <div style={{
@@ -373,6 +433,10 @@ export default function HomePage() {
     if (!result) return "";
     const lc = result.local_context;
     const lines = [
+      "Cohérence — édition Metz",
+      "Analyse de cohérence d'une annonce immobilière · Metz & Moselle",
+      "————————————————————————————————————————",
+      "",
       `Score de cohérence : ${result.global_score} / 100`,
       `Verdict : ${result.verdict}`,
       `Confiance : ${result.confidence}`,
@@ -460,8 +524,12 @@ export default function HomePage() {
         {appState === "idle" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 40 }}>
             <div>
+              {/* Cachet « édition Metz » aux trois alérions de Lorraine, en
+                  letterhead — registre « lettre scellée d'un notaire ». Grand
+                  format (88 px), seule taille où les 3 alérions sont lisibles. */}
+              <LorraineSeal size={88} style={{ color: "var(--jaumont)", marginBottom: 24, display: "block" }} />
               <div className="t-eyebrow" style={{ marginBottom: 16 }}>
-                Analyseur de cohérence d&apos;annonces
+                Analyse d&apos;annonces immobilières · Metz &amp; Moselle
               </div>
               <h1 style={{
                 fontFamily: "var(--font-serif)",
@@ -477,7 +545,7 @@ export default function HomePage() {
                 sont-ils{" "}
                 <em style={{ color: "var(--brick)", fontStyle: "italic" }}>cohérents</em>{" "}
                 avec<br />
-                le marché local&nbsp;?
+                le marché messin, quartier par quartier&nbsp;?
               </h1>
               <p style={{
                 fontFamily: "var(--font-sans)",
@@ -487,9 +555,12 @@ export default function HomePage() {
                 margin: 0,
                 maxWidth: 540,
               }}>
-                Collez l&apos;URL ou le texte d&apos;une annonce. Nous renvoyons un score
-                de cohérence, trois piliers de lecture, et une liste de points à vérifier
-                avant la visite.
+                Le livre foncier n&apos;est pas public : impossible de savoir à quel
+                prix s&apos;est vraiment vendu le voisin. Nous reconstituons le marché
+                local à partir des annonces réelles — du Sablon à Queuleu, de
+                Devant-les-Ponts à l&apos;Outre-Seille — et comparons votre annonce,
+                comparable par comparable. Score de cohérence, trois piliers de lecture,
+                et les points à vérifier avant la visite.
               </p>
             </div>
 
@@ -511,6 +582,7 @@ export default function HomePage() {
             )}
 
             <SecondaryRow />
+            <LocalEdgeSection />
           </div>
         )}
 

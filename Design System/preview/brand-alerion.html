@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cohérence — Alérion-cachet (exploration)</title>
+<style>
+  :root {
+    --parchment: #F5F1EA;
+    --paper:     #FBF8F2;
+    --ink:       #1A1814;
+    --stone:     #8B8275;
+    --stone-line:#D9D2C5;
+    --jaumont:   #C9A14A;
+  }
+  html, body { margin: 0; background: var(--parchment); color: var(--ink);
+    font-family: ui-sans-serif, system-ui, "Geist", sans-serif; }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 48px 24px 96px; }
+  h1 { font-family: "Instrument Serif", Georgia, serif; font-weight: 400;
+    font-size: 30px; margin: 0 0 4px; }
+  .sub { color: var(--stone); font-size: 14px; margin: 0 0 40px; }
+  .eyebrow { font-size: 11px; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--stone); margin: 0 0 16px; }
+  .row { display: flex; gap: 40px; flex-wrap: wrap; margin-bottom: 56px;
+    align-items: flex-end; padding-bottom: 28px;
+    border-bottom: 1px solid var(--stone-line); }
+  .cell { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .cell .lbl { font-size: 11px; color: var(--stone); }
+  .seal { color: var(--jaumont); display: block; }
+  .card { background: var(--paper); border: 1px solid var(--stone-line);
+    border-radius: 4px; padding: 24px; }
+  .note { font-size: 13px; line-height: 1.55; color: #46423b; max-width: 560px; }
+  code { font-family: "Geist Mono", ui-monospace, monospace; font-size: 12px;
+    background: #efe9df; padding: 1px 5px; border-radius: 3px; }
+  .titlerow { display:flex; align-items:baseline; gap:12px; }
+  .pill { font-size:11px; color: var(--stone); border:1px solid var(--stone-line);
+    border-radius: 2px; padding: 2px 8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Alérion-cachet — exploration</h1>
+  <p class="sub">Édition Metz · encré en or Jaumont <code>#C9A14A</code> · anneau de sceau conservé · trait 1,5 px · viewBox 0 0 24 24</p>
+
+  <!-- ================= TEMPLATE PARTS ================= -->
+  <!-- Anneau de sceau réutilisé du composant Seal -->
+  <!-- circle r=9 + circle r=6.5 pointillé -->
+
+  <!-- ====== VARIANTE A ====== -->
+  <div class="titlerow">
+    <div class="eyebrow">Variante A — chevron déployé (le plus abstrait)</div>
+    <span class="pill">2 chevrons + fuseau</span>
+  </div>
+  <div class="row">
+    <div class="cell">
+      <svg class="seal" width="20" height="20" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9"/>
+        <circle cx="12" cy="12" r="6.5" stroke-dasharray="1 2"/>
+        <path d="M12 9.2 L12 14.8"/>
+        <path d="M6.8 10.5 L9.4 12 L12 9.6 L14.6 12 L17.2 10.5"/>
+      </svg>
+      <span class="lbl">20 px</span>
+    </div>
+    <div class="cell">
+      <svg class="seal" width="64" height="64" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9"/>
+        <circle cx="12" cy="12" r="6.5" stroke-dasharray="1 2"/>
+        <path d="M12 9.2 L12 14.8"/>
+        <path d="M6.8 10.5 L9.4 12 L12 9.6 L14.6 12 L17.2 10.5"/>
+      </svg>
+      <span class="lbl">64 px</span>
+    </div>
+    <div class="cell">
+      <svg class="seal" width="120" height="120" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9"/>
+        <circle cx="12" cy="12" r="6.5" stroke-dasharray="1 2"/>
+        <path d="M12 9.2 L12 14.8"/>
+        <path d="M6.8 10.5 L9.4 12 L12 9.6 L14.6 12 L17.2 10.5"/>
+      </svg>
+      <span class="lbl">120 px (inspection)</span>
+    </div>
+  </div>
+
+  <!-- ====== VARIANTE B ====== -->
+  <div class="titlerow">
+    <div class="eyebrow">Variante B — ailes à deux pennes</div>
+    <span class="pill">tête losange + ailes courbes</span>
+  </div>
+  <div class="row">
+    <div class="cell">
+      <svg class="seal" width="20" height="20" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9"/>
+        <circle cx="12" cy="12" r="6.5" stroke-dasharray="1 2"/>
+        <path d="M12 8.4 L13 9.4 L12 10.4 L11 9.4 Z"/>
+        <path d="M12 10.4 L12 15"/>
+        <path d="M12 11 C 9.8 9.6 7.6 9.8 6.4 11.4"/>
+        <path d="M12 11 C 14.2 9.6 16.4 9.8 17.6 11.4"/>
+      </svg>
+      <span class="lbl">20 px</span>
+    </div>
+    <div class="cell">
+      <svg class="seal" width="64" height="64" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9"/>
+        <circle cx="12" cy="12" r="6.5" stroke-dasharray="1 2"/>
+        <path d="M12 8.4 L13 9.4 L12 10.4 L11 9.4 Z"/>
+        <path d="M12 10.4 L12 15"/>
+        <path d="M12 11 C 9.8 9.6 7.6 9.8 6.4 11.4"/>
+        <path d="M12 11 C 14.2 9.6 16.4 9.8 17.6 11.4"/>
+      </svg>
+      <span class="lbl">64 px</span>
+    </div>
+    <div class="cell">
+      <svg class="seal" width="120" height="120" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9"/>
+        <circle cx="12" cy="12" r="6.5" stroke-dasharray="1 2"/>
+        <path d="M12 8.4 L13 9.4 L12 10.4 L11 9.4 Z"/>
+        <path d="M12 10.4 L12 15"/>
+        <path d="M12 11 C 9.8 9.6 7.6 9.8 6.4 11.4"/>
+        <path d="M12 11 C 14.2 9.6 16.4 9.8 17.6 11.4"/>
+      </svg>
+      <span class="lbl">120 px (inspection)</span>
+    </div>
+  </div>
+
+  <!-- ====== VARIANTE C ====== -->
+  <div class="titlerow">
+    <div class="eyebrow">Variante C — silhouette déployée fermée (un seul contour)</div>
+    <span class="pill">contour continu, gravé</span>
+  </div>
+  <div class="row">
+    <div class="cell">
+      <svg class="seal" width="20" height="20" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9"/>
+        <circle cx="12" cy="12" r="6.5" stroke-dasharray="1 2"/>
+        <path d="M12 9 C 11.4 10 10 10 7.2 9.4 C 9.6 11 10.6 11.4 11.2 12.4 L12 15.2 L12.8 12.4 C 13.4 11.4 14.4 11 16.8 9.4 C 14 10 12.6 10 12 9 Z"/>
+      </svg>
+      <span class="lbl">20 px</span>
+    </div>
+    <div class="cell">
+      <svg class="seal" width="64" height="64" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9"/>
+        <circle cx="12" cy="12" r="6.5" stroke-dasharray="1 2"/>
+        <path d="M12 9 C 11.4 10 10 10 7.2 9.4 C 9.6 11 10.6 11.4 11.2 12.4 L12 15.2 L12.8 12.4 C 13.4 11.4 14.4 11 16.8 9.4 C 14 10 12.6 10 12 9 Z"/>
+      </svg>
+      <span class="lbl">64 px</span>
+    </div>
+    <div class="cell">
+      <svg class="seal" width="120" height="120" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9"/>
+        <circle cx="12" cy="12" r="6.5" stroke-dasharray="1 2"/>
+        <path d="M12 9 C 11.4 10 10 10 7.2 9.4 C 9.6 11 10.6 11.4 11.2 12.4 L12 15.2 L12.8 12.4 C 13.4 11.4 14.4 11 16.8 9.4 C 14 10 12.6 10 12 9 Z"/>
+      </svg>
+      <span class="lbl">120 px (inspection)</span>
+    </div>
+  </div>
+
+  <!-- ====== VARIANTE RETENUE A′ ====== -->
+  <div class="titlerow">
+    <div class="eyebrow">Variante retenue — A′ : alérion gravé (anneau pointillé retiré)</div>
+    <span class="pill">choix final · AlerionSeal</span>
+  </div>
+  <div class="row">
+    <div class="cell">
+      <svg class="seal" width="20" height="20" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9"/>
+        <path d="M12 10.2 L12 14.6"/>
+        <path d="M12 14.6 L11.1 15.4 M12 14.6 L12.9 15.4"/>
+        <path d="M6.6 10.6 C 8.2 9.8 9 11.8 9.8 11.6 C 10.6 11.4 11.4 11 12 10.6"/>
+        <path d="M17.4 10.6 C 15.8 9.8 15 11.8 14.2 11.6 C 13.4 11.4 12.6 11 12 10.6"/>
+      </svg>
+      <span class="lbl">20 px</span>
+    </div>
+    <div class="cell">
+      <svg class="seal" width="64" height="64" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9"/>
+        <path d="M12 10.2 L12 14.6"/>
+        <path d="M12 14.6 L11.1 15.4 M12 14.6 L12.9 15.4"/>
+        <path d="M6.6 10.6 C 8.2 9.8 9 11.8 9.8 11.6 C 10.6 11.4 11.4 11 12 10.6"/>
+        <path d="M17.4 10.6 C 15.8 9.8 15 11.8 14.2 11.6 C 13.4 11.4 12.6 11 12 10.6"/>
+      </svg>
+      <span class="lbl">64 px</span>
+    </div>
+    <div class="cell">
+      <svg class="seal" width="120" height="120" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9"/>
+        <path d="M12 10.2 L12 14.6"/>
+        <path d="M12 14.6 L11.1 15.4 M12 14.6 L12.9 15.4"/>
+        <path d="M6.6 10.6 C 8.2 9.8 9 11.8 9.8 11.6 C 10.6 11.4 11.4 11 12 10.6"/>
+        <path d="M17.4 10.6 C 15.8 9.8 15 11.8 14.2 11.6 C 13.4 11.4 12.6 11 12 10.6"/>
+      </svg>
+      <span class="lbl">120 px (inspection)</span>
+    </div>
+  </div>
+
+  <!-- ====== RÉFÉRENCE : losange actuel ====== -->
+  <div class="titlerow">
+    <div class="eyebrow">Référence — losange actuel (fallback Seal)</div>
+    <span class="pill">existant</span>
+  </div>
+  <div class="row">
+    <div class="cell">
+      <svg class="seal" width="20" height="20" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9"/>
+        <circle cx="12" cy="12" r="6.5" stroke-dasharray="1 2"/>
+        <path d="M12 8.5 L15.5 12 L12 15.5 L8.5 12 Z"/>
+      </svg>
+      <span class="lbl">20 px</span>
+    </div>
+    <div class="cell">
+      <svg class="seal" width="64" height="64" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9"/>
+        <circle cx="12" cy="12" r="6.5" stroke-dasharray="1 2"/>
+        <path d="M12 8.5 L15.5 12 L12 15.5 L8.5 12 Z"/>
+      </svg>
+      <span class="lbl">64 px</span>
+    </div>
+  </div>
+
+  <div class="card note">
+    <strong>Lecture des variantes</strong><br/><br/>
+    <strong>A — chevron déployé.</strong> Fuseau vertical central (corps) + deux
+    chevrons qui montent vers les pointes d'ailes. Le plus abstrait, le plus
+    proche du registre « gravure ». Tient à 20 px car peu de traits et grands
+    écarts entre eux. Risque : peut se lire comme une couronne ou un oiseau
+    générique plutôt qu'un alérion précis.<br/><br/>
+    <strong>B — ailes à deux pennes.</strong> Petite tête-losange + corps + ailes
+    en courbe descendante-montante. Plus « aigle », mais 4 sous-traits proches :
+    à 20 px la tête-losange (≈ 1 px de côté à l'écran) bave et les courbes se
+    referment visuellement. Plus joli à 64 px, fragile à 20 px.<br/><br/>
+    <strong>C — silhouette fermée.</strong> Un seul contour continu façon emboss
+    de sceau. Élégant à 64 px et le plus « héraldique », mais les concavités
+    serrées entre ailes et corps se bouchent à 20 px (l'encre fusionne) → tache.
+    Le plus risqué aux petites tailles.<br/><br/>
+    <strong>A′ — retenue.</strong> Dérivée de A. Le constat mesuré : un alérion
+    lisible (corps + deux ailes déployées distinctes) ne tient pas dans le champ
+    central <em>tant que l'anneau pointillé y reste</em> — à 20 px l'inter-trait
+    tombe sous le pixel. On retire donc l'anneau pointillé intérieur (redondant :
+    l'alérion occupe lui-même le centre embossé) et on garde l'anneau plein
+    extérieur. Résultat : deux ailes en courbe déployée, corps central, petite
+    queue fourchue ; sans bec ni pattes. Gaps blancs préservés à 20 px,
+    franchement net à 64 px. <strong>C'est la seule variante qui tient le registre
+    « gravure » à 20 px.</strong>
+  </div>
+</div>
+</body>
+</html>

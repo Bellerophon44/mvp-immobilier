@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cohérence — Sceau aux trois alérions de Lorraine (exploration)</title>
+<style>
+  :root {
+    --parchment: #F5F1EA;
+    --paper:     #FBF8F2;
+    --ink:       #1A1814;
+    --stone:     #8B8275;
+    --stone-line:#D9D2C5;
+    --jaumont:   #C9A14A;
+  }
+  html, body { margin: 0; background: var(--parchment); color: var(--ink);
+    font-family: ui-sans-serif, system-ui, "Geist", sans-serif; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 48px 24px 96px; }
+  h1 { font-family: "Instrument Serif", Georgia, serif; font-weight: 400;
+    font-size: 30px; margin: 0 0 4px; }
+  .sub { color: var(--stone); font-size: 14px; margin: 0 0 40px; }
+  .eyebrow { font-size: 11px; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--stone); margin: 0 0 16px; }
+  .row { display: flex; gap: 44px; flex-wrap: wrap; margin-bottom: 56px;
+    align-items: flex-end; padding-bottom: 28px;
+    border-bottom: 1px solid var(--stone-line); }
+  .cell { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .cell .lbl { font-size: 11px; color: var(--stone); }
+  .seal { color: var(--jaumont); display: block; }
+  .card { background: var(--paper); border: 1px solid var(--stone-line);
+    border-radius: 4px; padding: 24px; }
+  .note { font-size: 13px; line-height: 1.55; color: #46423b; max-width: 640px; }
+  code { font-family: "Geist Mono", ui-monospace, monospace; font-size: 12px;
+    background: #efe9df; padding: 1px 5px; border-radius: 3px; }
+  .titlerow { display:flex; align-items:baseline; gap:12px; }
+  .pill { font-size:11px; color: var(--stone); border:1px solid var(--stone-line);
+    border-radius: 2px; padding: 2px 8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Sceau aux trois alérions de Lorraine — exploration</h1>
+  <p class="sub">« D'or à la bande de gueules chargée de trois alérions d'argent » · trois fois le glyphe d'<code>AlerionSeal</code> le long de la bande (chef dextre → pointe senestre) · encré Jaumont <code>#C9A14A</code> · viewBox 0 0 24 24 · grand format (≥ 96 px)</p>
+
+  <!-- ============================================================
+       ARRANGEMENT 1 — diagonale serrée, glyphes droits, scale 0.42
+       trait 1,5 px sur les glyphes (dense)
+       ============================================================ -->
+  <div class="titlerow">
+    <div class="eyebrow">Arrangement 1 — diagonale serrée, glyphes droits</div>
+    <span class="pill">scale 0.42 · pas 3.5 · trait 1,5</span>
+  </div>
+  <div class="row">
+    <div class="cell">
+      <svg class="seal" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9"/>
+        <path d="M8.50 7.49 L8.50 9.34"/>
+        <path d="M8.50 9.34 L8.12 9.68 M8.50 9.34 L8.88 9.68"/>
+        <path d="M6.23 7.66 C 6.90 7.32 7.24 8.16 7.58 8.08 C 7.91 8.00 8.25 7.83 8.50 7.66"/>
+        <path d="M10.77 7.66 C 10.10 7.32 9.76 8.16 9.42 8.08 C 9.09 8.00 8.75 7.83 8.50 7.66"/>
+        <path d="M12.00 10.99 L12.00 12.84"/>
+        <path d="M12.00 12.84 L11.62 13.18 M12.00 12.84 L12.38 13.18"/>
+        <path d="M9.73 11.16 C 10.40 10.82 10.74 11.66 11.08 11.58 C 11.41 11.50 11.75 11.33 12.00 11.16"/>
+        <path d="M14.27 11.16 C 13.60 10.82 13.26 11.66 12.92 11.58 C 12.59 11.50 12.25 11.33 12.00 11.16"/>
+        <path d="M15.50 14.49 L15.50 16.34"/>
+        <path d="M15.50 16.34 L15.12 16.68 M15.50 16.34 L15.88 16.68"/>
+        <path d="M13.23 14.66 C 13.90 14.32 14.24 15.16 14.58 15.08 C 14.91 15.00 15.25 14.83 15.50 14.66"/>
+        <path d="M17.77 14.66 C 17.10 14.32 16.76 15.16 16.42 15.08 C 16.09 15.00 15.75 14.83 15.50 14.66"/>
+      </svg>
+      <span class="lbl">64 px</span>
+    </div>
+    <div class="cell">
+      <svg class="seal" width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9"/>
+        <path d="M8.50 7.49 L8.50 9.34"/>
+        <path d="M8.50 9.34 L8.12 9.68 M8.50 9.34 L8.88 9.68"/>
+        <path d="M6.23 7.66 C 6.90 7.32 7.24 8.16 7.58 8.08 C 7.91 8.00 8.25 7.83 8.50 7.66"/>
+        <path d="M10.77 7.66 C 10.10 7.32 9.76 8.16 9.42 8.08 C 9.09 8.00 8.75 7.83 8.50 7.66"/>
+        <path d="M12.00 10.99 L12.00 12.84"/>
+        <path d="M12.00 12.84 L11.62 13.18 M12.00 12.84 L12.38 13.18"/>
+        <path d="M9.73 11.16 C 10.40 10.82 10.74 11.66 11.08 11.58 C 11.41 11.50 11.75 11.33 12.00 11.16"/>
+        <path d="M14.27 11.16 C 13.60 10.82 13.26 11.66 12.92 11.58 C 12.59 11.50 12.25 11.33 12.00 11.16"/>
+        <path d="M15.50 14.49 L15.50 16.34"/>
+        <path d="M15.50 16.34 L15.12 16.68 M15.50 16.34 L15.88 16.68"/>
+        <path d="M13.23 14.66 C 13.90 14.32 14.24 15.16 14.58 15.08 C 14.91 15.00 15.25 14.83 15.50 14.66"/>
+        <path d="M17.77 14.66 C 17.10 14.32 16.76 15.16 16.42 15.08 C 16.09 15.00 15.75 14.83 15.50 14.66"/>
+      </svg>
+      <span class="lbl">120 px</span>
+    </div>
+    <div class="cell">
+      <svg class="seal" width="200" height="200" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9"/>
+        <path d="M8.50 7.49 L8.50 9.34"/>
+        <path d="M8.50 9.34 L8.12 9.68 M8.50 9.34 L8.88 9.68"/>
+        <path d="M6.23 7.66 C 6.90 7.32 7.24 8.16 7.58 8.08 C 7.91 8.00 8.25 7.83 8.50 7.66"/>
+        <path d="M10.77 7.66 C 10.10 7.32 9.76 8.16 9.42 8.08 C 9.09 8.00 8.75 7.83 8.50 7.66"/>
+        <path d="M12.00 10.99 L12.00 12.84"/>
+        <path d="M12.00 12.84 L11.62 13.18 M12.00 12.84 L12.38 13.18"/>
+        <path d="M9.73 11.16 C 10.40 10.82 10.74 11.66 11.08 11.58 C 11.41 11.50 11.75 11.33 12.00 11.16"/>
+        <path d="M14.27 11.16 C 13.60 10.82 13.26 11.66 12.92 11.58 C 12.59 11.50 12.25 11.33 12.00 11.16"/>
+        <path d="M15.50 14.49 L15.50 16.34"/>
+        <path d="M15.50 16.34 L15.12 16.68 M15.50 16.34 L15.88 16.68"/>
+        <path d="M13.23 14.66 C 13.90 14.32 14.24 15.16 14.58 15.08 C 14.91 15.00 15.25 14.83 15.50 14.66"/>
+        <path d="M17.77 14.66 C 17.10 14.32 16.76 15.16 16.42 15.08 C 16.09 15.00 15.75 14.83 15.50 14.66"/>
+      </svg>
+      <span class="lbl">200 px</span>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       ARRANGEMENT 2 — diagonale espacée, glyphes droits, scale 0.36
+       trait des glyphes amené à 1,1 px pour respirer
+       ============================================================ -->
+  <div class="titlerow">
+    <div class="eyebrow">Arrangement 2 — diagonale espacée, glyphes droits</div>
+    <span class="pill">scale 0.36 · pas 3.8 · trait glyphes 1,1</span>
+  </div>
+  <div class="row">
+    <div class="cell">
+      <svg class="seal" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9"/>
+        <g stroke-width="1.1">
+        <path d="M8.20 7.34 L8.20 8.92"/>
+        <path d="M8.20 8.92 L7.88 9.21 M8.20 8.92 L8.52 9.21"/>
+        <path d="M6.26 7.48 C 6.83 7.19 7.12 7.91 7.41 7.84 C 7.70 7.77 7.98 7.62 8.20 7.48"/>
+        <path d="M10.14 7.48 C 9.57 7.19 9.28 7.91 8.99 7.84 C 8.70 7.77 8.42 7.62 8.20 7.48"/>
+        <path d="M12.00 11.14 L12.00 12.72"/>
+        <path d="M12.00 12.72 L11.68 13.01 M12.00 12.72 L12.32 13.01"/>
+        <path d="M10.06 11.28 C 10.63 10.99 10.92 11.71 11.21 11.64 C 11.50 11.57 11.78 11.42 12.00 11.28"/>
+        <path d="M13.94 11.28 C 13.37 10.99 13.08 11.71 12.79 11.64 C 12.50 11.57 12.22 11.42 12.00 11.28"/>
+        <path d="M15.80 14.94 L15.80 16.52"/>
+        <path d="M15.80 16.52 L15.48 16.81 M15.80 16.52 L16.12 16.81"/>
+        <path d="M13.86 15.08 C 14.43 14.79 14.72 15.51 15.01 15.44 C 15.30 15.37 15.58 15.22 15.80 15.08"/>
+        <path d="M17.74 15.08 C 17.17 14.79 16.88 15.51 16.59 15.44 C 16.30 15.37 16.02 15.22 15.80 15.08"/>
+        </g>
+      </svg>
+      <span class="lbl">64 px</span>
+    </div>
+    <div class="cell">
+      <svg class="seal" width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9"/>
+        <g stroke-width="1.1">
+        <path d="M8.20 7.34 L8.20 8.92"/>
+        <path d="M8.20 8.92 L7.88 9.21 M8.20 8.92 L8.52 9.21"/>
+        <path d="M6.26 7.48 C 6.83 7.19 7.12 7.91 7.41 7.84 C 7.70 7.77 7.98 7.62 8.20 7.48"/>
+        <path d="M10.14 7.48 C 9.57 7.19 9.28 7.91 8.99 7.84 C 8.70 7.77 8.42 7.62 8.20 7.48"/>
+        <path d="M12.00 11.14 L12.00 12.72"/>
+        <path d="M12.00 12.72 L11.68 13.01 M12.00 12.72 L12.32 13.01"/>
+        <path d="M10.06 11.28 C 10.63 10.99 10.92 11.71 11.21 11.64 C 11.50 11.57 11.78 11.42 12.00 11.28"/>
+        <path d="M13.94 11.28 C 13.37 10.99 13.08 11.71 12.79 11.64 C 12.50 11.57 12.22 11.42 12.00 11.28"/>
+        <path d="M15.80 14.94 L15.80 16.52"/>
+        <path d="M15.80 16.52 L15.48 16.81 M15.80 16.52 L16.12 16.81"/>
+        <path d="M13.86 15.08 C 14.43 14.79 14.72 15.51 15.01 15.44 C 15.30 15.37 15.58 15.22 15.80 15.08"/>
+        <path d="M17.74 15.08 C 17.17 14.79 16.88 15.51 16.59 15.44 C 16.30 15.37 16.02 15.22 15.80 15.08"/>
+        </g>
+      </svg>
+      <span class="lbl">120 px</span>
+    </div>
+    <div class="cell">
+      <svg class="seal" width="200" height="200" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9"/>
+        <g stroke-width="1.1">
+        <path d="M8.20 7.34 L8.20 8.92"/>
+        <path d="M8.20 8.92 L7.88 9.21 M8.20 8.92 L8.52 9.21"/>
+        <path d="M6.26 7.48 C 6.83 7.19 7.12 7.91 7.41 7.84 C 7.70 7.77 7.98 7.62 8.20 7.48"/>
+        <path d="M10.14 7.48 C 9.57 7.19 9.28 7.91 8.99 7.84 C 8.70 7.77 8.42 7.62 8.20 7.48"/>
+        <path d="M12.00 11.14 L12.00 12.72"/>
+        <path d="M12.00 12.72 L11.68 13.01 M12.00 12.72 L12.32 13.01"/>
+        <path d="M10.06 11.28 C 10.63 10.99 10.92 11.71 11.21 11.64 C 11.50 11.57 11.78 11.42 12.00 11.28"/>
+        <path d="M13.94 11.28 C 13.37 10.99 13.08 11.71 12.79 11.64 C 12.50 11.57 12.22 11.42 12.00 11.28"/>
+        <path d="M15.80 14.94 L15.80 16.52"/>
+        <path d="M15.80 16.52 L15.48 16.81 M15.80 16.52 L16.12 16.81"/>
+        <path d="M13.86 15.08 C 14.43 14.79 14.72 15.51 15.01 15.44 C 15.30 15.37 15.58 15.22 15.80 15.08"/>
+        <path d="M17.74 15.08 C 17.17 14.79 16.88 15.51 16.59 15.44 C 16.30 15.37 16.02 15.22 15.80 15.08"/>
+        </g>
+      </svg>
+      <span class="lbl">200 px</span>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       ARRANGEMENT 3 — glyphes tournés le long de la bande (-0.5 rad)
+       ============================================================ -->
+  <div class="titlerow">
+    <div class="eyebrow">Arrangement 3 — glyphes inclinés le long de la bande</div>
+    <span class="pill">scale 0.36 · rot −0.5 rad · trait 1,1</span>
+  </div>
+  <div class="row">
+    <div class="cell">
+      <svg class="seal" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9"/>
+        <g stroke-width="1.1">
+        <path d="M7.79 7.44 L8.55 8.83"/>
+        <path d="M8.55 8.83 L8.40 9.24 M8.55 8.83 L8.97 8.93"/>
+        <path d="M6.15 8.50 C 6.52 7.97 7.11 8.47 7.33 8.26 C 7.55 8.06 7.73 7.80 7.85 7.57"/>
+        <path d="M9.56 6.64 C 8.92 6.66 9.01 7.43 8.72 7.50 C 8.44 7.58 8.11 7.59 7.85 7.57"/>
+        <path d="M11.59 11.24 L12.35 12.63"/>
+        <path d="M12.35 12.63 L12.20 13.04 M12.35 12.63 L12.77 12.73"/>
+        <path d="M9.95 12.30 C 10.32 11.77 10.91 12.27 11.13 12.06 C 11.35 11.86 11.53 11.60 11.65 11.37"/>
+        <path d="M13.36 10.44 C 12.72 10.46 12.81 11.23 12.52 11.30 C 12.24 11.38 11.91 11.39 11.65 11.37"/>
+        <path d="M15.39 15.04 L16.15 16.43"/>
+        <path d="M16.15 16.43 L16.00 16.84 M16.15 16.43 L16.57 16.53"/>
+        <path d="M13.75 16.10 C 14.12 15.57 14.71 16.07 14.93 15.86 C 15.15 15.66 15.33 15.40 15.45 15.17"/>
+        <path d="M17.16 14.24 C 16.52 14.26 16.61 15.03 16.32 15.10 C 16.04 15.18 15.71 15.19 15.45 15.17"/>
+        </g>
+      </svg>
+      <span class="lbl">64 px</span>
+    </div>
+    <div class="cell">
+      <svg class="seal" width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9"/>
+        <g stroke-width="1.1">
+        <path d="M7.79 7.44 L8.55 8.83"/>
+        <path d="M8.55 8.83 L8.40 9.24 M8.55 8.83 L8.97 8.93"/>
+        <path d="M6.15 8.50 C 6.52 7.97 7.11 8.47 7.33 8.26 C 7.55 8.06 7.73 7.80 7.85 7.57"/>
+        <path d="M9.56 6.64 C 8.92 6.66 9.01 7.43 8.72 7.50 C 8.44 7.58 8.11 7.59 7.85 7.57"/>
+        <path d="M11.59 11.24 L12.35 12.63"/>
+        <path d="M12.35 12.63 L12.20 13.04 M12.35 12.63 L12.77 12.73"/>
+        <path d="M9.95 12.30 C 10.32 11.77 10.91 12.27 11.13 12.06 C 11.35 11.86 11.53 11.60 11.65 11.37"/>
+        <path d="M13.36 10.44 C 12.72 10.46 12.81 11.23 12.52 11.30 C 12.24 11.38 11.91 11.39 11.65 11.37"/>
+        <path d="M15.39 15.04 L16.15 16.43"/>
+        <path d="M16.15 16.43 L16.00 16.84 M16.15 16.43 L16.57 16.53"/>
+        <path d="M13.75 16.10 C 14.12 15.57 14.71 16.07 14.93 15.86 C 15.15 15.66 15.33 15.40 15.45 15.17"/>
+        <path d="M17.16 14.24 C 16.52 14.26 16.61 15.03 16.32 15.10 C 16.04 15.18 15.71 15.19 15.45 15.17"/>
+        </g>
+      </svg>
+      <span class="lbl">120 px</span>
+    </div>
+    <div class="cell">
+      <svg class="seal" width="200" height="200" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9"/>
+        <g stroke-width="1.1">
+        <path d="M7.79 7.44 L8.55 8.83"/>
+        <path d="M8.55 8.83 L8.40 9.24 M8.55 8.83 L8.97 8.93"/>
+        <path d="M6.15 8.50 C 6.52 7.97 7.11 8.47 7.33 8.26 C 7.55 8.06 7.73 7.80 7.85 7.57"/>
+        <path d="M9.56 6.64 C 8.92 6.66 9.01 7.43 8.72 7.50 C 8.44 7.58 8.11 7.59 7.85 7.57"/>
+        <path d="M11.59 11.24 L12.35 12.63"/>
+        <path d="M12.35 12.63 L12.20 13.04 M12.35 12.63 L12.77 12.73"/>
+        <path d="M9.95 12.30 C 10.32 11.77 10.91 12.27 11.13 12.06 C 11.35 11.86 11.53 11.60 11.65 11.37"/>
+        <path d="M13.36 10.44 C 12.72 10.46 12.81 11.23 12.52 11.30 C 12.24 11.38 11.91 11.39 11.65 11.37"/>
+        <path d="M15.39 15.04 L16.15 16.43"/>
+        <path d="M16.15 16.43 L16.00 16.84 M16.15 16.43 L16.57 16.53"/>
+        <path d="M13.75 16.10 C 14.12 15.57 14.71 16.07 14.93 15.86 C 15.15 15.66 15.33 15.40 15.45 15.17"/>
+        <path d="M17.16 14.24 C 16.52 14.26 16.61 15.03 16.32 15.10 C 16.04 15.18 15.71 15.19 15.45 15.17"/>
+        </g>
+      </svg>
+      <span class="lbl">200 px</span>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       RETENU — Arrangement 2 SANS bande
+       ============================================================ -->
+  <div class="titlerow">
+    <div class="eyebrow">Retenu (a) — trois alérions, SANS bande</div>
+    <span class="pill">choix · LorraineSeal par défaut</span>
+  </div>
+  <div class="row">
+    <div class="cell">
+      <svg class="seal" width="96" height="96" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9"/>
+        <g stroke-width="1.1">
+        <path d="M8.20 7.34 L8.20 8.92"/>
+        <path d="M8.20 8.92 L7.88 9.21 M8.20 8.92 L8.52 9.21"/>
+        <path d="M6.26 7.48 C 6.83 7.19 7.12 7.91 7.41 7.84 C 7.70 7.77 7.98 7.62 8.20 7.48"/>
+        <path d="M10.14 7.48 C 9.57 7.19 9.28 7.91 8.99 7.84 C 8.70 7.77 8.42 7.62 8.20 7.48"/>
+        <path d="M12.00 11.14 L12.00 12.72"/>
+        <path d="M12.00 12.72 L11.68 13.01 M12.00 12.72 L12.32 13.01"/>
+        <path d="M10.06 11.28 C 10.63 10.99 10.92 11.71 11.21 11.64 C 11.50 11.57 11.78 11.42 12.00 11.28"/>
+        <path d="M13.94 11.28 C 13.37 10.99 13.08 11.71 12.79 11.64 C 12.50 11.57 12.22 11.42 12.00 11.28"/>
+        <path d="M15.80 14.94 L15.80 16.52"/>
+        <path d="M15.80 16.52 L15.48 16.81 M15.80 16.52 L16.12 16.81"/>
+        <path d="M13.86 15.08 C 14.43 14.79 14.72 15.51 15.01 15.44 C 15.30 15.37 15.58 15.22 15.80 15.08"/>
+        <path d="M17.74 15.08 C 17.17 14.79 16.88 15.51 16.59 15.44 C 16.30 15.37 16.02 15.22 15.80 15.08"/>
+        </g>
+      </svg>
+      <span class="lbl">96 px (taille mini recommandée)</span>
+    </div>
+    <div class="cell">
+      <svg class="seal" width="160" height="160" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9"/>
+        <g stroke-width="1.1">
+        <path d="M8.20 7.34 L8.20 8.92"/>
+        <path d="M8.20 8.92 L7.88 9.21 M8.20 8.92 L8.52 9.21"/>
+        <path d="M6.26 7.48 C 6.83 7.19 7.12 7.91 7.41 7.84 C 7.70 7.77 7.98 7.62 8.20 7.48"/>
+        <path d="M10.14 7.48 C 9.57 7.19 9.28 7.91 8.99 7.84 C 8.70 7.77 8.42 7.62 8.20 7.48"/>
+        <path d="M12.00 11.14 L12.00 12.72"/>
+        <path d="M12.00 12.72 L11.68 13.01 M12.00 12.72 L12.32 13.01"/>
+        <path d="M10.06 11.28 C 10.63 10.99 10.92 11.71 11.21 11.64 C 11.50 11.57 11.78 11.42 12.00 11.28"/>
+        <path d="M13.94 11.28 C 13.37 10.99 13.08 11.71 12.79 11.64 C 12.50 11.57 12.22 11.42 12.00 11.28"/>
+        <path d="M15.80 14.94 L15.80 16.52"/>
+        <path d="M15.80 16.52 L15.48 16.81 M15.80 16.52 L16.12 16.81"/>
+        <path d="M13.86 15.08 C 14.43 14.79 14.72 15.51 15.01 15.44 C 15.30 15.37 15.58 15.22 15.80 15.08"/>
+        <path d="M17.74 15.08 C 17.17 14.79 16.88 15.51 16.59 15.44 C 16.30 15.37 16.02 15.22 15.80 15.08"/>
+        </g>
+      </svg>
+      <span class="lbl">160 px</span>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       RETENU — Arrangement 2 AVEC bande (deux hairlines)
+       ============================================================ -->
+  <div class="titlerow">
+    <div class="eyebrow">Retenu (b) — trois alérions, AVEC la bande</div>
+    <span class="pill">variante héraldique explicite</span>
+  </div>
+  <div class="row">
+    <div class="cell">
+      <svg class="seal" width="96" height="96" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9"/>
+        <path d="M9.45 5.21 L18.79 14.55" stroke-width="0.9"/>
+        <path d="M5.21 9.45 L14.55 18.79" stroke-width="0.9"/>
+        <g stroke-width="1.1">
+        <path d="M8.20 7.34 L8.20 8.92"/>
+        <path d="M8.20 8.92 L7.88 9.21 M8.20 8.92 L8.52 9.21"/>
+        <path d="M6.26 7.48 C 6.83 7.19 7.12 7.91 7.41 7.84 C 7.70 7.77 7.98 7.62 8.20 7.48"/>
+        <path d="M10.14 7.48 C 9.57 7.19 9.28 7.91 8.99 7.84 C 8.70 7.77 8.42 7.62 8.20 7.48"/>
+        <path d="M12.00 11.14 L12.00 12.72"/>
+        <path d="M12.00 12.72 L11.68 13.01 M12.00 12.72 L12.32 13.01"/>
+        <path d="M10.06 11.28 C 10.63 10.99 10.92 11.71 11.21 11.64 C 11.50 11.57 11.78 11.42 12.00 11.28"/>
+        <path d="M13.94 11.28 C 13.37 10.99 13.08 11.71 12.79 11.64 C 12.50 11.57 12.22 11.42 12.00 11.28"/>
+        <path d="M15.80 14.94 L15.80 16.52"/>
+        <path d="M15.80 16.52 L15.48 16.81 M15.80 16.52 L16.12 16.81"/>
+        <path d="M13.86 15.08 C 14.43 14.79 14.72 15.51 15.01 15.44 C 15.30 15.37 15.58 15.22 15.80 15.08"/>
+        <path d="M17.74 15.08 C 17.17 14.79 16.88 15.51 16.59 15.44 C 16.30 15.37 16.02 15.22 15.80 15.08"/>
+        </g>
+      </svg>
+      <span class="lbl">96 px</span>
+    </div>
+    <div class="cell">
+      <svg class="seal" width="160" height="160" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9"/>
+        <path d="M9.45 5.21 L18.79 14.55" stroke-width="0.9"/>
+        <path d="M5.21 9.45 L14.55 18.79" stroke-width="0.9"/>
+        <g stroke-width="1.1">
+        <path d="M8.20 7.34 L8.20 8.92"/>
+        <path d="M8.20 8.92 L7.88 9.21 M8.20 8.92 L8.52 9.21"/>
+        <path d="M6.26 7.48 C 6.83 7.19 7.12 7.91 7.41 7.84 C 7.70 7.77 7.98 7.62 8.20 7.48"/>
+        <path d="M10.14 7.48 C 9.57 7.19 9.28 7.91 8.99 7.84 C 8.70 7.77 8.42 7.62 8.20 7.48"/>
+        <path d="M12.00 11.14 L12.00 12.72"/>
+        <path d="M12.00 12.72 L11.68 13.01 M12.00 12.72 L12.32 13.01"/>
+        <path d="M10.06 11.28 C 10.63 10.99 10.92 11.71 11.21 11.64 C 11.50 11.57 11.78 11.42 12.00 11.28"/>
+        <path d="M13.94 11.28 C 13.37 10.99 13.08 11.71 12.79 11.64 C 12.50 11.57 12.22 11.42 12.00 11.28"/>
+        <path d="M15.80 14.94 L15.80 16.52"/>
+        <path d="M15.80 16.52 L15.48 16.81 M15.80 16.52 L16.12 16.81"/>
+        <path d="M13.86 15.08 C 14.43 14.79 14.72 15.51 15.01 15.44 C 15.30 15.37 15.58 15.22 15.80 15.08"/>
+        <path d="M17.74 15.08 C 17.17 14.79 16.88 15.51 16.59 15.44 C 16.30 15.37 16.02 15.22 15.80 15.08"/>
+        </g>
+      </svg>
+      <span class="lbl">160 px</span>
+    </div>
+  </div>
+
+  <div class="card note">
+    <strong>Lecture & auto-critique</strong><br/><br/>
+    <strong>Arrangement 1 — diagonale serrée (scale 0.42).</strong> Les trois
+    glyphes au trait 1,5 px remplissent bien l'anneau, mais à pas 3.5 le bord
+    droit de chaque aile vient presque toucher l'aile gauche du suivant. À 64 px
+    l'encre commence à se densifier sur la diagonale ; impression de « grappe »
+    plus que de « trois oiseaux ordonnés ». Honnête à 120/200, fragile à 64.<br/><br/>
+    <strong>Arrangement 2 — diagonale espacée (scale 0.36, trait 1,1).</strong>
+    Gaps blancs nets entre les trois alérions (la queue de l'un est à ~1,9 u
+    au-dessus des ailes du suivant). Trait abaissé à 1,1 px : la densité de 12
+    sous-traits l'impose, et le résultat reste cohérent avec l'anneau 1,5 px qui
+    cadre le tout. Chaque glyphe se relit comme l'<code>AlerionSeal</code> connu.
+    <strong>C'est le seul des trois où l'on compte clairement « un, deux, trois ».</strong><br/><br/>
+    <strong>Arrangement 3 — glyphes inclinés (−0.5 rad).</strong> Héraldiquement
+    tentant (suivre la bande), mais la rotation casse la symétrie des deux
+    pennes : un alérion se met à pencher comme s'il tombait, et les paires
+    d'ailes deviennent inégales. Plus « cassé » que « gravé ». Écarté.<br/><br/>
+    <strong>Bande, avec ou sans.</strong> Les deux hairlines à 0,9 px rendent la
+    lecture « armes de Lorraine » indiscutable et structurent la diagonale ; mais
+    elles ajoutent 2 traits qui, sous ~96 px, viennent au contact des ailes et
+    brouillent l'ensemble. <strong>Choix : SANS bande par défaut</strong> (plus
+    propre, plus sobre, plus fidèle au registre gravé) ; la bande reste une option
+    documentée dans le SVG source pour les très grands formats (≥ 160 px) où elle
+    respire.<br/><br/>
+    <strong>Taille minimale lisible.</strong> ~96 px. En dessous, les gaps entre
+    alérions et les queues fourchues passent sous le seuil de rendu. Ce mark est
+    un signe de grand format (favicon 96+, en-tête de rapport, héro, page « à
+    propos ») ; l'UI 20 px conserve le losange <code>Seal</code>, et le cachet à
+    un seul alérion <code>AlerionSeal</code> reste la variante 64 px.
+  </div>
+</div>
+</body>
+</html>
