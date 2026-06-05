@@ -121,10 +121,10 @@ export function AlerionSeal(p: IconProps) {
 // sceau plein du Seal et y répète TROIS fois le glyphe d'AlerionSeal (aiglon
 // ailes déployées, sans bec ni pattes, queue fourchue), réduit et aligné le long
 // de la bande : du chef dextre (haut-gauche) à la pointe senestre (bas-droite).
-// Encré en or Jaumont via currentColor. L'anneau garde le trait 1,5 px du set ;
-// les glyphes internes descendent à 1,1 px (la densité des trois l'impose) — le
+// Encré en or Jaumont via currentColor. Glyphes calibrés (scale 0.5, espacés sur
+// la bande) pour remplir l'anneau ; trait des glyphes 1,25 px, anneau 1,5 px — le
 // <g> override le strokeWidth hérité d'Icon sans toucher à l'API (size/className/
-// style uniquement). MARK GRAND FORMAT (≥ 96 px) : favicon, en-tête de rapport,
+// style uniquement). MARK GRAND FORMAT (≥ 96 px) : en-tête de rapport, héro,
 // héro, page « à propos ». Sous ~96 px les gaps et les queues fourchues se
 // referment — l'UI 20 px conserve le losange (Seal), le cachet 64 px conserve
 // l'alérion unique (AlerionSeal). Variante « bande » (deux hairlines) documentée
@@ -133,22 +133,22 @@ export function LorraineSeal(p: IconProps) {
   return (
     <Icon {...p}>
       <circle cx="12" cy="12" r="9" />
-      <g strokeWidth="1.1">
+      <g strokeWidth="1.25">
         {/* alérion 1 — chef dextre (haut-gauche) */}
-        <path d="M8.20 7.34 L8.20 8.92" />
-        <path d="M8.20 8.92 L7.88 9.21 M8.20 8.92 L8.52 9.21" />
-        <path d="M6.26 7.48 C 6.83 7.19 7.12 7.91 7.41 7.84 C 7.70 7.77 7.98 7.62 8.20 7.48" />
-        <path d="M10.14 7.48 C 9.57 7.19 9.28 7.91 8.99 7.84 C 8.70 7.77 8.42 7.62 8.20 7.48" />
+        <path d="M8.7 7.6 L8.7 9.8" />
+        <path d="M8.7 9.8 L8.25 10.2 M8.7 9.8 L9.15 10.2" />
+        <path d="M6.0 7.8 C 6.8 7.4 7.2 8.4 7.6 8.3 C 8.0 8.2 8.4 8.0 8.7 7.8" />
+        <path d="M11.4 7.8 C 10.6 7.4 10.2 8.4 9.8 8.3 C 9.4 8.2 9.0 8.0 8.7 7.8" />
         {/* alérion 2 — cœur */}
-        <path d="M12.00 11.14 L12.00 12.72" />
-        <path d="M12.00 12.72 L11.68 13.01 M12.00 12.72 L12.32 13.01" />
-        <path d="M10.06 11.28 C 10.63 10.99 10.92 11.71 11.21 11.64 C 11.50 11.57 11.78 11.42 12.00 11.28" />
-        <path d="M13.94 11.28 C 13.37 10.99 13.08 11.71 12.79 11.64 C 12.50 11.57 12.22 11.42 12.00 11.28" />
+        <path d="M12.0 10.9 L12.0 13.1" />
+        <path d="M12.0 13.1 L11.55 13.5 M12.0 13.1 L12.45 13.5" />
+        <path d="M9.3 11.1 C 10.1 10.7 10.5 11.7 10.9 11.6 C 11.3 11.5 11.7 11.3 12.0 11.1" />
+        <path d="M14.7 11.1 C 13.9 10.7 13.5 11.7 13.1 11.6 C 12.7 11.5 12.3 11.3 12.0 11.1" />
         {/* alérion 3 — pointe senestre (bas-droite) */}
-        <path d="M15.80 14.94 L15.80 16.52" />
-        <path d="M15.80 16.52 L15.48 16.81 M15.80 16.52 L16.12 16.81" />
-        <path d="M13.86 15.08 C 14.43 14.79 14.72 15.51 15.01 15.44 C 15.30 15.37 15.58 15.22 15.80 15.08" />
-        <path d="M17.74 15.08 C 17.17 14.79 16.88 15.51 16.59 15.44 C 16.30 15.37 16.02 15.22 15.80 15.08" />
+        <path d="M15.3 14.2 L15.3 16.4" />
+        <path d="M15.3 16.4 L14.85 16.8 M15.3 16.4 L15.75 16.8" />
+        <path d="M12.6 14.4 C 13.4 14.0 13.8 15.0 14.2 14.9 C 14.6 14.8 15.0 14.6 15.3 14.4" />
+        <path d="M18.0 14.4 C 17.2 14.0 16.8 15.0 16.4 14.9 C 16.0 14.8 15.6 14.6 15.3 14.4" />
       </g>
     </Icon>
   );
