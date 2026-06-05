@@ -1,0 +1,47 @@
+<!-- Sceau aux trois alérions de Lorraine — « D'or à la bande de gueules chargée
+     de trois alérions d'argent » (armes du duché ; docs/brand/METZ-LOCAL.md §2).
+     Anneau de sceau plein (le même circle r=9 que Seal / AlerionSeal) contenant
+     TROIS fois le glyphe d'AlerionSeal — aiglon héraldique ailes déployées, sans
+     bec ni pattes, petite queue fourchue — réduit (scale 0.36) et répété le long
+     de la bande, du chef dextre (haut-gauche) à la pointe senestre (bas-droite).
+     Encré en or Jaumont (#C9A14A) via currentColor.
+
+     Trait : l'anneau reste à 1,5 px (cohérent avec le set) ; les glyphes internes
+     descendent à 1,1 px — la densité des trois alérions l'impose, sinon l'encre
+     se referme. Cohérence visuelle préservée (l'anneau cadre, les glyphes gravent).
+
+     MARK GRAND FORMAT (≥ 96 px) : favicon, en-tête de rapport, héro, page « à
+     propos ». Taille minimale lisible estimée ~96 px : en dessous les gaps entre
+     alérions et les queues fourchues passent sous le seuil de rendu — l'UI 20 px
+     garde le losange (Seal) et le cachet 64 px garde l'alérion unique (AlerionSeal).
+
+     OPTION « bande » (lecture héraldique explicite) : décommenter les deux
+     hairlines diagonales ci-dessous. Réservé aux très grands formats (≥ 160 px) ;
+     sous ~96 px elles viennent au contact des ailes et brouillent l'ensemble.
+     Voir Design System/preview/brand-alerion-lorraine.html. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+  <circle cx="12" cy="12" r="9"></circle>
+
+  <!-- Option bande (désactivée par défaut) :
+  <path d="M9.45 5.21 L18.79 14.55" stroke-width="0.9"></path>
+  <path d="M5.21 9.45 L14.55 18.79" stroke-width="0.9"></path>
+  -->
+
+  <g stroke-width="1.1">
+    <!-- alérion 1 — chef dextre (haut-gauche) -->
+    <path d="M8.20 7.34 L8.20 8.92"></path>
+    <path d="M8.20 8.92 L7.88 9.21 M8.20 8.92 L8.52 9.21"></path>
+    <path d="M6.26 7.48 C 6.83 7.19 7.12 7.91 7.41 7.84 C 7.70 7.77 7.98 7.62 8.20 7.48"></path>
+    <path d="M10.14 7.48 C 9.57 7.19 9.28 7.91 8.99 7.84 C 8.70 7.77 8.42 7.62 8.20 7.48"></path>
+    <!-- alérion 2 — cœur -->
+    <path d="M12.00 11.14 L12.00 12.72"></path>
+    <path d="M12.00 12.72 L11.68 13.01 M12.00 12.72 L12.32 13.01"></path>
+    <path d="M10.06 11.28 C 10.63 10.99 10.92 11.71 11.21 11.64 C 11.50 11.57 11.78 11.42 12.00 11.28"></path>
+    <path d="M13.94 11.28 C 13.37 10.99 13.08 11.71 12.79 11.64 C 12.50 11.57 12.22 11.42 12.00 11.28"></path>
+    <!-- alérion 3 — pointe senestre (bas-droite) -->
+    <path d="M15.80 14.94 L15.80 16.52"></path>
+    <path d="M15.80 16.52 L15.48 16.81 M15.80 16.52 L16.12 16.81"></path>
+    <path d="M13.86 15.08 C 14.43 14.79 14.72 15.51 15.01 15.44 C 15.30 15.37 15.58 15.22 15.80 15.08"></path>
+    <path d="M17.74 15.08 C 17.17 14.79 16.88 15.51 16.59 15.44 C 16.30 15.37 16.02 15.22 15.80 15.08"></path>
+  </g>
+</svg>

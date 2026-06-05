@@ -114,3 +114,42 @@ export function AlerionSeal(p: IconProps) {
     </Icon>
   );
 }
+
+// Sceau aux trois alérions de Lorraine — les armes du duché : « D'or à la bande
+// de gueules chargée de trois alérions d'argent » (voir docs/brand/METZ-LOCAL.md
+// §2 et Design System/preview/brand-alerion-lorraine.html). Réutilise l'anneau de
+// sceau plein du Seal et y répète TROIS fois le glyphe d'AlerionSeal (aiglon
+// ailes déployées, sans bec ni pattes, queue fourchue), réduit et aligné le long
+// de la bande : du chef dextre (haut-gauche) à la pointe senestre (bas-droite).
+// Encré en or Jaumont via currentColor. L'anneau garde le trait 1,5 px du set ;
+// les glyphes internes descendent à 1,1 px (la densité des trois l'impose) — le
+// <g> override le strokeWidth hérité d'Icon sans toucher à l'API (size/className/
+// style uniquement). MARK GRAND FORMAT (≥ 96 px) : favicon, en-tête de rapport,
+// héro, page « à propos ». Sous ~96 px les gaps et les queues fourchues se
+// referment — l'UI 20 px conserve le losange (Seal), le cachet 64 px conserve
+// l'alérion unique (AlerionSeal). Variante « bande » (deux hairlines) documentée
+// dans Design System/assets/icons/lorraine-seal.svg pour les ≥ 160 px.
+export function LorraineSeal(p: IconProps) {
+  return (
+    <Icon {...p}>
+      <circle cx="12" cy="12" r="9" />
+      <g strokeWidth="1.1">
+        {/* alérion 1 — chef dextre (haut-gauche) */}
+        <path d="M8.20 7.34 L8.20 8.92" />
+        <path d="M8.20 8.92 L7.88 9.21 M8.20 8.92 L8.52 9.21" />
+        <path d="M6.26 7.48 C 6.83 7.19 7.12 7.91 7.41 7.84 C 7.70 7.77 7.98 7.62 8.20 7.48" />
+        <path d="M10.14 7.48 C 9.57 7.19 9.28 7.91 8.99 7.84 C 8.70 7.77 8.42 7.62 8.20 7.48" />
+        {/* alérion 2 — cœur */}
+        <path d="M12.00 11.14 L12.00 12.72" />
+        <path d="M12.00 12.72 L11.68 13.01 M12.00 12.72 L12.32 13.01" />
+        <path d="M10.06 11.28 C 10.63 10.99 10.92 11.71 11.21 11.64 C 11.50 11.57 11.78 11.42 12.00 11.28" />
+        <path d="M13.94 11.28 C 13.37 10.99 13.08 11.71 12.79 11.64 C 12.50 11.57 12.22 11.42 12.00 11.28" />
+        {/* alérion 3 — pointe senestre (bas-droite) */}
+        <path d="M15.80 14.94 L15.80 16.52" />
+        <path d="M15.80 16.52 L15.48 16.81 M15.80 16.52 L16.12 16.81" />
+        <path d="M13.86 15.08 C 14.43 14.79 14.72 15.51 15.01 15.44 C 15.30 15.37 15.58 15.22 15.80 15.08" />
+        <path d="M17.74 15.08 C 17.17 14.79 16.88 15.51 16.59 15.44 C 16.30 15.37 16.02 15.22 15.80 15.08" />
+      </g>
+    </Icon>
+  );
+}
