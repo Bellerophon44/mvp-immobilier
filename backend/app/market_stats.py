@@ -50,6 +50,27 @@ _SECTORS_RAW = {
 }
 
 
+# Metz Métropole : niveau AU-DESSUS de la ville, regroupant Metz et ses communes
+# limitrophes. Filet le plus large de la cascade : une commune limitrophe trop
+# creuse (ou Magny / un bien hors Metz-intra) peut y puiser des comparables
+# observés plutôt que de retomber sur "Indéterminé". Toujours 100% observé.
+_METRO_NAME = "Metz Métropole"
+_METRO_CITIES_RAW = [
+    "Metz",
+    "Montigny-lès-Metz",
+    "Le Ban-Saint-Martin",
+    "Longeville-lès-Metz",
+    "Saint-Julien-lès-Metz",
+    "Scy-Chazelles",
+    "Plappeville",
+    "Lessy",
+    "Woippy",
+    "Marly",
+    "Augny",
+]
+_METRO_CITIES = sorted({canonical_city(c) for c in _METRO_CITIES_RAW if canonical_city(c)})
+
+
 def _build_sector_maps():
     """Construit, à partir de _SECTORS_RAW, le mapping quartier_canonique ->
     secteur et secteur -> liste de quartiers canoniques (pour le filtre SQL)."""
@@ -93,19 +114,24 @@ def _fetch_comparables(
     surface_max: float,
     dpe_letters: Optional[set] = None,
     districts: Optional[List[str]] = None,
+    cities: Optional[List[str]] = None,
 ):
     """Récupère les comparables selon des critères simples et explicables.
 
-    `districts` (liste) filtre sur un ensemble de quartiers — utilisé pour le
-    périmètre secteur ; `district` (str) filtre sur un seul quartier."""
+    `cities` (liste) filtre sur un ensemble de communes — utilisé pour le
+    périmètre métropole ; `districts` (liste) sur un ensemble de quartiers
+    (secteur) ; `district` (str) sur un seul quartier."""
     db = SessionLocal()
     try:
         query = db.query(Comparable).filter(
-            Comparable.city == city,
             Comparable.property_type == property_type,
             Comparable.surface_m2 >= surface_min,
             Comparable.surface_m2 <= surface_max,
         )
+        if cities:
+            query = query.filter(Comparable.city.in_(cities))
+        else:
+            query = query.filter(Comparable.city == city)
         if districts:
             query = query.filter(Comparable.district.in_(districts))
         elif district:
@@ -141,9 +167,11 @@ def compute_market_stats(
     """
     Statistiques du marché local observable, via une cascade qui retient le
     périmètre le plus précis encore suffisamment peuplé :
-      quartier+DPE -> quartier -> secteur+DPE -> secteur -> ville+DPE -> ville.
-    Le secteur (quartiers voisins) comble les quartiers creux sans diluer
-    jusqu'à toute la ville. Retourne None si même la ville est trop pauvre.
+      quartier+DPE -> quartier -> secteur+DPE -> secteur -> ville+DPE -> ville
+      -> métropole+DPE -> métropole.
+    Le secteur (quartiers voisins) comble les quartiers creux, puis la métropole
+    (communes limitrophes) comble les communes creuses, sans jamais estimer.
+    Retourne None si même le périmètre le plus large est trop pauvre.
     """
     city = canonical_city(city)
     district = canonical_district(district, city)
@@ -152,33 +180,46 @@ def compute_market_stats(
 
     sector = _DISTRICT_TO_SECTOR.get(district) if district else None
     sector_districts = _SECTOR_DISTRICTS.get(sector) if sector else None
+    # La métropole n'est mobilisée que si le bien est dans le périmètre Metz
+    # Métropole (sinon on ne s'autorise pas à élargir à des communes étrangères).
+    metro_cities = _METRO_CITIES if city in _METRO_CITIES else None
 
     surface_min = surface_m2 * 0.8
     surface_max = surface_m2 * 1.2
 
     # Niveaux candidats, du plus précis au plus large.
-    # Chaque candidat : (scope, scope_name, district, districts, band).
+    # Chaque candidat : (scope, scope_name, district, districts, band, cities).
+    # Le DERNIER candidat est le filet (accepté quel que soit le volume).
     candidates = []
     if district and band_letters:
-        candidates.append(("quartier", district, district, None, band))
+        candidates.append(("quartier", district, district, None, band, None))
     if district:
-        candidates.append(("quartier", district, district, None, None))
+        candidates.append(("quartier", district, district, None, None, None))
     if sector_districts and band_letters:
-        candidates.append(("secteur", sector, None, sector_districts, band))
+        candidates.append(("secteur", sector, None, sector_districts, band, None))
     if sector_districts:
-        candidates.append(("secteur", sector, None, sector_districts, None))
+        candidates.append(("secteur", sector, None, sector_districts, None, None))
     if band_letters:
-        candidates.append(("ville", city, None, None, band))
-    candidates.append(("ville", city, None, None, None))  # base
+        candidates.append(("ville", city, None, None, band, None))
+    candidates.append(("ville", city, None, None, None, None))
+    if metro_cities and band_letters:
+        candidates.append(("metropole", _METRO_NAME, None, None, band, metro_cities))
+    if metro_cities:
+        candidates.append(("metropole", _METRO_NAME, None, None, None, metro_cities))
 
     chosen = None
-    for scope, name, dist, dists, b in candidates:
+    last_index = len(candidates) - 1
+    for i, (scope, name, dist, dists, b, cities) in enumerate(candidates):
         comparables = _fetch_comparables(
             city, dist, property_type, surface_min, surface_max,
-            DPE_BANDS.get(b) if b else None, districts=dists,
+            DPE_BANDS.get(b) if b else None, districts=dists, cities=cities,
         )
-        is_base = (scope == "ville" and b is None)
-        if is_base or len(comparables) >= MIN_REFINED_COMPARABLES:
+        is_base = (i == last_index)
+        # La ville (sans DPE) reste préférée dès qu'elle a le plancher absolu :
+        # on n'élargit à la métropole que si la commune est réellement trop creuse,
+        # pour ne pas diluer un pool communal exploitable.
+        ville_usable = scope == "ville" and b is None and len(comparables) >= MIN_COMPARABLES
+        if is_base or ville_usable or len(comparables) >= MIN_REFINED_COMPARABLES:
             chosen = (scope, name, b, comparables)
             break
 
@@ -220,6 +261,8 @@ def _scope_context(market_stats: Dict[str, Any]) -> str:
         base = f"Dans le quartier {name}"
     elif scope == "secteur":
         base = f"Dans le secteur {name} (quartiers voisins)"
+    elif scope == "metropole":
+        base = f"À l'échelle de {name} (communes voisines)"
     else:
         base = f"À l'échelle de {name}"
     if market_stats.get("dpe_band"):
@@ -398,7 +441,12 @@ def compute_price_market_pillar(
         "scope_name": market_stats["scope_name"],
         "dpe_band": market_stats["dpe_band"],
         "n_comparables": market_stats["count"],
-        # Au niveau ville : l'analyse pourrait être affinée si l'utilisateur
-        # précisait le quartier (déclenche le sélecteur côté front).
-        "refinable": market_stats["scope"] == "ville",
+        # Analyse restée large (ville ou métropole) pour un bien messin : on peut
+        # l'affiner si l'utilisateur précise le quartier (sélecteur Metz côté
+        # front). Inutile hors Metz : le sélecteur ne propose que des quartiers
+        # de Metz.
+        "refinable": (
+            market_stats["scope"] in ("ville", "metropole")
+            and canonical_city(city) == canonical_city("Metz")
+        ),
     }

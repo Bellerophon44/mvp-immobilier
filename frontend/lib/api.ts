@@ -2,8 +2,12 @@ export interface ApiPillar {
   label: string;
   verdict: string;
   explanation: string;
+  // Part du pilier dans le score global (prix /40, transparence /30, risque /30) :
+  // global = somme des `points`. Affiché tel quel, sans recalcul côté front.
+  points?: number;
+  max?: number;
   // Périmètre structuré du pilier prix (les autres piliers ne les renseignent pas).
-  scope?: "quartier" | "secteur" | "ville" | null;
+  scope?: "quartier" | "secteur" | "metropole" | "ville" | null;
   scope_name?: string | null;
   dpe_band?: string | null;
   n_comparables?: number | null;

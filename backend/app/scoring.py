@@ -2,22 +2,16 @@ def compute_global_score(price_pillar: dict, semantic_pillar: dict) -> dict:
     """
     Calcule le score global du bien à partir des piliers analytiques.
 
+    Pondération **40 / 30 / 30** (prix / transparence / risque) = 100 points, de
+    sorte que le score global est EXACTEMENT la somme des points des piliers
+    (prix + sémantique). La ventilation est renvoyée dans `breakdown` pour que le
+    front affiche les mêmes nombres que le score (pas de recalcul divergent).
+
     Entrées attendues :
-    - price_pillar : dict avec les clés
-        - verdict        (str)
-        - confidence     (str)
-
-    - semantic_pillar : dict avec les clés
-        - transparency_score   (int ou float sur 100)
-        - risk_level           (str)
-
-    Sortie :
-    - score global (0 à 100)
-    - verdict humain
-    - niveau de confiance global
+    - price_pillar : dict avec les clés `verdict` (str), `confidence` (str).
+    - semantic_pillar : dict avec `transparency_score` (0-100), `risk_level` (str).
     """
 
-    score = 0
     explanations = []
 
     # --------------------------
@@ -25,72 +19,67 @@ def compute_global_score(price_pillar: dict, semantic_pillar: dict) -> dict:
     # --------------------------
     # On matche sur les libellés réels produits par market_stats :
     # "Plutôt aligné", "Légèrement sur‑positionné", "Fortement sur‑positionné",
-    # "Sous‑positionné", "Indéterminé". (Avant : la branche cherchait "modéré",
-    # qui n'est jamais produit — un "légèrement" tombait à tort dans le else.)
-
+    # "Sous‑positionné", "Indéterminé".
     price_verdict = price_pillar.get("verdict", "").lower()
 
     if "aligné" in price_verdict:
-        score += 40
+        price_points = 40
         explanations.append("Prix cohérent avec la fourchette observée localement.")
     elif "sous" in price_verdict:
-        score += 32
+        price_points = 32
         explanations.append("Prix sous la fourchette observée localement.")
     elif "légèrement" in price_verdict:
-        score += 28
+        price_points = 28
         explanations.append("Prix un peu au‑dessus de la fourchette, mais dans les niveaux constatés.")
     elif "fortement" in price_verdict:
-        score += 12
+        price_points = 12
         explanations.append("Prix nettement au‑dessus du marché observable.")
     else:
-        score += 22
+        price_points = 22
         explanations.append("Positionnement prix indéterminé (comparables insuffisants).")
 
     # =========================
-    # 2. Transparence (30 pts)
+    # 2. Transparence (30 pts max)
     # =========================
-
     transparency = semantic_pillar.get("transparency_score", 50)
 
     if transparency >= 70:
-        score += 25
+        transparency_points = 30
         explanations.append("Annonce claire et transparente.")
     elif transparency >= 40:
-        score += 15
+        transparency_points = 18
         explanations.append("Annonce partiellement transparente.")
     else:
-        score += 5
+        transparency_points = 6
         explanations.append("Annonce peu transparente.")
 
     # =========================
-    # 3. Risques (30 pts)
+    # 3. Risques (30 pts max)
     # =========================
-
     risk = (semantic_pillar.get("risk_level") or "").lower()
 
     if "faible" in risk:
-        score += 25
+        risk_points = 30
         explanations.append("Peu de risques identifiés.")
     elif "modéré" in risk:
-        score += 15
+        risk_points = 18
         explanations.append("Quelques incertitudes à vérifier.")
     elif "élevé" in risk:
-        score += 5
+        risk_points = 6
         explanations.append("Risques importants identifiés.")
     else:
-        score += 10
+        risk_points = 12
         explanations.append("Niveau de risque incertain.")
 
     # =========================
-    # Bornage du score
+    # Agrégation (somme exacte des piliers, bornée par sécurité)
     # =========================
-
-    score = max(0, min(100, score))
+    semantic_points = transparency_points + risk_points
+    score = max(0, min(100, price_points + semantic_points))
 
     # =========================
     # Verdict global
     # =========================
-
     if score >= 80:
         verdict = "Cohérence forte"
     elif score >= 60:
@@ -103,7 +92,6 @@ def compute_global_score(price_pillar: dict, semantic_pillar: dict) -> dict:
     # =========================
     # Confiance globale
     # =========================
-
     price_confidence = (price_pillar.get("confidence") or "").lower()
 
     if price_confidence == "élevée":
@@ -117,5 +105,14 @@ def compute_global_score(price_pillar: dict, semantic_pillar: dict) -> dict:
         "score": score,
         "verdict": verdict,
         "confidence": confidence,
-        "explanations": explanations
+        "explanations": explanations,
+        # Ventilation par pilier (pour un affichage cohérent côté front) :
+        # prix(/40) + transparence(/30) + risque(/30) = score(/100).
+        "breakdown": {
+            "price": price_points,
+            "transparency": transparency_points,
+            "risk": risk_points,
+            "semantic": semantic_points,
+        },
     }
+
