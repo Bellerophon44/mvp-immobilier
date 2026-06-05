@@ -11,7 +11,7 @@ import Wordmark from "../components/design/Wordmark";
 import ScopeBadge from "../components/design/ScopeBadge";
 import Footer from "../components/design/Footer";
 import FeedbackForm from "../components/design/FeedbackForm";
-import { Copy, Download, MapPin, Seal } from "../components/design/Icons";
+import { Copy, Download, MapPin, Seal, LorraineSeal } from "../components/design/Icons";
 import { METZ_DISTRICTS } from "../lib/districts";
 
 type AppState = "idle" | "analyzing" | "result";
@@ -130,6 +130,60 @@ function SecondaryRow() {
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+// Bloc « pourquoi local > national » : le parti pris d'ancrage. Énonce la
+// différence d'échelle (ville vs quartier) sans surpromettre — renvoie à la
+// page méthode pour le détail.
+function LocalEdgeSection() {
+  return (
+    <div style={{
+      paddingTop: 32,
+      borderTop: "1px solid var(--stone-line)",
+      display: "flex",
+      flexDirection: "column",
+      gap: 14,
+    }}>
+      <div className="t-eyebrow">L&apos;ancrage local, notre parti pris</div>
+      <div style={{
+        fontFamily: "var(--font-serif)",
+        fontSize: 24,
+        lineHeight: 1.2,
+        color: "var(--ink)",
+        maxWidth: 560,
+      }}>
+        Les sites nationaux raisonnent à l&apos;échelle de la ville.
+        Nous raisonnons à l&apos;échelle du quartier.
+      </div>
+      <p style={{
+        fontFamily: "var(--font-sans)",
+        fontSize: 15,
+        lineHeight: 1.6,
+        color: "var(--ink-2)",
+        margin: 0,
+        maxWidth: 560,
+      }}>
+        Un T3 à Queuleu et un T3 au Sablon n&apos;ont ni le même marché, ni le même
+        prix au m². Une médiane à l&apos;échelle de Metz lisse ces écarts et trompe.
+        Nous reconstituons le marché à partir des annonces réelles du secteur,
+        retenons les comparables à surface proche (±20 %, au moins trois), et
+        situons votre annonce dans ce contexte — pas dans une moyenne nationale.
+      </p>
+      <a href="/methode" style={{
+        fontFamily: "var(--font-sans)",
+        fontSize: 14,
+        fontWeight: 500,
+        color: "var(--brick)",
+        textDecoration: "none",
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
+        width: "fit-content",
+      }}>
+        Notre méthode locale, en détail →
+      </a>
     </div>
   );
 }
@@ -379,6 +433,10 @@ export default function HomePage() {
     if (!result) return "";
     const lc = result.local_context;
     const lines = [
+      "Cohérence — édition Metz",
+      "Analyse de cohérence d'une annonce immobilière · Metz & Moselle",
+      "————————————————————————————————————————",
+      "",
       `Score de cohérence : ${result.global_score} / 100`,
       `Verdict : ${result.verdict}`,
       `Confiance : ${result.confidence}`,
@@ -466,6 +524,10 @@ export default function HomePage() {
         {appState === "idle" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 40 }}>
             <div>
+              {/* Cachet « édition Metz » aux trois alérions de Lorraine, en
+                  letterhead — registre « lettre scellée d'un notaire ». Grand
+                  format (88 px), seule taille où les 3 alérions sont lisibles. */}
+              <LorraineSeal size={88} style={{ color: "var(--jaumont)", marginBottom: 24, display: "block" }} />
               <div className="t-eyebrow" style={{ marginBottom: 16 }}>
                 Analyse d&apos;annonces immobilières · Metz &amp; Moselle
               </div>
@@ -520,6 +582,7 @@ export default function HomePage() {
             )}
 
             <SecondaryRow />
+            <LocalEdgeSection />
           </div>
         )}
 
