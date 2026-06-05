@@ -24,6 +24,10 @@
   --brick-deep:   #6B2018;   /* Déconseillé, hover-deep */
   --brick-soft:   #E8C9BD;   /* brick tint for backgrounds/badges */
 
+  /* ---------- Color: ancrage local (édition Metz) ---------- */
+  --jaumont:      #C9A14A;   /* or de la pierre de Jaumont — couleur de Metz, réservé au cachet « contexte local » */
+  --jaumont-soft: #ECD9B0;   /* tint Jaumont pour fonds/cachet discrets */
+
   /* ---------- Color: verdict signals ---------- */
   --moss:         #2E6E4F;   /* Favorable */
   --moss-soft:    #C9D9CC;

@@ -79,3 +79,18 @@ export function Download(p: IconProps) {
     </Icon>
   );
 }
+
+// Cachet — sceau « contexte local » de l'édition Metz : l'anneau du sceau
+// notarial (confiance) + le losange de marque embossé au centre (le même mark
+// que le wordmark). Posé en or Jaumont, c'est le seul signe local de l'UI.
+// Évolution prévue (voir docs/brand/METZ-LOCAL.md) : remplacer le losange par
+// un alérion lorrain gravé, dessiné par un graphiste au même trait 1,5 px.
+export function Seal(p: IconProps) {
+  return (
+    <Icon {...p}>
+      <circle cx="12" cy="12" r="9" />
+      <circle cx="12" cy="12" r="6.5" strokeDasharray="1 2" />
+      <path d="M12 8.5 L15.5 12 L12 15.5 L8.5 12 Z" />
+    </Icon>
+  );
+}

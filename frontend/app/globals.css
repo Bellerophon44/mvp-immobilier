@@ -23,6 +23,14 @@
   --brick-deep:   #6B2018;
   --brick-soft:   #E8C9BD;
 
+  /* ---------- Color: ancrage local (édition Metz) ----------
+     Or de la pierre de Jaumont — le calcaire jaune-miel dont est bâtie la
+     cathédrale et toute la vieille ville (« la ville jaune »). Couleur de
+     signature locale, réservée au cachet/sceau « contexte local ». Ce n'est
+     pas un accent d'action (le brick reste le seul accent CTA). */
+  --jaumont:      #C9A14A;
+  --jaumont-soft: #ECD9B0;
+
   /* ---------- Color: verdict signals ---------- */
   --moss:         #2E6E4F;
   --moss-soft:    #C9D9CC;

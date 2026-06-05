@@ -11,7 +11,7 @@ import Wordmark from "../components/design/Wordmark";
 import ScopeBadge from "../components/design/ScopeBadge";
 import Footer from "../components/design/Footer";
 import FeedbackForm from "../components/design/FeedbackForm";
-import { Copy, Download, MapPin } from "../components/design/Icons";
+import { Copy, Download, MapPin, Seal } from "../components/design/Icons";
 import { METZ_DISTRICTS } from "../lib/districts";
 
 type AppState = "idle" | "analyzing" | "result";
@@ -114,7 +114,7 @@ function SecondaryRow() {
       borderTop: "1px solid var(--stone-line)",
     }}>
       {[
-        { n: "01", t: "Pilier prix", d: "Médiane locale et écart calculés sur ≥ 3 comparables." },
+        { n: "01", t: "Pilier prix", d: "Médiane du quartier et écart calculés sur ≥ 3 comparables messins." },
         { n: "02", t: "Pilier sémantique", d: "L'annonce est-elle claire ? Quels signaux manquent ?" },
         { n: "03", t: "Pilier global", d: "Score 0 – 100 et verdict en une phrase." },
       ].map((c) => (
@@ -161,11 +161,16 @@ function LocalContextCard({ context }: { context: LocalContext }) {
       <div style={{
         display: "flex",
         alignItems: "center",
+        justifyContent: "space-between",
         gap: 8,
         marginBottom: 8,
       }}>
-        <MapPin size={14} style={{ color: "var(--stone)" }} />
-        <div className="t-eyebrow">Contexte local — {context.district}</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <MapPin size={14} style={{ color: "var(--stone)" }} />
+          <div className="t-eyebrow">Contexte local — {context.district}</div>
+        </div>
+        {/* Cachet « édition Metz » : signe local sobre, en or Jaumont. */}
+        <Seal size={20} style={{ color: "var(--jaumont)" }} />
       </div>
       {context.address && (
         <div style={{
@@ -461,7 +466,7 @@ export default function HomePage() {
           <div style={{ display: "flex", flexDirection: "column", gap: 40 }}>
             <div>
               <div className="t-eyebrow" style={{ marginBottom: 16 }}>
-                Analyseur de cohérence d&apos;annonces
+                Analyse d&apos;annonces immobilières · Metz &amp; Moselle
               </div>
               <h1 style={{
                 fontFamily: "var(--font-serif)",
@@ -477,7 +482,7 @@ export default function HomePage() {
                 sont-ils{" "}
                 <em style={{ color: "var(--brick)", fontStyle: "italic" }}>cohérents</em>{" "}
                 avec<br />
-                le marché local&nbsp;?
+                le marché messin, quartier par quartier&nbsp;?
               </h1>
               <p style={{
                 fontFamily: "var(--font-sans)",
@@ -487,9 +492,12 @@ export default function HomePage() {
                 margin: 0,
                 maxWidth: 540,
               }}>
-                Collez l&apos;URL ou le texte d&apos;une annonce. Nous renvoyons un score
-                de cohérence, trois piliers de lecture, et une liste de points à vérifier
-                avant la visite.
+                Le livre foncier n&apos;est pas public : impossible de savoir à quel
+                prix s&apos;est vraiment vendu le voisin. Nous reconstituons le marché
+                local à partir des annonces réelles — du Sablon à Queuleu, de
+                Devant-les-Ponts à l&apos;Outre-Seille — et comparons votre annonce,
+                comparable par comparable. Score de cohérence, trois piliers de lecture,
+                et les points à vérifier avant la visite.
               </p>
             </div>
 

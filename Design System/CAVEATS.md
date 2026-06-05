@@ -23,6 +23,7 @@ This design system was built from a **written product brief only**. No codebase,
 7. **API kit.** Since the backend is API-only (FastAPI on Railway), the "API kit" is a documentation/Swagger-style reference page. If there is a separate admin or operator UI that wasn't mentioned, flag it.
 
 8. **Scoping.** The product is Metz/Moselle only at MVP. Copy and the map-pin icon currently lean on that. If geographic expansion is imminent, the brand voice will need a pass.
+   → **Résolu (juin 2026).** Décision : marque géo-neutre **« Cohérence »** + système **« édition locale »** (édition Metz aujourd'hui, extension prévue). Ancrage local assumé via wording quartier + or Jaumont + cachet sobre. Détail : [`/docs/brand/LOCAL-ANCHORING.md`](../docs/brand/LOCAL-ANCHORING.md).
 
 ## Things we **did not** do
 
