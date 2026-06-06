@@ -83,6 +83,124 @@ function Header() {
   );
 }
 
+// Chemin de la photo héro. null tant qu'on n'a pas branché l'image libre de
+// droits choisie (cf. docs/brand/LOCAL-ANCHORING.md, brief photo). La poser
+// dans frontend/public/ puis renseigner ici (ex. "/hero-metz.jpg") suffit :
+// le traitement N&B/grain/scrim est appliqué en CSS, une couleur fait l'affaire.
+const HERO_IMAGE: string | null = null;
+const HERO_ALT = "Façade en pierre de Metz";
+// Crédit photo affiché en bas du hero. OBLIGATOIRE si l'image est sous licence
+// à attribution (CC-BY / CC-BY-SA). Ex. "Photo : Markus Bernet · CC BY-SA 4.0 · Wikimedia Commons".
+const HERO_CREDIT: string | null = null;
+
+// Grain argentique discret (SVG feTurbulence en data-URI), posé en multiply.
+const GRAIN =
+  "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")";
+
+// Hero plein cadre de la home (édition Metz). Photo architecturale traitée en
+// N&B chaud + grain, scrim parchemin vers le bas, titre en ink par-dessus —
+// registre éditorial sanctionné par la charte (une seule photo héro). Tant
+// qu'aucune image n'est branchée, un placeholder en pierre + cachet en filigrane
+// tient le cadre proprement.
+function HeroBanner() {
+  return (
+    <section aria-label="Cohérence — analyse d'annonces à Metz" style={{
+      position: "relative",
+      width: "100%",
+      minHeight: "clamp(380px, 56vh, 560px)",
+      overflow: "hidden",
+      background: "var(--stone-fill)",
+      borderBottom: "1px solid var(--stone-line)",
+    }}>
+      {HERO_IMAGE ? (
+        <img src={HERO_IMAGE} alt={HERO_ALT} style={{
+          position: "absolute", inset: 0, width: "100%", height: "100%",
+          objectFit: "cover",
+          filter: "grayscale(1) sepia(0.35) contrast(1.05) brightness(0.96)",
+        }} />
+      ) : (
+        <div aria-hidden style={{
+          position: "absolute", inset: 0,
+          background: "radial-gradient(130% 120% at 72% 8%, var(--stone-fill) 0%, var(--paper) 52%, var(--parchment) 100%)",
+        }}>
+          <LorraineSeal size={240} style={{
+            color: "var(--jaumont)", opacity: 0.13,
+            position: "absolute", right: "5%", top: "12%",
+          }} />
+        </div>
+      )}
+
+      {/* Grain argentique */}
+      <div aria-hidden style={{
+        position: "absolute", inset: 0,
+        backgroundImage: GRAIN, backgroundSize: "140px 140px",
+        mixBlendMode: "multiply", opacity: 0.12, pointerEvents: "none",
+      }} />
+
+      {/* Scrim parchemin vers le bas, pour la lisibilité du titre en ink */}
+      <div aria-hidden style={{
+        position: "absolute", inset: 0,
+        background: "linear-gradient(to bottom, rgba(245,241,234,0.08) 0%, rgba(245,241,234,0) 26%, rgba(245,241,234,0.74) 76%, var(--parchment) 100%)",
+      }} />
+
+      {/* Contenu */}
+      <div style={{
+        position: "relative",
+        maxWidth: 960, margin: "0 auto",
+        padding: "56px 24px 36px",
+        minHeight: "clamp(380px, 56vh, 560px)",
+        display: "flex", flexDirection: "column", justifyContent: "flex-end",
+      }}>
+        <div className="t-eyebrow" style={{ marginBottom: 14 }}>
+          Analyse d&apos;annonces immobilières · Metz &amp; Moselle
+        </div>
+        <h1 style={{
+          fontFamily: "var(--font-serif)",
+          fontSize: "clamp(34px, 5.2vw, 56px)",
+          lineHeight: 1.04,
+          letterSpacing: "-0.02em",
+          color: "var(--ink)",
+          margin: "0 0 16px",
+          fontWeight: 400,
+          maxWidth: 640,
+        }}>
+          Ce prix et cette annonce sont-ils{" "}
+          <em style={{ color: "var(--brick)", fontStyle: "italic" }}>cohérents</em>{" "}
+          avec le marché messin, quartier par quartier&nbsp;?
+        </h1>
+        <p style={{
+          fontFamily: "var(--font-sans)",
+          fontSize: 17,
+          lineHeight: 1.55,
+          color: "var(--ink-2)",
+          margin: 0,
+          maxWidth: 560,
+        }}>
+          Le livre foncier n&apos;est pas public : impossible de savoir à quel prix
+          s&apos;est vraiment vendu le voisin. Nous reconstituons le marché local à
+          partir des annonces réelles — du Sablon à Queuleu, de Devant-les-Ponts à
+          l&apos;Outre-Seille — et comparons votre annonce, comparable par comparable.
+        </p>
+      </div>
+
+      {/* Crédit photo (attribution licence) — discret, bas-droite */}
+      {HERO_CREDIT && (
+        <div style={{
+          position: "absolute",
+          right: 12,
+          bottom: 8,
+          fontFamily: "var(--font-sans)",
+          fontSize: 11,
+          color: "var(--ink-3)",
+          opacity: 0.8,
+        }}>
+          {HERO_CREDIT}
+        </div>
+      )}
+    </section>
+  );
+}
+
 function AnalyzingState() {
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "96px 0", gap: 28 }}>
@@ -507,57 +625,18 @@ export default function HomePage() {
     <div style={{ minHeight: "100vh", background: "var(--parchment)", color: "var(--ink)" }}>
       <Header />
 
+      {appState === "idle" && <HeroBanner />}
+
       <main style={{
         maxWidth: 720,
         margin: "0 auto",
-        padding: appState === "idle" ? "96px 24px 64px" : "48px 24px 64px",
+        padding: appState === "idle" ? "40px 24px 64px" : "48px 24px 64px",
         transition: "padding var(--dur-page) var(--ease-paper)",
       }}>
 
         {/* ── IDLE ── */}
         {appState === "idle" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 40 }}>
-            <div>
-              {/* Cachet « édition Metz » aux trois alérions de Lorraine, en
-                  letterhead — registre « lettre scellée d'un notaire ». Grand
-                  format (88 px), seule taille où les 3 alérions sont lisibles. */}
-              <LorraineSeal size={88} style={{ color: "var(--jaumont)", marginBottom: 24, display: "block" }} />
-              <div className="t-eyebrow" style={{ marginBottom: 16 }}>
-                Analyse d&apos;annonces immobilières · Metz &amp; Moselle
-              </div>
-              <h1 style={{
-                fontFamily: "var(--font-serif)",
-                fontSize: 56,
-                lineHeight: 1.02,
-                letterSpacing: "-0.02em",
-                color: "var(--ink)",
-                margin: "0 0 18px",
-                fontWeight: 400,
-                maxWidth: 620,
-              }}>
-                Ce prix et cette annonce<br />
-                sont-ils{" "}
-                <em style={{ color: "var(--brick)", fontStyle: "italic" }}>cohérents</em>{" "}
-                avec<br />
-                le marché messin, quartier par quartier&nbsp;?
-              </h1>
-              <p style={{
-                fontFamily: "var(--font-sans)",
-                fontSize: 17,
-                lineHeight: 1.55,
-                color: "var(--ink-2)",
-                margin: 0,
-                maxWidth: 540,
-              }}>
-                Le livre foncier n&apos;est pas public : impossible de savoir à quel
-                prix s&apos;est vraiment vendu le voisin. Nous reconstituons le marché
-                local à partir des annonces réelles — du Sablon à Queuleu, de
-                Devant-les-Ponts à l&apos;Outre-Seille — et comparons votre annonce,
-                comparable par comparable. Score de cohérence, trois piliers de lecture,
-                et les points à vérifier avant la visite.
-              </p>
-            </div>
-
             <AnalyzerInput onAnalyze={handleAnalyze} />
 
             {error && (
