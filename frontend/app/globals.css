@@ -268,3 +268,31 @@ button, input, textarea, select {
 .v-acreuser-bg     { background: var(--ochre-soft); color: var(--ochre); }
 .v-prudence-bg     { background: var(--brick-soft); color: var(--brick); }
 .v-deconseille-bg  { background: var(--brick-soft); color: var(--brick-deep); }
+
+/* ============================================================
+   Print — le rapport « scellé », exploitable par tout le monde
+   (PDF via l'impression du navigateur). On masque le chrome
+   interactif (.no-print), on révèle l'en-tête au cachet
+   (.print-only), et on force les fonds/couleurs à l'impression.
+   ============================================================ */
+
+.print-only { display: none; }
+
+@media print {
+  .no-print { display: none !important; }
+  .print-only { display: block !important; }
+
+  /* Imprime les fonds parchemin/paper et les couleurs de verdict. */
+  *, *::before, *::after {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  html, body { background: #fff; }
+  main { max-width: none !important; padding: 0 !important; }
+
+  /* Évite de couper une carte au milieu d'une page. */
+  section, dl, ul { break-inside: avoid; }
+
+  @page { margin: 16mm; }
+}
