@@ -68,3 +68,26 @@ comparables » (cf. `frontend/app/page.tsx`). → On promet **« quartier »**, 
 - **Interdits** : couleur, ciel bleu saturé, drone, intérieurs avec couple
   souriant, foule, mise en scène touristique.
 - **Format** : paysage ≥ 2400 px de large, `.jpg` qualité haute + master.
+
+### Intégration (livrée — état placeholder)
+
+Le hero plein cadre est codé (`HeroBanner` dans `frontend/app/page.tsx`) :
+traitement N&B chaud + grain (CSS, donc une photo couleur convient), scrim
+parchemin, titre en ink par-dessus. Tant qu'aucune image n'est branchée, un
+placeholder pierre + cachet en filigrane tient le cadre. **Pour brancher la
+vraie photo** : poser le fichier dans `frontend/public/` puis renseigner en haut
+de `page.tsx` : `HERO_IMAGE = "/hero-metz.jpg"` et, si licence à attribution,
+`HERO_CREDIT = "Photo : … · CC BY-SA 4.0 · Wikimedia Commons"`.
+
+### Pistes libres de droits (À VÉRIFIER avant publication)
+
+Recherche Wikimedia faite, mais **l'environnement bloque commons.wikimedia.org**
+→ licences/auteurs/URL **non vérifiés depuis ici**. Ouvrir chaque page de fichier
+dans un navigateur et confirmer (licence exacte + version, auteur, absence de
+NC/ND) avant usage commercial. Aucun CC0/domaine public HD trouvé sur ces sujets ;
+les pistes sont en **CC-BY-SA** (commercial OK, attribution + partage à l'identique).
+
+- Porte des Allemands (prio 1) — `File:20201017_Porte_des_Allemands_Metz_09.jpg` (≈ 5869×3925).
+- Porte des Allemands — `File:Porte_des_Allemands_MB.jpg` (≈ 4288×2848, probable Markus Bernet).
+- Cathédrale Saint-Étienne — `File:24-Cathédrale_Saint-Étienne_de_Metz.jpg` (6000×4000).
+- Repli — `File:Cathedrale-saint-etienne-metz-de-place-prefecture.jpg` (2592×1944, CC-BY-SA 2.5).
