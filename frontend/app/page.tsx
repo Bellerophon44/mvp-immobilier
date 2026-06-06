@@ -11,7 +11,7 @@ import Wordmark from "../components/design/Wordmark";
 import ScopeBadge from "../components/design/ScopeBadge";
 import Footer from "../components/design/Footer";
 import FeedbackForm from "../components/design/FeedbackForm";
-import { Copy, Download, MapPin, Seal, LorraineSeal } from "../components/design/Icons";
+import { Copy, Printer, MapPin, Seal, LorraineSeal } from "../components/design/Icons";
 import { METZ_DISTRICTS } from "../lib/districts";
 
 type AppState = "idle" | "analyzing" | "result";
@@ -59,7 +59,7 @@ function verdictColor(verdict: string): string {
 
 function Header() {
   return (
-    <header style={{
+    <header className="no-print" style={{
       position: "sticky",
       top: 0,
       zIndex: 10,
@@ -478,18 +478,12 @@ export default function HomePage() {
     });
   }
 
-  function handleDownload() {
+  // Impression → PDF via le navigateur. La feuille @media print masque le
+  // chrome (.no-print) et révèle l'en-tête au cachet (.print-only), pour un
+  // document propre exploitable par un utilisateur standard (vs un .md brut).
+  function handlePrint() {
     if (!result) return;
-    const blob = new Blob([buildReportText()], { type: "text/markdown;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const stamp = new Date().toISOString().slice(0, 10);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `analyse-cohérence-${stamp}.md`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    window.print();
   }
 
   const pricePillar        = result?.pillars[0];
@@ -592,8 +586,21 @@ export default function HomePage() {
         {/* ── RESULT ── */}
         {appState === "result" && result && (
           <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
+            {/* En-tête « scellé » visible uniquement à l'impression / PDF. */}
+            <div className="print-only" style={{ marginBottom: 8 }}>
+              <LorraineSeal size={56} style={{ color: "var(--jaumont)", display: "block", marginBottom: 12 }} />
+              <div style={{ fontFamily: "var(--font-serif)", fontSize: 28, color: "var(--ink)", lineHeight: 1.1 }}>
+                Cohérence <span style={{ color: "var(--ink-3)" }}>— édition Metz</span>
+              </div>
+              <div style={{ fontFamily: "var(--font-sans)", fontSize: 13, color: "var(--ink-3)", marginTop: 4 }}>
+                Analyse de cohérence d&apos;une annonce · Metz &amp; Moselle ·{" "}
+                {new Date().toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
+              </div>
+              <div style={{ borderBottom: "1px solid var(--stone-line)", marginTop: 12 }} />
+            </div>
+
             {/* Action bar */}
-            <div style={{
+            <div className="no-print" style={{
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
@@ -631,7 +638,7 @@ export default function HomePage() {
                 <Copy size={14} />
                 {copied ? "Rapport copié" : "Copier le rapport"}
               </button>
-              <button onClick={handleDownload} aria-label="Télécharger le rapport en .md" style={{
+              <button onClick={handlePrint} aria-label="Imprimer ou enregistrer le rapport en PDF" style={{
                 display: "inline-flex",
                 alignItems: "center",
                 gap: 8,
@@ -645,8 +652,8 @@ export default function HomePage() {
                 fontWeight: 500,
                 cursor: "pointer",
               }}>
-                <Download size={14} />
-                Télécharger (.md)
+                <Printer size={14} />
+                Imprimer / PDF
               </button>
             </div>
 
@@ -723,7 +730,7 @@ export default function HomePage() {
 
                 {/* Affinage par quartier quand l'analyse est restée au niveau ville */}
                 {pricePillar.refinable && (
-                  <div style={{
+                  <div className="no-print" style={{
                     marginTop: 14,
                     paddingTop: 14,
                     borderTop: "1px solid var(--stone-line)",
@@ -806,7 +813,7 @@ export default function HomePage() {
                 <LocalContextCard context={result.local_context} />
               )}
 
-              <div style={{
+              <div className="no-print" style={{
                 background: "var(--paper)",
                 border: "1px solid var(--stone-line)",
                 borderRadius: 4,
@@ -904,11 +911,15 @@ export default function HomePage() {
             />
 
             {/* Feedback utilisateur (9.7) */}
-            <FeedbackForm sent={feedbackSent} onSubmit={handleFeedback} />
+            <div className="no-print">
+              <FeedbackForm sent={feedbackSent} onSubmit={handleFeedback} />
+            </div>
           </div>
         )}
 
-        <Footer />
+        <div className="no-print">
+          <Footer />
+        </div>
       </main>
     </div>
   );
