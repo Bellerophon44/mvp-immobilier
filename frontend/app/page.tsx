@@ -91,7 +91,7 @@ const HERO_IMAGE: string | null = "/hero-metz.jpg";
 const HERO_ALT = "La Porte des Allemands et le pont sur la Seille, à Metz";
 // Crédit photo affiché en bas du hero. OBLIGATOIRE si l'image est sous licence
 // à attribution (CC-BY / CC-BY-SA). Ex. "Photo : Markus Bernet · CC BY-SA 4.0 · Wikimedia Commons".
-const HERO_CREDIT: string | null = null;
+const HERO_CREDIT: string | null = "Illustration";
 
 // Grain argentique discret (SVG feTurbulence en data-URI), posé en multiply.
 const GRAIN =
