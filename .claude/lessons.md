@@ -55,3 +55,33 @@
     `::test_feedback_rating_upper_bound_included`,
     `::test_feedback_comment_exactly_1000_accepted`,
     `::test_feedback_rating_float_rejected`, `::test_feedback_rating_negative_rejected`.
+
+- **[2026-06-07] [photo-evidence] Schéma DB absent pour les appels directs au pipeline**
+  - Symptôme : un test appelant `run_full_analysis` SANS instancier `TestClient`
+    levait `sqlite3.OperationalError: no such table: comparables` selon l'ordre de
+    collecte ; la suite ne passait que par chance (un test `TestClient` antérieur
+    déclenchait le `@app.on_event("startup")` → `init_db`, créant le schéma à temps).
+  - Cause racine : `init_db()` n'est câblé qu'au startup FastAPI ; pour un appel
+    direct au pipeline en début de session, la table `comparables` n'existe pas encore.
+  - Garde-fou : `conftest.py::_init_db_schema` (autouse, `scope="session"`) appelle
+    `db.session.init_db()` avant tout test → suite robuste à l'ordre. Oracle de
+    régression : `tests/test_photo_evidence_hardening.py::test_gating_uses_type_not_text_full_analysis`
+    (et tout test photo frappant `run_full_analysis` directement) échouerait si le
+    schéma n'était pas pré-créé.
+
+- **[2026-06-07] [photo-evidence] Cache module global fait fuiter un cache-hit entre tests**
+  - Symptôme : `test_cap_six_images` (10 URLs capées à `cdn.x/0..5`) puis
+    `test_exactly_six_images_all_transmitted` (URLs `0..5`) se réduisent au même
+    couple (images capées, claims éligibles) → même clé de cache. Le 2e test
+    obtenait un cache hit, n'appelait jamais son mock, et `mock.calls[0]` levait
+    `IndexError` (faux rouge non lié au code produit).
+  - Cause racine : `app.photo_evidence._CACHE` est un état module global (TTL 7j,
+    pattern `llm_semantic`) qui survit entre tests d'une même session ; une
+    assertion sur `mock.call_count`/`mock.calls` du test suivant est faussée par
+    le hit légitime du précédent.
+  - Garde-fou : `conftest.py::_reset_photo_cache` (autouse) vide `_CACHE` avant
+    chaque test — isolation sans affaiblir la spec (cache pleinement actif
+    intra-test). Règle générale : tout test assertant un compteur d'appels sur un
+    module à cache global doit réinitialiser ce cache en `autouse`. Verrouillé par
+    `tests/test_photo_evidence_hardening.py` (tests de cache hit/miss dédiés :
+    discrimination de la clé sur claims ET images, marqueur `_CACHE == {}` en entrée).
