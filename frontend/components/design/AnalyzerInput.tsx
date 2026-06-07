@@ -112,6 +112,18 @@ export default function AnalyzerInput({ onAnalyze, busy = false }: AnalyzerInput
         />
       )}
 
+      {mode === "text" && (
+        <div style={{
+          marginTop: 8,
+          fontFamily: "var(--font-sans)",
+          fontSize: 12,
+          color: "var(--stone)",
+          lineHeight: 1.5,
+        }}>
+          Collez l&apos;URL pour analyser aussi les photos.
+        </div>
+      )}
+
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 18 }}>
         <span style={{ fontFamily: "var(--font-sans)", fontSize: 12, color: "var(--stone)" }}>
           Aucune donnée n&apos;est conservée après l&apos;analyse.

@@ -20,6 +20,9 @@ export interface LocalClaim {
   type: string;
   status: "coherent" | "a_verifier" | "peu_plausible";
   note: string;
+  // Screening photo des allégations visuellement vérifiables (mode URL). Optionnel
+  // -> rétro-compatible avec les anciennes réponses sans bloc photo.
+  photo_status?: "confirme" | "non_trouve" | "non_applicable";
 }
 
 // Bloc "Contexte local" non-scoré (couches A + B "Ancrage local"). Absent / null

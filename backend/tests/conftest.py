@@ -25,9 +25,46 @@ import pytest
 from fastapi.testclient import TestClient
 
 
+@pytest.fixture(scope="session", autouse=True)
+def _init_db_schema():
+    """Cree le schema (table `comparables`, etc.) une fois pour la session.
+
+    Durcissement harnais (testeur, phase B) : `init_db()` n'est appele qu'au
+    startup FastAPI (`@app.on_event("startup")`). Les tests qui appellent
+    `run_full_analysis` directement (ex. test_photo_evidence) sans jamais
+    instancier le `client` declenchaient `OperationalError: no such table:
+    comparables` quand ils tournaient AVANT tout test utilisant TestClient.
+    La suite ne passait que par chance d'ordre. On force la creation du schema
+    ici pour rendre la suite robuste a l'ordre d'execution.
+    """
+    from db.session import init_db
+
+    init_db()
+    yield
+
+
 @pytest.fixture()
 def client():
     from app.main import app
 
     with TestClient(app) as c:
         yield c
+
+
+@pytest.fixture(autouse=True)
+def _reset_photo_cache():
+    """Vide le cache memoire de photo_evidence entre chaque test. Le cache
+    (spec photo-evidence §3.2) est un etat module global : deux tests utilisant le
+    meme couple (images capees, claims eligibles) - ex. test_cap_six_images puis
+    test_exactly_six_images_all_transmitted, qui se reduisent tous deux a
+    cdn.x/0..5.jpg + 'la Moselle' - partageraient une cle de cache et le second
+    n'appellerait pas son mock (cache hit), faussant l'assertion sur mock.calls.
+    Reset par test = isolation, sans affaiblir la spec (cache toujours actif
+    intra-test)."""
+    try:
+        import app.photo_evidence as pe
+
+        pe._CACHE.clear()
+    except Exception:
+        pass
+    yield
