@@ -68,3 +68,33 @@ class Feedback(Base):
     # Pre-cablage 9.8 (A/B prompts), aucune logique en 9.7.
     prompt_variant = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class Event(Base):
+    """
+    Event produit first-party, anonyme et agrege (entonnoir de conversion).
+    Minimisation RGPD (esprit `Feedback`) : ni IP, ni identifiant, ni extrait
+    d'annonce, ni texte libre. Chaque dimension est une colonne typee fermee
+    (enum/bool/band), validee a l'entree par `EventIn`. Les compteurs sont des
+    proxys de tendance (best-effort), pas une comptabilite exacte.
+    """
+
+    __tablename__ = "events"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String, nullable=False)
+
+    # Dimensions, toutes nullable : une ligne ne porte que celles de son event.
+    mode = Column(String, nullable=True)
+    score_band = Column(String, nullable=True)
+    confidence = Column(String, nullable=True)
+    pillar_price_status = Column(String, nullable=True)
+    reason = Column(String, nullable=True)
+    format = Column(String, nullable=True)
+    from_scope = Column(String, nullable=True)
+    to_scope = Column(String, nullable=True)
+    address_entered = Column(Boolean, nullable=True)
+    path = Column(String, nullable=True)
+    referrer_domain = Column(String, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow)

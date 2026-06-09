@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { analyzeListing, sendFeedback, ApiResult, LocalContext } from "../lib/api";
+import { useEffect, useRef, useState } from "react";
+import { analyzeListing, sendEvent, sendFeedback, ApiResult, LocalContext } from "../lib/api";
 import AnalyzerInput, { AnalyzerMode } from "../components/design/AnalyzerInput";
 import VerdictHeader from "../components/design/VerdictHeader";
 import PillarBar from "../components/design/PillarBar";
@@ -48,6 +48,49 @@ function scopeLabel(p: ApiResult["pillars"][number]): string | null {
   const band = p.dpe_band ? ` · DPE ${p.dpe_band}` : "";
   const n = p.n_comparables ? ` · ${p.n_comparables} comparables` : "";
   return `${base}${band}${n}`;
+}
+
+// Bande de score (proxy de funnel, jamais le score exact) pour l'event
+// analysis_succeeded. Bornes alignees sur le verdict global backend.
+function scoreBand(score: number): "lt40" | "40_59" | "60_79" | "80plus" {
+  if (score >= 80) return "80plus";
+  if (score >= 60) return "60_79";
+  if (score >= 40) return "40_59";
+  return "lt40";
+}
+
+// Statut du pilier prix derive du verdict textuel vers l'enum fermee de /events
+// (jamais le verdict brut). "Indeterminé" / inconnu -> indetermine.
+function pillarPriceStatus(
+  verdict: string | undefined,
+): "aligne" | "sous" | "leger_sur" | "fort_sur" | "indetermine" {
+  const v = (verdict || "").toLowerCase();
+  if (v.includes("aligné")) return "aligne";
+  if (v.includes("sous")) return "sous";
+  if (v.includes("légèrement")) return "leger_sur";
+  if (v.includes("fortement") || v.includes("fort")) return "fort_sur";
+  return "indetermine";
+}
+
+// Mappe le scope du pilier prix (quartier/secteur/ville/metropole/null) vers
+// l'enum fermee from_scope/to_scope de /events. null/inconnu -> indetermine.
+function scopeDimension(
+  scope: ApiResult["pillars"][number]["scope"] | undefined,
+): "quartier" | "secteur" | "ville" | "metropole" | "indetermine" {
+  if (scope === "quartier" || scope === "secteur" || scope === "ville" || scope === "metropole") {
+    return scope;
+  }
+  return "indetermine";
+}
+
+// Mappe une erreur d'analyse vers l'enum fermee reason (jamais le message brut).
+// Le backend renvoie 422 quand l'URL est injoignable ; faute d'entree -> no_input.
+function failureReason(message: string): "url_unreachable" | "no_input" {
+  const m = message.toLowerCase();
+  if (m.includes("url") || m.includes("récupérer") || m.includes("recuperer")) {
+    return "url_unreachable";
+  }
+  return "no_input";
 }
 
 function verdictColor(verdict: string): string {
@@ -481,6 +524,24 @@ export default function HomePage() {
   // Adresse saisie par l'utilisateur pour affiner le feedback local (alternative
   // manuelle au géocodage de la couche C).
   const [addressInput, setAddressInput] = useState("");
+  // Garde anti double-comptage StrictMode (double mount en dev) : page_view
+  // n'est emis qu'une fois par montage reel.
+  const pageViewSent = useRef(false);
+
+  useEffect(() => {
+    if (pageViewSent.current) return;
+    pageViewSent.current = true;
+    // referrer_domain = hostname SEUL (jamais le referrer brut / path / query).
+    let referrerDomain: string | undefined;
+    if (document.referrer) {
+      try {
+        referrerDomain = new URL(document.referrer).hostname;
+      } catch {
+        referrerDomain = undefined;
+      }
+    }
+    sendEvent("page_view", { path: "/", referrer_domain: referrerDomain });
+  }, []);
 
   async function handleAnalyze({ mode, value }: AnalyzerMode) {
     setAppState("analyzing");
@@ -489,15 +550,23 @@ export default function HomePage() {
     setAddressInput("");
     setLastInput({ mode, value });
     setFeedbackSent(false);
+    // Jamais la valeur saisie / l'URL : seul le mode (proxy de funnel).
+    sendEvent("analysis_started", { mode });
     try {
       const res = await analyzeListing(value, mode);
       setResult(res);
       setAnalysisId(crypto.randomUUID());
       setAppState("result");
+      sendEvent("analysis_succeeded", {
+        score_band: scoreBand(res.global_score),
+        confidence: res.confidence,
+        pillar_price_status: pillarPriceStatus(res.pillars[0]?.verdict),
+      });
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Erreur lors de l'analyse.";
       setError(msg);
       setAppState("idle");
+      sendEvent("analysis_failed", { reason: failureReason(msg) });
     }
   }
 
@@ -508,10 +577,17 @@ export default function HomePage() {
     setRefining(true);
     setError(null);
     setFeedbackSent(false);
+    // Scope du pilier prix AVANT la ré-analyse (district_refine n'est pas
+    // analysis_started : un affinage ne doit pas fausser le taux de lancement).
+    const fromScope = scopeDimension(result?.pillars[0]?.scope);
     try {
       const res = await analyzeListing(lastInput.value, lastInput.mode, district, address);
       setResult(res);
       setAnalysisId(crypto.randomUUID());
+      sendEvent("district_refine", {
+        from_scope: fromScope,
+        to_scope: scopeDimension(res.pillars[0]?.scope),
+      });
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Erreur lors de l'analyse.";
       setError(msg);
@@ -527,6 +603,8 @@ export default function HomePage() {
 
   function handleAddressSubmit() {
     if (!addressInput.trim()) return;
+    // Booléen de présence seulement, jamais la chaîne d'adresse.
+    sendEvent("address_entered", { address_entered: Boolean(addressInput.trim()) });
     handleRefine(selectedDistrict, addressInput);
   }
 
@@ -595,6 +673,7 @@ export default function HomePage() {
 
   function handleCopy() {
     if (!result) return;
+    sendEvent("report_export", { format: "copy" });
     navigator.clipboard.writeText(buildReportText()).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
@@ -606,6 +685,7 @@ export default function HomePage() {
   // document propre exploitable par un utilisateur standard (vs un .md brut).
   function handlePrint() {
     if (!result) return;
+    sendEvent("report_export", { format: "pdf" });
     window.print();
   }
 

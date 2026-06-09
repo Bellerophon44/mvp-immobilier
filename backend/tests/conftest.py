@@ -69,6 +69,30 @@ def _reset_rate_limit_state():
 
 
 @pytest.fixture(autouse=True)
+def _reset_events_table():
+    """Vide la table `events` AVANT chaque test (SPEC 9.10 §3.8, lecons 9.7/9.9).
+
+    La table `events` est un etat partage persistant (fichier SQLite jetable de
+    la suite) : sans reset, les lignes d'un test s'accumulent et un `count()` ou
+    un `.one()` filtre devient dependant de l'ordre d'execution -> faux rouge.
+    Import protege : tant que le modele `Event` n'existe pas (phase tests-first),
+    on n'echoue pas a la collecte ; les tests echoueront proprement sur l'absence
+    du modele / de l'endpoint. Le reset se fait via DELETE pour ne pas dependre
+    d'un ORM eventuellement absent.
+    """
+    try:
+        from db.session import engine
+        from sqlalchemy import inspect, text
+
+        if inspect(engine).has_table("events"):
+            with engine.begin() as conn:
+                conn.execute(text("DELETE FROM events"))
+    except Exception:
+        pass
+    yield
+
+
+@pytest.fixture(autouse=True)
 def _reset_photo_cache():
     """Vide le cache memoire de photo_evidence entre chaque test. Le cache
     (spec photo-evidence §3.2) est un etat module global : deux tests utilisant le

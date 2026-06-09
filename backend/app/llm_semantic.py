@@ -239,7 +239,11 @@ def analyze_semantic(raw_text: str) -> Dict[str, Any]:
             bool(os.getenv("OPENAI_API_KEY")),
             e,
         )
-        return dict(_FALLBACK)
+        # Marqueur interne lu par `run_full_analysis` pour compter l'event serveur
+        # `llm_fallback`. JAMAIS expose dans `AnalyzeResponse` (contrat /analyze).
+        fallback = dict(_FALLBACK)
+        fallback["_fallback"] = True
+        return fallback
 
     raw_listing = result.get("listing") or {}
     listing = {

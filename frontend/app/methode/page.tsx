@@ -2,6 +2,7 @@ import Wordmark from "../../components/design/Wordmark";
 import Footer from "../../components/design/Footer";
 import ScopeBadge from "../../components/design/ScopeBadge";
 import { LorraineSeal } from "../../components/design/Icons";
+import PageViewBeacon from "../../components/PageViewBeacon";
 
 export const metadata = {
   title: "La méthode locale — Cohérence (édition Metz)",
@@ -47,6 +48,7 @@ function Section({ eyebrow, title, children }: {
 export default function MethodePage() {
   return (
     <div style={{ minHeight: "100vh", background: "var(--parchment)", color: "var(--ink)" }}>
+      <PageViewBeacon name="methode_view" />
       <header style={{
         position: "sticky",
         top: 0,

@@ -651,7 +651,9 @@ communes étrangères, ex. Thionville → None). Scope `"metropole"` exposé au 
   défaut (forcé dans `app/main.py` avec `basicConfig(level=INFO, force=True)`).
   Loggers nommés en prod : `mvp`, `analysis`, `market_stats`, `llm_semantic`,
   `url_fetch`, `scrapers.base`, `push_comparables`, `rate_limit` (9.9 ; n'émet
-  jamais l'IP, message 429 agrégé sur `limit` seulement).
+  jamais l'IP, message 429 agrégé sur `limit` seulement), `events` (9.10 ;
+  n'émet jamais une valeur de dimension potentiellement sensible — au plus le
+  `name` et des booléens de présence, jamais `referrer_domain`/`path`/IP).
 - **Pas de commentaires "what"** dans le code. Commenter uniquement le "why"
   non-trivial (workaround, invariant caché, choix non-évident).
 - **Pas d'emoji** dans le code, commits ou prompts LLM système, sauf demande
