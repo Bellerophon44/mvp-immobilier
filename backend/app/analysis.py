@@ -129,11 +129,34 @@ def _merge_photo_status(local_ctx, image_urls) -> None:
             ctx_claims[idx]["photo_status"] = status
 
 
+def _record_llm_fallback_event() -> None:
+    """Persiste l'event serveur `llm_fallback` au point unique du fallback LLM.
+
+    Best-effort : une erreur DB ne doit jamais faire echouer /analyze (le
+    marqueur interne n'est de toute facon pas expose dans la reponse).
+    """
+    from db.models import Event
+    from db.session import SessionLocal
+
+    db = None
+    try:
+        db = SessionLocal()
+        db.add(Event(name="llm_fallback", reason="llm_fallback"))
+        db.commit()
+    except Exception:
+        logger.exception("failed to record llm_fallback event")
+    finally:
+        if db is not None:
+            db.close()
+
+
 def run_full_analysis(
     raw_text: str, district_override: str = "", address: str = "",
     image_urls=None,
 ) -> dict:
     semantic_result = analyze_semantic(raw_text)
+    if semantic_result.get("_fallback"):
+        _record_llm_fallback_event()
     listing = semantic_result.get("listing") or {}
     logger.info("LLM extracted listing: %s", listing)
     price_market_pillar = _price_pillar_from_listing(
