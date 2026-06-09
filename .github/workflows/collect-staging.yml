@@ -1,0 +1,42 @@
+name: Seed staging comparables
+
+# Amorce / rafraichit la base de comparables de l'environnement de STAGING
+# (sinon le pilier prix reste "Indetermine" et le test n'a aucune valeur).
+# Manuel uniquement (pas de cron) : on seed staging a la demande, pas chaque
+# semaine. Distinct de collect.yml qui alimente la PROD.
+#
+# Prerequis : secret repo STAGING_ADMIN_TOKEN = ADMIN_TOKEN de l'app
+# coherence-staging (distinct de la prod). L'app staging doit etre deployee.
+on:
+  workflow_dispatch:
+    inputs:
+      backend_url:
+        description: "URL du backend staging cible"
+        required: true
+        default: "https://coherence-staging.fly.dev"
+
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install backend deps
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Collect and push comparables to staging
+        working-directory: backend
+        env:
+          BACKEND_URL: ${{ inputs.backend_url }}
+          ADMIN_TOKEN: ${{ secrets.STAGING_ADMIN_TOKEN }}
+        run: python -m jobs.push_comparables
