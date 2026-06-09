@@ -145,9 +145,10 @@ fonctionner** → bascule sans coupure.
 5. **FLY_API_TOKEN** : vérifier qu'il a accès aux **deux** apps (jeton org-scoped) sinon le
    deploy staging échouera.
 6. **Seed données staging** : amorcer la base comparables (sinon pilier prix « Indéterminé »).
-   Le plus simple : déclencher la collecte vers staging (variante de `collect.yml` avec
-   `BACKEND_URL=https://api-staging…` + `ADMIN_TOKEN` staging), ou copier le fichier SQLite
-   prod via `fly ssh`. One-shot suffit ; rafraîchir ponctuellement.
+   Workflow dédié **fourni** : `.github/workflows/collect-staging.yml` (manuel,
+   `workflow_dispatch`, cible `BACKEND_URL` paramétrable, défaut `coherence-staging.fly.dev`).
+   Prérequis : secret repo `STAGING_ADMIN_TOKEN` = `ADMIN_TOKEN` de l'app staging. One-shot
+   suffit ; relancer ponctuellement pour rafraîchir.
 
 ### 5.3 Migration domaine sans coupure (ordre)
 1. Achat domaine + DNS chez le provider choisi.
