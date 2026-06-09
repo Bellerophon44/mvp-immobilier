@@ -31,3 +31,21 @@ def client():
 
     with TestClient(app) as c:
         yield c
+
+
+@pytest.fixture(autouse=True)
+def _reset_rate_limit_state():
+    # Isolation inter-fichiers de l'etat partage du rate-limit (SPEC 9.9 3.5,
+    # lecon 9.7) : le compteur en memoire de module de app.rate_limit doit
+    # repartir vide AVANT chaque test, sinon un bucket sature par un fichier
+    # (ou un test) pollue les suivants -> faux rouge dependant de l'ordre.
+    # Tolerant a l'absence du module (import protege) pour ne pas coupler tous
+    # les tests a la presence de la brique rate-limit.
+    try:
+        from app.rate_limit import reset_rate_limit_state
+    except Exception:
+        yield
+        return
+    reset_rate_limit_state()
+    yield
+
