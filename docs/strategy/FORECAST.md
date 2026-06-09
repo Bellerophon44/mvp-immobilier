@@ -65,12 +65,16 @@ Transactions/an Moselle ≈ (transactions/trimestre moyen) × 4
 > **Fourchette de travail Moselle : ~14 000 à ~19 000 transactions/an.** On retient
 > **~16 000/an** comme valeur base [HYPOTHÈSE — milieu de fourchette dérivée].
 >
-> **Garde-fou de cohérence (cross-check national).** France ancien : ~935 000 trans.
-> en 2023, ~750-780 000 en 2024 [source: Notaires de France, via Immomatin / Dalloz /
-> Extencia]. Moselle = ~1,05 M hab. / ~68 M hab. France ≈ **1,5 %** de la population →
-> 1,5 % × 800-935 000 ≈ **12 000-14 000**. Cohérent (légèrement sous notre dérivation
-> notaires, l'écart vient du neuf + de la sur-représentation transfrontalière). On garde
-> **14 000-19 000** comme fourchette, **16 000 base**.
+> **Garde-fou de cohérence (cross-check national).** France (ancien, y c. DOM hors
+> Mayotte) : **921 000 transactions sur 12 mois à fin sept. 2025** (+11 %/an vs 832 000
+> à fin sept. 2024 ; ~929 000 estimé à fin oct. 2025) [source: Notaires de France,
+> Conférence de presse immobilière nationale, 8 déc. 2025]. Pour mémoire ~935 000 en 2023.
+> Moselle = ~1,05 M hab. / ~66 M hab. France ≈ **1,6 %** de la population →
+> 1,6 % × 921 000 ≈ **~14 700**. Cohérent avec notre dérivation notaires Moselle, et
+> resserre la fourchette vers le **bas** : on garde **14 000-19 000**, mais on abaisse la
+> **base à ~15 000** [dérivé du cross-check national 2025]. Prix appartements anciens
+> +1,3 %/an au national (T3 2025), marché en reprise — contexte favorable mais Metz non
+> couvert par ce dossier (cf. §10).
 
 **Part Metz Métropole dans la Moselle** (formule) :
 ```
@@ -517,12 +521,14 @@ Coûts fixes : Fly ~0-5 €/mois (auto-stop), Vercel 0 €, volume SQLite ~0,15 
 1. **[CRITIQUE] Trafic réel actuel** — aucune analytics installée → M0 est une pure hypothèse
    (H5). **Tout le funnel en dépend.** → *Installer l'instrumentation §7 (event #1).* Bloque
    la quasi-totalité des décisions.
-2. **[FORT] Volume annuel de transactions Metz Métropole / Moselle** — dérivé de chiffres
-   trimestriels notaires (H1, H2). Vérifier sur le **bilan annuel de la Chambre des notaires
-   de la Moselle** et/ou **DVF open data (data.gouv.fr)** agrégé par EPCI (utilisable comme
-   *input forecast* même si DVF est exclu comme *source produit*). *Tentative web : chiffres
-   trimestriels obtenus via presse citant les notaires ; le total annuel propre par EPCI n'a
-   pas été trouvé en accès libre dans cette session.*
+2. **[FORT → PARTIELLEMENT RÉSOLU] Volume annuel de transactions.**
+   - *National : RÉSOLU.* 921 000 trans. (12 mois à fin sept. 2025) [source: Notaires de
+     France, conf. presse 8 déc. 2025], qui resserre le cross-check Moselle vers ~14-15k/an.
+   - *Metz Métropole / Moselle : ENCORE OUVERT.* Le dossier national n'étudie que les
+     « principales communes » — **Metz/Moselle n'y figurent pas**. Le volume local reste
+     dérivé (H1, H2). À fermer via le **bilan annuel de la Chambre des notaires de la
+     Moselle** (document local, différent du DP national) et/ou un **export DVF agrégé par
+     EPCI** (data.gouv.fr — input forecast, DVF reste exclu comme source produit).
 3. **[FORT] Choix de monétisation B2C vs B2B** — non tranché (par design). Les signaux §7
    (récurrence, volume/session = proxy pro) doivent être collectés avant de trancher.
 4. **[MOYEN] Coefficients de demande** : visites/vente (H3, partiellement sourcé), acheteurs
@@ -538,8 +544,13 @@ Coûts fixes : Fly ~0-5 €/mois (auto-stop), Vercel 0 €, volume SQLite ~0,15 
 
 ---
 
-## Annexe — Sources publiques consultées (session 2026-06-08)
+## Annexe — Sources publiques consultées (sessions 2026-06-08 / 2026-06-09)
 
+- **Notaires de France — Conférence de presse immobilière nationale, 8 déc. 2025** (bilan
+  année immobilière 2025, fourni par le fondateur) : 921 000 transactions/12 mois à fin
+  sept. 2025 (+11 %/an ; ~929 000 à fin oct.) ; prix appartements anciens +1,3 %/an, maisons
+  +0,2 % ; projections ~+2 % T4 2025 / janv. 2026. **Périmètre national** — ne couvre pas
+  Metz/Moselle (étudie les « principales communes » : Paris, Lyon, Strasbourg…).
 - INSEE — Dossier/comparateur commune Metz (57463), EPCI Metz Métropole (200039865),
   département Moselle (57) ; populations légales au 1ᵉʳ janv. 2026 (rec. 2023).
 - Chambre des notaires de la Moselle — transactions trimestrielles 2022-2023 (via France
