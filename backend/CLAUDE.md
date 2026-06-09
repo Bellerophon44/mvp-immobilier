@@ -40,7 +40,9 @@ Anti-patterns à ne JAMAIS introduire :
 | Auto-stop / auto-start machines | `true` / `min_machines_running = 0` |
 | Plateforme frontend | Vercel (Next.js **16.2.6** App Router) |
 | CI | GitHub Actions : `test.yml` (pytest), `collect.yml`, `diagnose-scrapers.yml`, `diag-bienici.yml` |
-| CD backend | `deploy-backend.yml` — **auto-deploy Fly** sur merge `main` touchant `backend/**` (`flyctl deploy --remote-only`, secret `FLY_API_TOKEN`, concurrency) ; `workflow_dispatch` manuel |
+| CD backend | `deploy-backend.yml` — **auto-deploy Fly** : push `main`→**prod** (`fly.toml`), push `staging`→**staging** (`fly.staging.toml`, app `coherence-staging`). `flyctl deploy --remote-only`, secret `FLY_API_TOKEN` (accès aux 2 apps), concurrency par env ; `workflow_dispatch` manuel |
+| App Fly staging | `coherence-staging` (env de test isolé, base SQLite + volume dédiés ⇒ events 9.10 séparés de la prod). Voir `docs/specs/ENVIRONNEMENTS-ET-DOMAINE.md` |
+| Domaine définitif | `coherence-metz.fr` (acquis OVH) — prod `coherence-metz.fr`/`api.`, staging `staging.`/`api-staging.` (câblage en cours) |
 
 ⚠️ **Pas de Railway.** Toute documentation interne qui mentionne encore Railway
 ou le port 8000 est périmée et doit être ignorée.

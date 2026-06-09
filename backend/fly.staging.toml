@@ -1,0 +1,38 @@
+# Environnement de STAGING (test), isole de la prod.
+# - App dediee `coherence-staging` => base SQLite + volume + secrets propres
+#   => les events 9.10 de staging ne polluent JAMAIS les metriques de prod.
+# - Deploye par .github/workflows/deploy-backend.yml sur push de la branche
+#   `staging` touchant backend/** (override manuel : `fly deploy -c fly.staging.toml`).
+# - Prerequis (one-shot, hors CI) : `fly apps create coherence-staging` puis
+#   `fly volumes create comparables_data -a coherence-staging -r cdg -s 1`,
+#   et les secrets `OPENAI_API_KEY` / `ADMIN_TOKEN` (distincts de la prod).
+app = "coherence-staging"
+primary_region = "cdg"
+
+[build]
+
+[env]
+  DATABASE_PATH = "/data/comparables.db"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_start_machines = true
+  auto_stop_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "10s"
+    method = "GET"
+    path = "/health"
+
+[[mounts]]
+  source = "comparables_data"
+  destination = "/data"
+
+[[vm]]
+  cpus = 1
+  memory = "1gb"

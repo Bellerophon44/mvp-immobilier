@@ -38,7 +38,15 @@ app = FastAPI(
 )
 
 
-_default_origins = "http://localhost:3000,https://*.vercel.app"
+# Origines autorisees par defaut : dev local + domaine custom prod/staging
+# (coherence-metz.fr). La regex `*.vercel.app` ci-dessous couvre en plus les
+# previews Vercel. `CORS_ORIGINS` (env Fly) peut surcharger cette liste par env.
+_default_origins = ",".join([
+    "http://localhost:3000",
+    "https://coherence-metz.fr",
+    "https://www.coherence-metz.fr",
+    "https://staging.coherence-metz.fr",
+])
 _origins_env = os.getenv("CORS_ORIGINS", _default_origins)
 _origins = [o.strip() for o in _origins_env.split(",") if o.strip()]
 
