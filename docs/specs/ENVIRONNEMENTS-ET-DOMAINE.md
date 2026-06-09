@@ -15,7 +15,7 @@
 | Décision | Choix retenu | Statut |
 |---|---|---|
 | Hébergement | **Garder Fly.io (back) + Vercel (front)** — pas de migration | Arrêté |
-| Domaine définitif | **`coherence-metz.fr`** (extension `.fr`) | Arrêté — dispo à confirmer au registrar |
+| Domaine définitif | **`coherence-metz.fr`** (extension `.fr`) | **Acquis** (OVH, 2026-06-09) |
 | Environnement de test | **Staging dédié complet** (app Fly + base + analytics + sous-domaines séparés) | Arrêté |
 
 **Pourquoi `coherence-metz.fr` et pas `coherence-immo.fr`** : un réseau immobilier
@@ -152,7 +152,8 @@ fonctionner** → bascule sans coupure.
 
 ## 7. Points ouverts
 
-- Disponibilité réelle de `coherence-metz.fr` (à confirmer au registrar).
+- ~~Disponibilité réelle de `coherence-metz.fr`~~ → **acquis chez OVH** (2026-06-09).
+  DNS géré chez OVH par défaut (bascule Cloudflare possible plus tard, optionnelle).
 - Choix d'outil analytics 9.10 (impacte la mécanique exacte de séparation d'env) — tranché dans la spec 9.10.
 - Cadence de rafraîchissement des comparables staging (one-shot vs cron mensuel) `[HYPOTHÈSE — à fixer]`.
 - Politique réseau de l'env staging : autoriser l'egress vers `api-adresse.data.gouv.fr`
