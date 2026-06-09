@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 
 from app.analysis import run_full_analysis
 from app.rate_limit import rate_limiter
-from app.url_fetch import fetch_listing_text
+from app.url_fetch import fetch_listing, extract_image_urls
 from db.session import init_db, SessionLocal
 from db.models import Comparable, Feedback
 from ingestion.save import (
@@ -279,13 +279,15 @@ def analyze(
             detail="Veuillez fournir soit le texte de l'annonce, soit une URL.",
         )
 
+    image_urls = None
     if payload.raw_text and payload.raw_text.strip():
         logger.info("ANALYZE branch: using raw_text")
         raw_content = payload.raw_text
     else:
         logger.info("ANALYZE branch: fetching URL")
-        fetched = fetch_listing_text(payload.url or "")
-        if not fetched:
+        url = payload.url or ""
+        fetched = fetch_listing(url)
+        if not fetched or not fetched.get("text"):
             raise HTTPException(
                 status_code=422,
                 detail=(
@@ -294,13 +296,17 @@ def analyze(
                     "Copiez-collez directement le texte de l'annonce."
                 ),
             )
-        raw_content = fetched
+        raw_content = fetched["text"]
+        # Les URLs d'images servent uniquement au screening photo en transit ;
+        # elles ne sont jamais incluses dans la reponse /analyze (anti-pattern #3).
+        image_urls = extract_image_urls(fetched.get("html") or "", url) or None
 
     try:
         return run_full_analysis(
             raw_content,
             district_override=payload.district or "",
             address=payload.address or "",
+            image_urls=image_urls,
         )
     except Exception as e:
         raise HTTPException(

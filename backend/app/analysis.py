@@ -3,6 +3,7 @@ from typing import Any, Dict
 
 from app.llm_semantic import analyze_semantic
 from app.market_stats import compute_price_market_pillar
+from app.photo_evidence import assess_claims_with_photos
 from app.geocode import geocode_address
 from app.metz_local import (
     assess_claims,
@@ -113,8 +114,24 @@ def _merge_unique(base: list, extra: list) -> list:
     return list(base) + [x for x in extra if str(x).strip().lower() not in seen]
 
 
+def _merge_photo_status(local_ctx, image_urls) -> None:
+    """Fusionne `photo_status` dans chaque claim eligible de local_ctx['claims']
+    (mode URL uniquement). Les claims non eligibles restent inchanges (pas de cle).
+    Aucun effet de bord si pas de contexte local ou pas de claims."""
+    if not image_urls or local_ctx is None:
+        return
+    ctx_claims = local_ctx.get("claims") or []
+    if not ctx_claims:
+        return
+    mapping = assess_claims_with_photos(ctx_claims, image_urls)
+    for idx, status in mapping.items():
+        if 0 <= idx < len(ctx_claims):
+            ctx_claims[idx]["photo_status"] = status
+
+
 def run_full_analysis(
-    raw_text: str, district_override: str = "", address: str = ""
+    raw_text: str, district_override: str = "", address: str = "",
+    image_urls=None,
 ) -> dict:
     semantic_result = analyze_semantic(raw_text)
     listing = semantic_result.get("listing") or {}
@@ -147,6 +164,8 @@ def run_full_analysis(
             local_ctx["claims"] = assess_claims(district, claims, city)
             if addr:
                 local_ctx["address"] = addr
+
+    _merge_photo_status(local_ctx, image_urls)
 
     score_block = compute_global_score(
         price_pillar=price_market_pillar,

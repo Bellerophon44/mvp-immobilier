@@ -39,7 +39,8 @@ Anti-patterns à ne JAMAIS introduire :
 | Persistence | SQLite, chemin via `DATABASE_PATH=/data/comparables.db` |
 | Auto-stop / auto-start machines | `true` / `min_machines_running = 0` |
 | Plateforme frontend | Vercel (Next.js **16.2.6** App Router) |
-| CI | GitHub Actions (3 workflows, voir §9) |
+| CI | GitHub Actions : `test.yml` (pytest), `collect.yml`, `diagnose-scrapers.yml`, `diag-bienici.yml` |
+| CD backend | `deploy-backend.yml` — **auto-deploy Fly** sur merge `main` touchant `backend/**` (`flyctl deploy --remote-only`, secret `FLY_API_TOKEN`, concurrency) ; `workflow_dispatch` manuel |
 
 ⚠️ **Pas de Railway.** Toute documentation interne qui mentionne encore Railway
 ou le port 8000 est périmée et doit être ignorée.
@@ -536,8 +537,10 @@ exactes géocodées, `"quartier"` = repli profil). `AnalyzeRequest` accepte
   Fonctionne encore, à migrer.
 - **Cache LLM en mémoire seulement** (perdu au restart de la VM Fly).
   Pas critique mais non optimal. Migrer vers Redis ou table SQLite.
-- **Pas de tests automatisés** (pas de pytest). Vérification manuelle via
-  Swagger.
+- **Tests pytest** sous `backend/tests/` (feedback, scoring, smoke, llm_fallback,
+  photo_evidence), exécutés en CI par `test.yml`. Isolation via `conftest.py`
+  (base SQLite jetable, `OPENAI_API_KEY` factice, `init_db` session-scope, reset
+  des caches mémoire). Couverture encore partielle — à étendre.
 - **Pas de monitoring** d'erreurs (pas de Sentry).
 - **Filtre SSRF dans `url_fetch.py`** : volontairement minimal (refuse
   localhost / IP privées RFC1918 / scheme non http(s)). Ne résout pas le
@@ -661,11 +664,14 @@ communes étrangères, ex. Thionville → None). Scope `"metropole"` exposé au 
 ## 13. Commandes utiles
 
 ### Ops Fly (PowerShell)
+Le deploy prod est **automatique** sur merge `main` touchant `backend/**`
+(`deploy-backend.yml`). `fly deploy` ci-dessous n'est qu'un **override manuel**
+(hotfix sans merge, rollback).
 ```powershell
 fly status --app backend-frosty-sound-441-docker
 fly logs --app backend-frosty-sound-441-docker
 fly secrets list --app backend-frosty-sound-441-docker
-fly deploy --app backend-frosty-sound-441-docker
+fly deploy --app backend-frosty-sound-441-docker   # override manuel (sinon auto sur merge main)
 fly volumes list --app backend-frosty-sound-441-docker
 ```
 

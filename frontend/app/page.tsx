@@ -274,11 +274,27 @@ function claimMeta(status: string) {
   return CLAIM_STATUS[status] || CLAIM_STATUS.a_verifier;
 }
 
+// Screening photo (mode URL) : seuls `confirme` et `non_trouve` ont un rendu ;
+// `non_applicable` (et l'absence de statut) ne montrent rien.
+const PHOTO_STATUS: Record<string, { color: string; label: string }> = {
+  confirme: { color: "var(--moss)", label: "Confirmé par une photo" },
+  non_trouve: {
+    color: "var(--ochre)",
+    label: "Non visible sur les photos de l'annonce — à vérifier en visite",
+  },
+};
+
 // Bloc "Contexte local" : profil curaté du quartier (couche A) + contrôle de
 // cohérence des allégations de l'annonce (couche B). Volontairement non-scoré
 // (comme la carte prix). Distances approximatives au niveau du quartier — pas un
 // 4e pilier, on garde le score 40/30/30 et "pas de fausse précision".
-function LocalContextCard({ context }: { context: LocalContext }) {
+function LocalContextCard({
+  context,
+  mode,
+}: {
+  context: LocalContext;
+  mode?: "url" | "text";
+}) {
   const claims = context.claims || [];
   return (
     <div style={{
@@ -392,11 +408,43 @@ function LocalContextCard({ context }: { context: LocalContext }) {
                     }}>
                       {c.note}
                     </div>
+                    {c.photo_status && PHOTO_STATUS[c.photo_status] && (
+                      <div style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 6,
+                        marginTop: 6,
+                        fontFamily: "var(--font-sans)",
+                        fontSize: 12,
+                        color: PHOTO_STATUS[c.photo_status].color,
+                        lineHeight: 1.4,
+                      }}>
+                        <span style={{
+                          flexShrink: 0,
+                          width: 7,
+                          height: 7,
+                          borderRadius: 999,
+                          background: PHOTO_STATUS[c.photo_status].color,
+                        }} />
+                        {PHOTO_STATUS[c.photo_status].label}
+                      </div>
+                    )}
                   </div>
                 </div>
               );
             })}
           </div>
+          {mode === "url" && (
+            <div style={{
+              marginTop: 12,
+              fontFamily: "var(--font-sans)",
+              fontSize: 11,
+              color: "var(--stone)",
+              lineHeight: 1.5,
+            }}>
+              Les photos de l&apos;annonce sont analysées en transit et ne sont pas conservées.
+            </div>
+          )}
         </div>
       )}
 
@@ -886,7 +934,10 @@ export default function HomePage() {
                 allégations (B), et précision par adresse (alternative à la C). */}
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               {result.local_context && (
-                <LocalContextCard context={result.local_context} />
+                <LocalContextCard
+                  context={result.local_context}
+                  mode={lastInput?.mode}
+                />
               )}
 
               <div className="no-print" style={{

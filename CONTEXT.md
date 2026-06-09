@@ -196,7 +196,7 @@
 - **Backend** : Python 3.12, FastAPI, uvicorn, SQLAlchemy + SQLite, BeautifulSoup 4, OpenAI SDK
 - **Frontend** : Next.js 14 (App Router), React 18, TypeScript, CSS vanilla (pas de Tailwind ni lib UI)
 - **Infra** : Fly.io (Docker explicite), Vercel (frontend)
-- **CI/CD** : aucun, déploiement manuel via `fly deploy` et auto-deploy Vercel sur merge `main`
+- **CI/CD** : `deploy-backend.yml` redéploie **automatiquement** Fly sur tout merge `main` touchant `backend/**` (+ `workflow_dispatch` manuel) ; Vercel auto-deploy le frontend sur merge `main`. `fly deploy` reste un override manuel.
 
 ### 5.2 Repo
 - GitHub : `Bellerophon44/mvp-immobilier`
@@ -296,11 +296,16 @@ class Comparable(Base):
 
 ## 7. Workflow de déploiement actuel
 
-### 7.1 Backend (manuel)
+### 7.1 Backend (automatique sur merge `main`)
 1. Mergé `claude/...` → `main` via PR GitHub
-2. `git pull origin main` en local
-3. `cd backend ; fly deploy --app backend-frosty-sound-441-docker`
-4. `fly logs --app backend-frosty-sound-441-docker` pour vérifier
+2. Le workflow `deploy-backend.yml` se déclenche sur tout push `main` touchant
+   `backend/**` (ou `.github/workflows/deploy-backend.yml`) et lance
+   `flyctl deploy --remote-only` (concurrence : un seul deploy à la fois, le plus
+   récent annule l'en-cours). Nécessite le secret repo `FLY_API_TOKEN`.
+3. `fly logs --app backend-frosty-sound-441-docker` pour vérifier
+4. **Override manuel** si besoin (hotfix sans merge, rollback) :
+   `cd backend ; fly deploy --app backend-frosty-sound-441-docker`, ou
+   `workflow_dispatch` sur le workflow.
 
 ### 7.2 Frontend (automatique)
 - Toute PR mergée sur `main` déclenche un déploiement Vercel
