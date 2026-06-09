@@ -56,6 +56,42 @@
     `::test_feedback_comment_exactly_1000_accepted`,
     `::test_feedback_rating_float_rejected`, `::test_feedback_rating_negative_rejected`.
 
+- **[2026-06-09] [9.9] État partagé de module réinitialisé en conftest autouse, pas en fixture locale**
+  - Symptôme : le reset du rate-limit (`reset_rate_limit_state`) a été livré en
+    fixture **locale** à `test_9_9_rate_limit.py`. La suite était verte par chance
+    (les autres fichiers tapent peu de requêtes par IP-testclient, donc sous le
+    seuil), mais le compteur en mémoire de module de `app.rate_limit` fuit entre
+    fichiers → dépendance implicite à l'ordre des tests (re-violation de la
+    leçon 9.7 sur l'état partagé).
+  - Cause racine : « tests verts » confondu avec « critère couvert ». Le garde-fou
+    d'isolation était au mauvais endroit (fichier local au lieu du conftest global).
+  - Garde-fou : fixture **autouse** `_reset_rate_limit_state` dans
+    `backend/tests/conftest.py` (reset avant chaque test, import protégé) +
+    `tests/test_9_9_rate_limit.py::test_conftest_provides_global_rate_limit_reset`
+    (statique) et `::test_prod_app_state_leaks_without_conftest_reset` (dynamique).
+    Règle : tout état partagé de module (compteur, cache) se réinitialise par une
+    fixture **autouse en conftest.py**, jamais locale à un seul fichier.
+
+- **[2026-06-09] [9.9 / atelier] Phase B : séquencer testeur → reviewer, jamais en parallèle sur le même fichier**
+  - Symptôme : l'orchestrateur a lancé le testeur (phase B, qui **édite** les
+    tests) ET le reviewer (read-only) **en parallèle** sur `test_9_9_rate_limit.py`.
+    Le reviewer a relu une cible mouvante : il a vu rouge un test (`NameError`) que
+    le testeur était justement en train de corriger, et a fondé une partie de son
+    FAIL dessus.
+  - Cause racine : deux agents écrivant/lisant le même fichier simultanément (course).
+  - Garde-fou (règle orchestrateur) : en phase B, **lancer d'abord le testeur**
+    (il fige le fichier de tests), **puis** le reviewer sur l'état stabilisé. Les
+    deux verdicts restent indépendants (contextes isolés), mais plus de course.
+
+- **[2026-06-09] [9.9] Risques résiduels assumés du rate-limit (documentés, non bloquants)**
+  - NB1 — croissance mémoire non bornée des clés `(scope, ip)` : une deque vidée
+    laisse sa clé dans `_buckets`. Atténué : mono-instance Fly, état perdu au
+    restart/auto-stop, volume MVP négligeable. À durcir (évincer la clé quand la
+    deque devient vide, ou cap de taille) si le trafic monte (suivi 9.10/infra).
+  - NB2 — `X-Forwarded-For` spoofable : n'est qu'un **repli** ; derrière Fly,
+    `Fly-Client-IP` (posé par le proxy) fait foi et est lu en priorité. Risque
+    assumé pour le modèle de menace (rafale), pas pour l'abus distribué.
+
 - **[2026-06-07] [photo-evidence] Schéma DB absent pour les appels directs au pipeline**
   - Symptôme : un test appelant `run_full_analysis` SANS instancier `TestClient`
     levait `sqlite3.OperationalError: no such table: comparables` selon l'ordre de

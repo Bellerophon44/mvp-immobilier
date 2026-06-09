@@ -3,11 +3,12 @@ import logging
 import os
 from typing import Any, Optional, Dict, List
 
-from fastapi import FastAPI, HTTPException, Header, Body
+from fastapi import FastAPI, HTTPException, Header, Body, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from app.analysis import run_full_analysis
+from app.rate_limit import rate_limiter
 from app.url_fetch import fetch_listing, extract_image_urls
 from db.session import init_db, SessionLocal
 from db.models import Comparable, Feedback
@@ -258,7 +259,10 @@ def comparables_maintenance(
 
 
 @app.post("/analyze", response_model=AnalyzeResponse)
-def analyze(payload: AnalyzeRequest):
+def analyze(
+    payload: AnalyzeRequest,
+    _rl: None = Depends(rate_limiter(limit=10, window_seconds=60)),
+):
     raw_text_preview = (payload.raw_text or "")[:60]
     logger.info(
         "ANALYZE in: has_raw_text=%s (len=%d, preview=%r), has_url=%s (%r)",
@@ -312,7 +316,10 @@ def analyze(payload: AnalyzeRequest):
 
 
 @app.post("/feedback", status_code=201)
-def submit_feedback(payload: FeedbackIn) -> dict:
+def submit_feedback(
+    payload: FeedbackIn,
+    _rl: None = Depends(rate_limiter(limit=60, window_seconds=60)),
+) -> dict:
     db = SessionLocal()
     try:
         row = Feedback(
