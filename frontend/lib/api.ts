@@ -109,3 +109,21 @@ export async function sendFeedback(payload: FeedbackPayload): Promise<boolean> {
     return false;
   }
 }
+
+// Event produit anonyme (instrumentation funnel, 9.10). Proxy de tendance
+// best-effort : fire-and-forget calque sur sendFeedback. Jamais awaite dans un
+// chemin critique, jamais d'exception remontee — un echec d'event ne doit ni
+// retarder ni alterer le flux d'analyse. Aucune PII : seules des dimensions
+// fermees (enums/bands/booleens) validees serveur cote /events.
+export function sendEvent(name: string, props?: Record<string, unknown>): void {
+  try {
+    void fetch(process.env.NEXT_PUBLIC_API_URL + "/events", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, ...(props || {}) }),
+      keepalive: true,
+    }).catch(() => {});
+  } catch {
+    // Avale toute erreur synchrone (URL absente, etc.) : best-effort.
+  }
+}

@@ -25,6 +25,12 @@ def test_llm_fallback_logs_marker_and_returns_fallback(monkeypatch, caplog):
     ]
     assert markers, "le marqueur 'LLM call failed' (ERROR, logger llm_semantic) doit etre emis"
 
-    assert result == llm._FALLBACK
+    # Depuis 9.10 (SPEC §3.4), le retour de fallback porte un marqueur interne
+    # `_fallback: True` lu par `run_full_analysis` pour compter l'event serveur
+    # `llm_fallback` (jamais expose dans AnalyzeResponse). Le contenu de fallback
+    # (`_FALLBACK`) reste inchange ; on verifie l'egalite sur ce contenu, marqueur
+    # interne mis a part, plutot qu'une identite stricte avec `_FALLBACK`.
+    assert result["_fallback"] is True
+    assert {k: v for k, v in result.items() if k != "_fallback"} == llm._FALLBACK
     assert result["summary"] == "Analyse indisponible."
     assert result["questions"] == []
