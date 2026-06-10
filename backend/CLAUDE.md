@@ -5,8 +5,9 @@
 > [`/CONTEXT.md`](../CONTEXT.md) à la racine du repo (source de vérité).
 > Ce fichier-ci se concentre sur l'état technique courant du backend.
 >
-> **Dernière mise à jour :** 2026-06-04 (scoring 40/30/30 = somme exacte des
-> piliers ; cascade élargie au niveau **métropole** ; ancrage local couches A/B/C)
+> **Dernière mise à jour :** 2026-06-10 (cross-agence incrément 1 : tracking
+> temporel par id stable — `first_seen_at`/`last_seen_at`, snapshots de prix,
+> endpoint admin `/history`, rétention 24 mois en maintenance)
 
 ---
 
@@ -78,11 +79,12 @@ backend/
 │   ├── scoring.py          # Score global 0-100 (40+30+30)
 │   └── url_fetch.py        # GET URL annonce + extraction texte HTML, SSRF filter
 ├── db/
-│   ├── models.py           # SQLAlchemy Comparable
+│   ├── models.py           # SQLAlchemy Comparable, ListingPriceSnapshot
 │   └── session.py          # SessionLocal, init_db, DATABASE_PATH
 ├── ingestion/
-│   └── save.py             # save_comparables(list[dict]) → DB (merge) +
-│                           # garde-fou central prix/m² [800-12000] (toutes sources)
+│   └── save.py             # save_comparables(list[dict]) → DB (lecture explicite
+│                           # + upsert, first_seen immuable, snapshot si prix change)
+│                           # + garde-fou central prix/m² [800-12000] (toutes sources)
 ├── scrapers/
 │   ├── base.py             # session HTTP UA Chrome, retry, normalize_price/surface,
 │   │                       # infer_property_type, extract_district (Grand Metz)
@@ -125,8 +127,9 @@ Ne rien ajouter dedans. Toute nouvelle logique scraper va dans `scrapers/sources
 | GET | `/docs` | aucune | Swagger UI FastAPI |
 | POST | `/analyze` | aucune | Analyse cohérence d'une annonce |
 | GET | `/admin/comparables/stats` | `X-Admin-Token` | `{"total": n, "cities": [...]}` |
+| GET | `/admin/comparables/{listing_id}/history` | `X-Admin-Token` | Historique temporel d'une annonce (métadonnées factuelles uniquement, voir ci-dessous) |
 | POST | `/admin/comparables` | `X-Admin-Token` | Import batch (max 10000) |
-| POST | `/admin/comparables/maintenance` | `X-Admin-Token` | Assainit l'historique (voir §9) |
+| POST | `/admin/comparables/maintenance` | `X-Admin-Token` | Assainit l'historique + rétention 24 mois (voir §9) |
 
 ### `POST /analyze`
 Body (au moins l'un des deux) :
@@ -172,6 +175,26 @@ Body :
 ```
 
 Délègue à `ingestion/save.save_comparables`, recalcule `price_m2`.
+
+### `GET /admin/comparables/{listing_id}/history`
+Historique temporel d'une annonce par id stable (chantier cross-agence,
+incrément 1). Renvoie des **métadonnées factuelles uniquement** (CONTEXT §11.3) :
+
+```json
+{
+  "listing_id": "...", "source": "bienici",
+  "first_seen_at": "...", "last_seen_at": "...",
+  "weeks_on_market": 22,
+  "price_first": 250000, "price_last": 239000, "price_change_pct": -4.4,
+  "snapshots": [{"price_total": 250000, "price_m2": 3125.0, "observed_at": "..."}]
+}
+```
+
+Jamais de contenu re-publiable (texte, adresse, URL, photo, ni city/district).
+`weeks_on_market` = floor des jours/7 (null si dates manquantes) ;
+`price_change_pct` = round 1 décimale entre premier et dernier snapshot (null si
+<2 snapshots). 401 token absent/mismatch, 503 `ADMIN_TOKEN` non configuré,
+404 id inconnu.
 
 ---
 
@@ -233,7 +256,19 @@ class Comparable(Base):
     floor / has_elevator / has_terrace / has_balcony / is_condo /
     condo_fees / has_cellar / parking / bedrooms         # critères affinés (chantier C)
     collected_at  = Column(DateTime, default=datetime.utcnow)
+    first_seen_at = Column(DateTime, nullable=True)   # 1re observation, JAMAIS réécrit
+    last_seen_at  = Column(DateTime, nullable=True)   # rafraîchi à chaque passage
 ```
+
+`db/models.py` — table `listing_price_snapshots` (cross-agence incrément 1) :
+une ligne à la 1re observation d'un id puis une par **changement** de
+`price_total` (mode delta). Colonnes `id` (PK), `listing_id` (indexé, =
+`comparables.id`, pas de FK formelle), `price_total`, `price_m2`, `observed_at`.
+La logique de capture est dans `ingestion/save.py` : lecture explicite de la
+ligne existante (plus de `db.merge`, qui écrasait l'historique), `first_seen_at`
+immuable (repli `collected_at` pour les lignes prod héritées), `last_seen_at` et
+`collected_at` rafraîchis, snapshot conditionnel à l'égalité exacte sur
+`price_total`. Rétention : purge 24 mois après `last_seen_at` (voir §9).
 
 > **Chantier B (critères affinés)** : `dpe` + `construction_year` ajoutés (nullable,
 > remplissage variable : bien'ici ~82% DPE / ~33% année ; agences best-effort).
@@ -446,7 +481,12 @@ en ancien format) persistent. Cet endpoint les assainit en base :
   agglo nancéienne — `purged_zone`) ; `extra_out_of_scope: [...]` ajoute des
   villes ponctuelles ;
 - **ré-applique `canonical_city`** aux villes existantes (`renamed`) et
-  `canonical_district` aux quartiers existants (`renamed_district`).
+  `canonical_district` aux quartiers existants (`renamed_district`) ;
+- **purge de rétention** (cross-agence incrément 1) : comparables dont
+  `last_seen_at` date de **plus de 730 jours révolus** (24 mois ; exactement
+  730 jours = conservé), avec leurs `listing_price_snapshots` —
+  compteurs `purged_retention` et `purged_snapshots`. Une ligne
+  `last_seen_at` NULL n'est jamais purgée par cette règle.
 
 `dry_run` est **true par défaut** (simulation, ne supprime rien) ; passer
 `{"dry_run": false}` pour appliquer. Renvoie les compteurs + `total_after`.

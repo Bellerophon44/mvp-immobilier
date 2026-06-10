@@ -45,6 +45,8 @@ _ADD_COLUMNS = {
     "has_cellar": "ALTER TABLE comparables ADD COLUMN has_cellar BOOLEAN",
     "parking": "ALTER TABLE comparables ADD COLUMN parking INTEGER",
     "bedrooms": "ALTER TABLE comparables ADD COLUMN bedrooms INTEGER",
+    "first_seen_at": "ALTER TABLE comparables ADD COLUMN first_seen_at DATETIME",
+    "last_seen_at": "ALTER TABLE comparables ADD COLUMN last_seen_at DATETIME",
 }
 
 

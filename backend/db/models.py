@@ -50,6 +50,31 @@ class Comparable(Base):
     # Date de collecte
     collected_at = Column(DateTime, default=datetime.utcnow)
 
+    # Tracking temporel (chantier cross-agence, increment 1) — nullable pour ne
+    # pas casser les lignes prod existantes ; poses applicativement par
+    # ingestion/save.py. first_seen_at n'est JAMAIS reecrit ; last_seen_at est
+    # rafraichi a chaque passage de collecte.
+    first_seen_at = Column(DateTime, nullable=True)
+    last_seen_at = Column(DateTime, nullable=True)
+
+
+class ListingPriceSnapshot(Base):
+    """
+    Snapshot de prix d'une annonce (chantier cross-agence, increment 1) : une
+    ligne a la premiere observation puis une par changement de price_total
+    (mode delta, anti-gonflement). Pas de FK formelle vers comparables
+    (SQLite/MVP) : coherence applicative, la purge de retention supprime
+    explicitement les snapshots des ids purges.
+    """
+
+    __tablename__ = "listing_price_snapshots"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    listing_id = Column(String, nullable=False, index=True)
+    price_total = Column(Float, nullable=False)
+    price_m2 = Column(Float, nullable=False)
+    observed_at = Column(DateTime, nullable=False)
+
 
 class Feedback(Base):
     """

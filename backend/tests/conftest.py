@@ -18,8 +18,19 @@ os.environ.setdefault("OPENAI_API_KEY", "test-key-not-used")
 # Repartir d'une base vierge a chaque session : sinon les lignes persistees par
 # une execution precedente font echouer les assertions d'unicite (ex. .one()
 # sur un analysis_id deja insere lors d'un run anterieur).
-if os.path.exists(_tmp_db):
-    os.remove(_tmp_db)
+#
+# Garde d'idempotence (correction DEVELOPER, increment 1 cross-agence, a relire
+# par le testeur en phase B) : ce module est ré-exécuté si un test l'importe
+# sous un AUTRE nom de module que celui charge par pytest (ex.
+# `import tests.conftest` dans le test statique AC22, alors que pytest l'a
+# charge comme `conftest`). Sans la sentinelle, ce second import re-supprimait
+# le fichier SQLite SOUS le moteur SQLAlchemy deja connecte -> ecritures
+# suivantes en `sqlite3.OperationalError: attempt to write a readonly
+# database` (faux rouge dependant de l'ordre, pas un artefact sandbox).
+if os.environ.get("MVP_TEST_DB_BOOTSTRAPPED") != _tmp_db:
+    if os.path.exists(_tmp_db):
+        os.remove(_tmp_db)
+    os.environ["MVP_TEST_DB_BOOTSTRAPPED"] = _tmp_db
 
 import pytest
 from fastapi.testclient import TestClient
