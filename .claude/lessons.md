@@ -56,6 +56,85 @@
     `::test_feedback_comment_exactly_1000_accepted`,
     `::test_feedback_rating_float_rejected`, `::test_feedback_rating_negative_rejected`.
 
+- **[2026-06-09] [9.9] État partagé de module réinitialisé en conftest autouse, pas en fixture locale**
+  - Symptôme : le reset du rate-limit (`reset_rate_limit_state`) a été livré en
+    fixture **locale** à `test_9_9_rate_limit.py`. La suite était verte par chance
+    (les autres fichiers tapent peu de requêtes par IP-testclient, donc sous le
+    seuil), mais le compteur en mémoire de module de `app.rate_limit` fuit entre
+    fichiers → dépendance implicite à l'ordre des tests (re-violation de la
+    leçon 9.7 sur l'état partagé).
+  - Cause racine : « tests verts » confondu avec « critère couvert ». Le garde-fou
+    d'isolation était au mauvais endroit (fichier local au lieu du conftest global).
+  - Garde-fou : fixture **autouse** `_reset_rate_limit_state` dans
+    `backend/tests/conftest.py` (reset avant chaque test, import protégé) +
+    `tests/test_9_9_rate_limit.py::test_conftest_provides_global_rate_limit_reset`
+    (statique) et `::test_prod_app_state_leaks_without_conftest_reset` (dynamique).
+    Règle : tout état partagé de module (compteur, cache) se réinitialise par une
+    fixture **autouse en conftest.py**, jamais locale à un seul fichier.
+
+- **[2026-06-09] [9.9 / atelier] Phase B : séquencer testeur → reviewer, jamais en parallèle sur le même fichier**
+  - Symptôme : l'orchestrateur a lancé le testeur (phase B, qui **édite** les
+    tests) ET le reviewer (read-only) **en parallèle** sur `test_9_9_rate_limit.py`.
+    Le reviewer a relu une cible mouvante : il a vu rouge un test (`NameError`) que
+    le testeur était justement en train de corriger, et a fondé une partie de son
+    FAIL dessus.
+  - Cause racine : deux agents écrivant/lisant le même fichier simultanément (course).
+  - Garde-fou (règle orchestrateur) : en phase B, **lancer d'abord le testeur**
+    (il fige le fichier de tests), **puis** le reviewer sur l'état stabilisé. Les
+    deux verdicts restent indépendants (contextes isolés), mais plus de course.
+
+- **[2026-06-09] [9.9] Risques résiduels assumés du rate-limit (documentés, non bloquants)**
+  - NB1 — croissance mémoire non bornée des clés `(scope, ip)` : une deque vidée
+    laisse sa clé dans `_buckets`. Atténué : mono-instance Fly, état perdu au
+    restart/auto-stop, volume MVP négligeable. À durcir (évincer la clé quand la
+    deque devient vide, ou cap de taille) si le trafic monte (suivi 9.10/infra).
+  - NB2 — `X-Forwarded-For` spoofable : n'est qu'un **repli** ; derrière Fly,
+    `Fly-Client-IP` (posé par le proxy) fait foi et est lu en priorité. Risque
+    assumé pour le modèle de menace (rafale), pas pour l'abus distribué.
+
+- **[2026-06-09] [9.10] Faux-vert tautologique sur un corps d'endpoint à `response_model`**
+  - Symptôme : `test_ac8b` assertait `set(reponse.keys()) <= autorisees` sur le
+    corps de `POST /analyze`. Or FastAPI **filtre déjà** les clés hors
+    `AnalyzeResponse` (response_model) : l'assertion serait verte même si le code
+    laissait fuiter le marqueur interne `_fallback`. Garde-fou inopérant.
+  - Cause racine : tester un invariant « pas de fuite » à un niveau (endpoint) où
+    une couche tierce (Pydantic) masque le défaut → vert de complaisance.
+  - Garde-fou : tester aussi la **fonction sous-jacente** hors response_model —
+    `tests/test_events_hardening.py::test_run_full_analysis_does_not_return_fallback_marker`
+    appelle `run_full_analysis` directement et asserte l'absence de `_fallback`.
+    Règle : pour prouver qu'un champ interne ne fuit pas, tester la couche qui le
+    produit, pas seulement celle qui le sérialise.
+
+- **[2026-06-09] [9.10] Tester le fallback LLM par le CHEMIN RÉEL, pas via monkeypatch de la façade**
+  - Symptôme : le test officiel du fallback monkeypatchait `analyze_semantic` pour
+    renvoyer `dict(_FALLBACK) + {_fallback:True}`. Il court-circuitait le `except`
+    de `llm_semantic` où le marqueur est **réellement** posé → un bug dans la pose
+    du marqueur passerait inaperçu.
+  - Garde-fou : `tests/test_events_hardening.py::test_real_fallback_path_persists_event_and_keeps_contract`
+    mocke `client.chat.completions.create` pour qu'il **lève**, et vérifie de bout
+    en bout (event `llm_fallback` persisté + contrat `/analyze` intact). Règle :
+    pour un comportement déclenché par une exception, faire lever la **vraie**
+    dépendance, pas la façade qui l'enrobe.
+
+- **[2026-06-09] [9.10] Validation conforme « à la lettre » mais en deçà de l'intention ; ressource best-effort hors `try`**
+  - Symptôme (a) : le validator `referrer_domain` (`main.py::_hostname_only`)
+    couvrait l'AC (« pas de `/` ni `?` ») mais, écrit en **blacklist** de 2
+    caractères, laissait passer `user:secret@host` (credential), `host#fragment`
+    et un saut de ligne (log-injection) — en deçà de « hostname seul » (§3.1).
+    Symptôme (b) : `_record_llm_fallback_event` ouvrait `db = SessionLocal()`
+    **hors** du `try` best-effort → une panne à l'ouverture aurait remonté un 500
+    sur `/analyze`.
+  - Cause racine : borne exprimée comme interdiction ponctuelle au lieu d'une
+    **whitelist positive** ; acquisition de ressource hors du bloc censé l'avaler.
+  - Garde-fou : validator passé en whitelist `re.fullmatch(r"[A-Za-z0-9.-]+", v)` ;
+    `SessionLocal()` déplacé **dans** le `try` (`db=None` + `if db is not None`).
+    Tests de régression (xfail convertis en passants) :
+    `tests/test_events_hardening.py::test_ac10_referrer_non_hostname_residual_risk`
+    et `::test_record_llm_fallback_event_swallows_session_open_error`.
+    Règle : exprimer une borne de validation en **whitelist positive**, jamais en
+    blacklist de quelques caractères ; placer toute acquisition de ressource
+    best-effort à l'intérieur du `try/except` qui doit l'avaler.
+
 - **[2026-06-07] [photo-evidence] Schéma DB absent pour les appels directs au pipeline**
   - Symptôme : un test appelant `run_full_analysis` SANS instancier `TestClient`
     levait `sqlite3.OperationalError: no such table: comparables` selon l'ordre de

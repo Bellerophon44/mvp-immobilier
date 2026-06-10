@@ -1,16 +1,18 @@
 import hmac
 import logging
 import os
-from typing import Any, Optional, Dict, List
+import re
+from typing import Any, Optional, Dict, List, Literal
 
-from fastapi import FastAPI, HTTPException, Header, Body
+from fastapi import FastAPI, HTTPException, Header, Body, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, field_validator
 
 from app.analysis import run_full_analysis
+from app.rate_limit import rate_limiter
 from app.url_fetch import fetch_listing, extract_image_urls
 from db.session import init_db, SessionLocal
-from db.models import Comparable, Feedback
+from db.models import Comparable, Feedback, Event
 from ingestion.save import (
     save_comparables,
     MIN_PRICE_M2,
@@ -24,6 +26,9 @@ from scrapers.base import canonical_city, canonical_district
 logging.basicConfig(level=logging.INFO, force=True)
 logger = logging.getLogger("mvp")
 feedback_logger = logging.getLogger("feedback")
+# Logger sans dimension sensible : au plus le `name` et des booleens de presence,
+# jamais une valeur de dimension (referrer_domain, path), jamais une IP.
+events_logger = logging.getLogger("events")
 
 
 app = FastAPI(
@@ -33,7 +38,15 @@ app = FastAPI(
 )
 
 
-_default_origins = "http://localhost:3000,https://*.vercel.app"
+# Origines autorisees par defaut : dev local + domaine custom prod/staging
+# (coherence-metz.fr). La regex `*.vercel.app` ci-dessous couvre en plus les
+# previews Vercel. `CORS_ORIGINS` (env Fly) peut surcharger cette liste par env.
+_default_origins = ",".join([
+    "http://localhost:3000",
+    "https://coherence-metz.fr",
+    "https://www.coherence-metz.fr",
+    "https://staging.coherence-metz.fr",
+])
 _origins_env = os.getenv("CORS_ORIGINS", _default_origins)
 _origins = [o.strip() for o in _origins_env.split(",") if o.strip()]
 
@@ -81,6 +94,56 @@ class FeedbackIn(BaseModel):
     global_score: Optional[int] = None
     verdict: Optional[str] = None
     prompt_variant: Optional[str] = None
+
+
+class EventIn(BaseModel):
+    # Schema ferme (garde-fou anti-PII central) : `extra="forbid"` rejette tout
+    # champ non declare (url, address, comment, props, raw_text, ip...) -> 422.
+    # Chaque dimension est une enum fermee ou un booleen strict ; aucune surface
+    # texte libre n'est acceptee. `referrer_domain` est borne au hostname.
+    model_config = ConfigDict(extra="forbid")
+
+    name: Literal[
+        "page_view",
+        "methode_view",
+        "analysis_started",
+        "analysis_succeeded",
+        "analysis_failed",
+        "report_export",
+        "district_refine",
+        "address_entered",
+        "llm_fallback",
+    ]
+    mode: Optional[Literal["url", "text"]] = None
+    score_band: Optional[Literal["lt40", "40_59", "60_79", "80plus"]] = None
+    confidence: Optional[Literal["Élevée", "Moyenne", "Faible"]] = None
+    pillar_price_status: Optional[
+        Literal["aligne", "sous", "leger_sur", "fort_sur", "indetermine"]
+    ] = None
+    reason: Optional[Literal["url_unreachable", "no_input", "llm_fallback"]] = None
+    format: Optional[Literal["copy", "pdf"]] = None
+    from_scope: Optional[
+        Literal["quartier", "secteur", "ville", "metropole", "indetermine"]
+    ] = None
+    to_scope: Optional[
+        Literal["quartier", "secteur", "ville", "metropole", "indetermine"]
+    ] = None
+    address_entered: Optional[StrictBool] = None
+    path: Optional[Literal["/", "/methode"]] = None
+    # Hostname seul : un domaine ne contient ni `/` ni `?` (garde-fou serveur,
+    # le tronquage est fait cote front via URL(...).hostname).
+    referrer_domain: Optional[str] = Field(default=None, max_length=253)
+
+    @field_validator("referrer_domain")
+    @classmethod
+    def _hostname_only(cls, v: Optional[str]) -> Optional[str]:
+        # Whitelist positive : un hostname ne contient que [a-z0-9.-] (le front
+        # envoie URL(...).hostname). Rejette ainsi path/query mais aussi userinfo
+        # (user:pass@), fragment (#), port (:) et saut de ligne (anti
+        # log-injection / fuite de credential dans une ligne anonyme).
+        if v is not None and not re.fullmatch(r"[A-Za-z0-9.-]+", v):
+            raise ValueError("referrer_domain doit etre un hostname seul ([a-z0-9.-])")
+        return v
 
 
 # ---------------------------------------------------------------------------
@@ -258,7 +321,10 @@ def comparables_maintenance(
 
 
 @app.post("/analyze", response_model=AnalyzeResponse)
-def analyze(payload: AnalyzeRequest):
+def analyze(
+    payload: AnalyzeRequest,
+    _rl: None = Depends(rate_limiter(limit=10, window_seconds=60)),
+):
     raw_text_preview = (payload.raw_text or "")[:60]
     logger.info(
         "ANALYZE in: has_raw_text=%s (len=%d, preview=%r), has_url=%s (%r)",
@@ -312,7 +378,10 @@ def analyze(payload: AnalyzeRequest):
 
 
 @app.post("/feedback", status_code=201)
-def submit_feedback(payload: FeedbackIn) -> dict:
+def submit_feedback(
+    payload: FeedbackIn,
+    _rl: None = Depends(rate_limiter(limit=60, window_seconds=60)),
+) -> dict:
     db = SessionLocal()
     try:
         row = Feedback(
@@ -334,5 +403,43 @@ def submit_feedback(payload: FeedbackIn) -> dict:
         payload.rating,
         bool(payload.comment),
         payload.analysis_id,
+    )
+    return {"status": "ok"}
+
+
+@app.post("/events", status_code=201)
+def submit_event(
+    payload: EventIn,
+    _rl: None = Depends(rate_limiter(limit=120, window_seconds=60)),
+) -> dict:
+    # Proxy de tendance best-effort (anonyme, agrege) : on persiste les seules
+    # dimensions fermees validees par EventIn, aucune surface texte libre.
+    db = SessionLocal()
+    try:
+        row = Event(
+            name=payload.name,
+            mode=payload.mode,
+            score_band=payload.score_band,
+            confidence=payload.confidence,
+            pillar_price_status=payload.pillar_price_status,
+            reason=payload.reason,
+            format=payload.format,
+            from_scope=payload.from_scope,
+            to_scope=payload.to_scope,
+            address_entered=payload.address_entered,
+            path=payload.path,
+            referrer_domain=payload.referrer_domain,
+        )
+        db.add(row)
+        db.commit()
+    finally:
+        db.close()
+
+    # Au plus le `name` et des booleens de presence : jamais une valeur de
+    # dimension potentiellement sensible (referrer_domain, path), jamais d'IP.
+    events_logger.info(
+        "EVENT in: name=%s has_referrer=%s",
+        payload.name,
+        bool(payload.referrer_domain),
     )
     return {"status": "ok"}

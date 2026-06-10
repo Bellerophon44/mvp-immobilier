@@ -40,7 +40,9 @@ Anti-patterns à ne JAMAIS introduire :
 | Auto-stop / auto-start machines | `true` / `min_machines_running = 0` |
 | Plateforme frontend | Vercel (Next.js **16.2.6** App Router) |
 | CI | GitHub Actions : `test.yml` (pytest), `collect.yml`, `diagnose-scrapers.yml`, `diag-bienici.yml` |
-| CD backend | `deploy-backend.yml` — **auto-deploy Fly** sur merge `main` touchant `backend/**` (`flyctl deploy --remote-only`, secret `FLY_API_TOKEN`, concurrency) ; `workflow_dispatch` manuel |
+| CD backend | `deploy-backend.yml` — **auto-deploy Fly** : push `main`→**prod** (`fly.toml`), push `staging`→**staging** (`fly.staging.toml`, app `coherence-staging`). `flyctl deploy --remote-only`, secret `FLY_API_TOKEN` (accès aux 2 apps), concurrency par env ; `workflow_dispatch` manuel |
+| App Fly staging | `coherence-staging` (env de test isolé, base SQLite + volume dédiés ⇒ events 9.10 séparés de la prod). Voir `docs/specs/ENVIRONNEMENTS-ET-DOMAINE.md` |
+| Domaine définitif | `coherence-metz.fr` (acquis OVH) — prod `coherence-metz.fr`/`api.`, staging `staging.`/`api-staging.` (câblage en cours) |
 
 ⚠️ **Pas de Railway.** Toute documentation interne qui mentionne encore Railway
 ou le port 8000 est périmée et doit être ignorée.
@@ -650,7 +652,10 @@ communes étrangères, ex. Thionville → None). Scope `"metropole"` exposé au 
 - **Logging** structuré via `logging.getLogger(<module>)`. Niveau INFO par
   défaut (forcé dans `app/main.py` avec `basicConfig(level=INFO, force=True)`).
   Loggers nommés en prod : `mvp`, `analysis`, `market_stats`, `llm_semantic`,
-  `url_fetch`, `scrapers.base`, `push_comparables`.
+  `url_fetch`, `scrapers.base`, `push_comparables`, `rate_limit` (9.9 ; n'émet
+  jamais l'IP, message 429 agrégé sur `limit` seulement), `events` (9.10 ;
+  n'émet jamais une valeur de dimension potentiellement sensible — au plus le
+  `name` et des booléens de présence, jamais `referrer_domain`/`path`/IP).
 - **Pas de commentaires "what"** dans le code. Commenter uniquement le "why"
   non-trivial (workaround, invariant caché, choix non-évident).
 - **Pas d'emoji** dans le code, commits ou prompts LLM système, sauf demande

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { analyzeListing, sendFeedback, ApiResult, LocalContext } from "../lib/api";
+import { useEffect, useRef, useState } from "react";
+import { analyzeListing, sendEvent, sendFeedback, ApiResult, LocalContext } from "../lib/api";
 import AnalyzerInput, { AnalyzerMode } from "../components/design/AnalyzerInput";
 import VerdictHeader from "../components/design/VerdictHeader";
 import PillarBar from "../components/design/PillarBar";
@@ -11,7 +11,7 @@ import Wordmark from "../components/design/Wordmark";
 import ScopeBadge from "../components/design/ScopeBadge";
 import Footer from "../components/design/Footer";
 import FeedbackForm from "../components/design/FeedbackForm";
-import { Copy, Download, MapPin, Seal, LorraineSeal } from "../components/design/Icons";
+import { Copy, Printer, MapPin, Seal, LorraineSeal } from "../components/design/Icons";
 import { METZ_DISTRICTS } from "../lib/districts";
 
 type AppState = "idle" | "analyzing" | "result";
@@ -50,6 +50,49 @@ function scopeLabel(p: ApiResult["pillars"][number]): string | null {
   return `${base}${band}${n}`;
 }
 
+// Bande de score (proxy de funnel, jamais le score exact) pour l'event
+// analysis_succeeded. Bornes alignees sur le verdict global backend.
+function scoreBand(score: number): "lt40" | "40_59" | "60_79" | "80plus" {
+  if (score >= 80) return "80plus";
+  if (score >= 60) return "60_79";
+  if (score >= 40) return "40_59";
+  return "lt40";
+}
+
+// Statut du pilier prix derive du verdict textuel vers l'enum fermee de /events
+// (jamais le verdict brut). "Indeterminé" / inconnu -> indetermine.
+function pillarPriceStatus(
+  verdict: string | undefined,
+): "aligne" | "sous" | "leger_sur" | "fort_sur" | "indetermine" {
+  const v = (verdict || "").toLowerCase();
+  if (v.includes("aligné")) return "aligne";
+  if (v.includes("sous")) return "sous";
+  if (v.includes("légèrement")) return "leger_sur";
+  if (v.includes("fortement") || v.includes("fort")) return "fort_sur";
+  return "indetermine";
+}
+
+// Mappe le scope du pilier prix (quartier/secteur/ville/metropole/null) vers
+// l'enum fermee from_scope/to_scope de /events. null/inconnu -> indetermine.
+function scopeDimension(
+  scope: ApiResult["pillars"][number]["scope"] | undefined,
+): "quartier" | "secteur" | "ville" | "metropole" | "indetermine" {
+  if (scope === "quartier" || scope === "secteur" || scope === "ville" || scope === "metropole") {
+    return scope;
+  }
+  return "indetermine";
+}
+
+// Mappe une erreur d'analyse vers l'enum fermee reason (jamais le message brut).
+// Le backend renvoie 422 quand l'URL est injoignable ; faute d'entree -> no_input.
+function failureReason(message: string): "url_unreachable" | "no_input" {
+  const m = message.toLowerCase();
+  if (m.includes("url") || m.includes("récupérer") || m.includes("recuperer")) {
+    return "url_unreachable";
+  }
+  return "no_input";
+}
+
 function verdictColor(verdict: string): string {
   const v = verdict.toLowerCase();
   if (v.includes("bonne") || v.includes("faible") || v.includes("aligné") || v.includes("sous")) return "var(--moss)";
@@ -59,7 +102,7 @@ function verdictColor(verdict: string): string {
 
 function Header() {
   return (
-    <header style={{
+    <header className="no-print" style={{
       position: "sticky",
       top: 0,
       zIndex: 10,
@@ -80,6 +123,81 @@ function Header() {
         <ScopeBadge />
       </div>
     </header>
+  );
+}
+
+// Chemin de la photo héro. null tant qu'on n'a pas branché l'image libre de
+// droits choisie (cf. docs/brand/LOCAL-ANCHORING.md, brief photo). La poser
+// dans frontend/public/ puis renseigner ici (ex. "/hero-metz.jpg") suffit :
+// le traitement N&B/grain/scrim est appliqué en CSS, une couleur fait l'affaire.
+const HERO_IMAGE: string | null = "/hero-metz.jpg";
+const HERO_ALT = "La Porte des Allemands et le pont sur la Seille, à Metz";
+// Crédit photo affiché en bas du hero. OBLIGATOIRE si l'image est sous licence
+// à attribution (CC-BY / CC-BY-SA). Ex. "Photo : Markus Bernet · CC BY-SA 4.0 · Wikimedia Commons".
+const HERO_CREDIT: string | null = "Illustration";
+
+// Grain argentique discret (SVG feTurbulence en data-URI), posé en multiply.
+const GRAIN =
+  "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")";
+
+// Bandeau photo de la home (édition Metz) — image d'ambiance plein cadre,
+// SANS texte par-dessus (le titre et le cachet vivent sur le parchemin, plus bas,
+// pour rester parfaitement lisibles). Traitement N&B chaud + grain en CSS ; fond
+// qui se fond dans le parchemin par le bas. Placeholder pierre + cachet en
+// filigrane tant qu'aucune image n'est branchée.
+function PhotoBand() {
+  return (
+    <div aria-label="Metz" style={{
+      position: "relative",
+      width: "100%",
+      height: "clamp(200px, 32vh, 360px)",
+      overflow: "hidden",
+      background: "var(--stone-fill)",
+      borderTop: "1px solid var(--stone-line)",
+      borderBottom: "1px solid var(--stone-line)",
+    }}>
+      {HERO_IMAGE ? (
+        <img src={HERO_IMAGE} alt={HERO_ALT} style={{
+          position: "absolute", inset: 0, width: "100%", height: "100%",
+          objectFit: "cover",
+          filter: "grayscale(1) sepia(0.32) contrast(1.04) brightness(0.99)",
+        }} />
+      ) : (
+        <div aria-hidden style={{
+          position: "absolute", inset: 0,
+          background: "radial-gradient(130% 140% at 72% 6%, var(--stone-fill) 0%, var(--paper) 60%, var(--parchment) 100%)",
+        }}>
+          <LorraineSeal size={180} style={{
+            color: "var(--jaumont)", opacity: 0.13,
+            position: "absolute", right: "5%", top: "14%",
+          }} />
+        </div>
+      )}
+
+      {/* Grain argentique */}
+      <div aria-hidden style={{
+        position: "absolute", inset: 0,
+        backgroundImage: GRAIN, backgroundSize: "140px 140px",
+        mixBlendMode: "multiply", opacity: 0.10, pointerEvents: "none",
+      }} />
+
+      {/* Fondu parchemin en bas, pour que le bandeau se fonde dans la page */}
+      <div aria-hidden style={{
+        position: "absolute", left: 0, right: 0, bottom: 0, height: 56,
+        background: "linear-gradient(to bottom, rgba(245,241,234,0), var(--parchment))",
+      }} />
+
+      {/* Crédit / mention (ex. « Illustration ») — discret, bas-droite */}
+      {HERO_CREDIT && (
+        <div style={{
+          position: "absolute", right: 12, bottom: 8,
+          fontFamily: "var(--font-sans)", fontSize: 11,
+          color: "var(--ink-3)", opacity: 0.85,
+        }}>
+          {HERO_CREDIT}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -406,6 +524,24 @@ export default function HomePage() {
   // Adresse saisie par l'utilisateur pour affiner le feedback local (alternative
   // manuelle au géocodage de la couche C).
   const [addressInput, setAddressInput] = useState("");
+  // Garde anti double-comptage StrictMode (double mount en dev) : page_view
+  // n'est emis qu'une fois par montage reel.
+  const pageViewSent = useRef(false);
+
+  useEffect(() => {
+    if (pageViewSent.current) return;
+    pageViewSent.current = true;
+    // referrer_domain = hostname SEUL (jamais le referrer brut / path / query).
+    let referrerDomain: string | undefined;
+    if (document.referrer) {
+      try {
+        referrerDomain = new URL(document.referrer).hostname;
+      } catch {
+        referrerDomain = undefined;
+      }
+    }
+    sendEvent("page_view", { path: "/", referrer_domain: referrerDomain });
+  }, []);
 
   async function handleAnalyze({ mode, value }: AnalyzerMode) {
     setAppState("analyzing");
@@ -414,15 +550,23 @@ export default function HomePage() {
     setAddressInput("");
     setLastInput({ mode, value });
     setFeedbackSent(false);
+    // Jamais la valeur saisie / l'URL : seul le mode (proxy de funnel).
+    sendEvent("analysis_started", { mode });
     try {
       const res = await analyzeListing(value, mode);
       setResult(res);
       setAnalysisId(crypto.randomUUID());
       setAppState("result");
+      sendEvent("analysis_succeeded", {
+        score_band: scoreBand(res.global_score),
+        confidence: res.confidence,
+        pillar_price_status: pillarPriceStatus(res.pillars[0]?.verdict),
+      });
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Erreur lors de l'analyse.";
       setError(msg);
       setAppState("idle");
+      sendEvent("analysis_failed", { reason: failureReason(msg) });
     }
   }
 
@@ -433,10 +577,17 @@ export default function HomePage() {
     setRefining(true);
     setError(null);
     setFeedbackSent(false);
+    // Scope du pilier prix AVANT la ré-analyse (district_refine n'est pas
+    // analysis_started : un affinage ne doit pas fausser le taux de lancement).
+    const fromScope = scopeDimension(result?.pillars[0]?.scope);
     try {
       const res = await analyzeListing(lastInput.value, lastInput.mode, district, address);
       setResult(res);
       setAnalysisId(crypto.randomUUID());
+      sendEvent("district_refine", {
+        from_scope: fromScope,
+        to_scope: scopeDimension(res.pillars[0]?.scope),
+      });
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Erreur lors de l'analyse.";
       setError(msg);
@@ -452,6 +603,8 @@ export default function HomePage() {
 
   function handleAddressSubmit() {
     if (!addressInput.trim()) return;
+    // Booléen de présence seulement, jamais la chaîne d'adresse.
+    sendEvent("address_entered", { address_entered: Boolean(addressInput.trim()) });
     handleRefine(selectedDistrict, addressInput);
   }
 
@@ -520,24 +673,20 @@ export default function HomePage() {
 
   function handleCopy() {
     if (!result) return;
+    sendEvent("report_export", { format: "copy" });
     navigator.clipboard.writeText(buildReportText()).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     });
   }
 
-  function handleDownload() {
+  // Impression → PDF via le navigateur. La feuille @media print masque le
+  // chrome (.no-print) et révèle l'en-tête au cachet (.print-only), pour un
+  // document propre exploitable par un utilisateur standard (vs un .md brut).
+  function handlePrint() {
     if (!result) return;
-    const blob = new Blob([buildReportText()], { type: "text/markdown;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const stamp = new Date().toISOString().slice(0, 10);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `analyse-cohérence-${stamp}.md`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    sendEvent("report_export", { format: "pdf" });
+    window.print();
   }
 
   const pricePillar        = result?.pillars[0];
@@ -561,10 +710,12 @@ export default function HomePage() {
     <div style={{ minHeight: "100vh", background: "var(--parchment)", color: "var(--ink)" }}>
       <Header />
 
+      {appState === "idle" && <PhotoBand />}
+
       <main style={{
         maxWidth: 720,
         margin: "0 auto",
-        padding: appState === "idle" ? "96px 24px 64px" : "48px 24px 64px",
+        padding: appState === "idle" ? "48px 24px 64px" : "48px 24px 64px",
         transition: "padding var(--dur-page) var(--ease-paper)",
       }}>
 
@@ -572,9 +723,8 @@ export default function HomePage() {
         {appState === "idle" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 40 }}>
             <div>
-              {/* Cachet « édition Metz » aux trois alérions de Lorraine, en
-                  letterhead — registre « lettre scellée d'un notaire ». Grand
-                  format (88 px), seule taille où les 3 alérions sont lisibles. */}
+              {/* Cachet « édition Metz » aux trois alérions, en letterhead, sur
+                  parchemin — lisible, et le titre n'est plus superposé à la photo. */}
               <LorraineSeal size={88} style={{ color: "var(--jaumont)", marginBottom: 24, display: "block" }} />
               <div className="t-eyebrow" style={{ marginBottom: 16 }}>
                 Analyse d&apos;annonces immobilières · Metz &amp; Moselle
@@ -640,8 +790,21 @@ export default function HomePage() {
         {/* ── RESULT ── */}
         {appState === "result" && result && (
           <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
+            {/* En-tête « scellé » visible uniquement à l'impression / PDF. */}
+            <div className="print-only" style={{ marginBottom: 8 }}>
+              <LorraineSeal size={56} style={{ color: "var(--jaumont)", display: "block", marginBottom: 12 }} />
+              <div style={{ fontFamily: "var(--font-serif)", fontSize: 28, color: "var(--ink)", lineHeight: 1.1 }}>
+                Cohérence <span style={{ color: "var(--ink-3)" }}>— édition Metz</span>
+              </div>
+              <div style={{ fontFamily: "var(--font-sans)", fontSize: 13, color: "var(--ink-3)", marginTop: 4 }}>
+                Analyse de cohérence d&apos;une annonce · Metz &amp; Moselle ·{" "}
+                {new Date().toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
+              </div>
+              <div style={{ borderBottom: "1px solid var(--stone-line)", marginTop: 12 }} />
+            </div>
+
             {/* Action bar */}
-            <div style={{
+            <div className="no-print" style={{
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
@@ -679,7 +842,7 @@ export default function HomePage() {
                 <Copy size={14} />
                 {copied ? "Rapport copié" : "Copier le rapport"}
               </button>
-              <button onClick={handleDownload} aria-label="Télécharger le rapport en .md" style={{
+              <button onClick={handlePrint} aria-label="Imprimer ou enregistrer le rapport en PDF" style={{
                 display: "inline-flex",
                 alignItems: "center",
                 gap: 8,
@@ -693,8 +856,8 @@ export default function HomePage() {
                 fontWeight: 500,
                 cursor: "pointer",
               }}>
-                <Download size={14} />
-                Télécharger (.md)
+                <Printer size={14} />
+                Imprimer / PDF
               </button>
             </div>
 
@@ -771,7 +934,7 @@ export default function HomePage() {
 
                 {/* Affinage par quartier quand l'analyse est restée au niveau ville */}
                 {pricePillar.refinable && (
-                  <div style={{
+                  <div className="no-print" style={{
                     marginTop: 14,
                     paddingTop: 14,
                     borderTop: "1px solid var(--stone-line)",
@@ -857,7 +1020,7 @@ export default function HomePage() {
                 />
               )}
 
-              <div style={{
+              <div className="no-print" style={{
                 background: "var(--paper)",
                 border: "1px solid var(--stone-line)",
                 borderRadius: 4,
@@ -955,11 +1118,15 @@ export default function HomePage() {
             />
 
             {/* Feedback utilisateur (9.7) */}
-            <FeedbackForm sent={feedbackSent} onSubmit={handleFeedback} />
+            <div className="no-print">
+              <FeedbackForm sent={feedbackSent} onSubmit={handleFeedback} />
+            </div>
           </div>
         )}
 
-        <Footer />
+        <div className="no-print">
+          <Footer />
+        </div>
       </main>
     </div>
   );
