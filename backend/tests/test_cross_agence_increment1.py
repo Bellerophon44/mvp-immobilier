@@ -1050,3 +1050,270 @@ def test_maintenance_dry_run_retention_counters_without_mutation(client, admin_t
         "un dry_run repete doit renvoyer les memes compteurs : un ecart "
         "trahirait une mutation cachee au 1er passage (phase B)"
     )
+
+
+# ===========================================================================
+# Verrouillage correctif post-phase B (2026-06-10) — cascade snapshots sur
+# TOUTES les purges (band / zone / dept / retention) + balayage d'orphelins.
+# Residuel identifie en phase B : les purges band/zone/dept supprimaient le
+# comparable SANS ses snapshots (orphelins jamais rattrapes). Ces tests sont
+# l'oracle qui manquait : sans eux, retirer la cascade ou le balayage ne
+# casserait aucun test.
+# ===========================================================================
+
+# Contrat maintenance fige (SPEC §5.3 amendee) : cles existantes inchangees +
+# purged_orphan_snapshots. Egalite STRICTE : toute cle ajoutee/retiree doit
+# passer par la spec.
+MAINTENANCE_RESPONSE_KEYS = {
+    "dry_run", "purged_band", "purged_zone", "purged_dept", "renamed",
+    "renamed_district", "purged_retention", "purged_snapshots",
+    "purged_orphan_snapshots", "total_after",
+}
+
+
+def _insert_comparable_full(listing_id, city="Metz", postal_code="57000",
+                            price_total=250000.0, surface=80.0,
+                            last_seen_at=None):
+    """Variante de _insert_comparable_direct avec city/postal_code controles,
+    pour declencher specifiquement les purges zone et dept. last_seen_at recent
+    par defaut (la retention ne doit PAS etre le chemin de purge exerce)."""
+    from db.session import engine
+
+    last = last_seen_at if last_seen_at is not None else datetime.utcnow()
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "INSERT INTO comparables "
+                "(id, source, city, postal_code, property_type, surface_m2, "
+                " price_total, price_m2, first_seen_at, last_seen_at, collected_at) "
+                "VALUES (:id, 'bienici', :city, :cp, 'appartement', :surface, "
+                " :price, :pm2, :last, :last, :last)"
+            ),
+            {
+                "id": listing_id, "city": city, "cp": postal_code,
+                "surface": surface, "price": price_total,
+                "pm2": price_total / surface, "last": last,
+            },
+        )
+
+
+def test_cascade_band_zone_dept_purges_delete_snapshots_real_run(client, admin_token):
+    # Correctif post-phase B / cascade : un comparable purge pour BAND, un pour
+    # ZONE (chemin reel extra_out_of_scope) et un pour DEPT, chacun avec des
+    # snapshots, en un seul run reel -> comparables ET snapshots supprimes,
+    # snapshots comptes dans purged_snapshots (2+1+3=6, comptes distincts par
+    # chemin pour discriminer une cascade partielle), AUCUN orphelin (les
+    # cascades ne doivent pas fuir dans purged_orphan_snapshots).
+    from db.session import init_db
+
+    init_db()
+    # Band : 2_000_000 / 80 = 25 000 euros/m2 > 12 000 -> purged_band.
+    _insert_comparable_full("casc-band", price_total=2000000.0, surface=80.0)
+    _insert_snapshot_direct("casc-band", price_total=2000000.0)
+    _insert_snapshot_direct("casc-band", price_total=1900000.0)
+    # Zone : ville en bande et dept 57, purgee via extra_out_of_scope.
+    _insert_comparable_full("casc-zone", city="Metz", postal_code="57000")
+    _insert_snapshot_direct("casc-zone")
+    # Dept : ville inconnue des blocklists, code postal hors 57.
+    _insert_comparable_full("casc-dept", city="Ville Hors Perimetre",
+                            postal_code="54000")
+    _insert_snapshot_direct("casc-dept", price_total=250000.0)
+    _insert_snapshot_direct("casc-dept", price_total=245000.0)
+    _insert_snapshot_direct("casc-dept", price_total=240000.0)
+
+    resp = client.post(
+        "/admin/comparables/maintenance",
+        json={"dry_run": False, "extra_out_of_scope": ["Metz"]},
+        headers={"X-Admin-Token": admin_token},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+
+    assert set(body.keys()) == MAINTENANCE_RESPONSE_KEYS, (
+        f"contrat maintenance modifie : {set(body.keys()) ^ MAINTENANCE_RESPONSE_KEYS}"
+    )
+    assert body["purged_band"] == 1
+    assert body["purged_zone"] == 1
+    assert body["purged_dept"] == 1
+    assert body["purged_snapshots"] == 6, (
+        f"cascade band(2)+zone(1)+dept(3) : 6 snapshots attendus dans "
+        f"purged_snapshots, recu {body['purged_snapshots']} (correctif cascade)"
+    )
+    assert body["purged_orphan_snapshots"] == 0, (
+        "les snapshots cascades ne doivent JAMAIS etre comptes en orphelins "
+        "(double comptage / fuite de compteur)"
+    )
+
+    for lid in ("casc-band", "casc-zone", "casc-dept"):
+        assert _row(lid) is None, f"{lid} doit etre purge"
+        assert _snapshot_count(lid) == 0, (
+            f"snapshots de {lid} non supprimes : cascade absente sur ce chemin "
+            f"de purge (correctif post-phase B)"
+        )
+
+
+def test_cascade_band_dry_run_counts_without_deleting_not_as_orphans(client, admin_token):
+    # Correctif post-phase B / dry_run : la cascade COMPTE les snapshots des
+    # comparables purgeables (purged_snapshots) sans rien supprimer, et ces
+    # snapshots ne sont PAS comptes en orphelins (leur parent existe encore en
+    # dry_run -> raisonnement du developer verifie en conditions reelles).
+    from db.session import init_db
+
+    init_db()
+    _insert_comparable_full("dryc-band", price_total=2000000.0, surface=80.0)
+    _insert_snapshot_direct("dryc-band", price_total=2000000.0)
+    _insert_snapshot_direct("dryc-band", price_total=1900000.0)
+
+    resp = client.post(
+        "/admin/comparables/maintenance",
+        json={"dry_run": True},
+        headers={"X-Admin-Token": admin_token},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+
+    assert body["purged_band"] == 1
+    assert body["purged_snapshots"] == 2, (
+        "dry_run doit COMPTER les snapshots cascades d'une purge band"
+    )
+    assert body["purged_orphan_snapshots"] == 0, (
+        "en dry_run le parent existe encore : ses snapshots ne sont pas des "
+        "orphelins (pas de double comptage dry_run)"
+    )
+    assert _row("dryc-band") is not None, "dry_run ne doit RIEN supprimer (comparable)"
+    assert _snapshot_count("dryc-band") == 2, "dry_run ne doit RIEN supprimer (snapshots)"
+
+
+def test_orphan_snapshot_dry_run_counted_then_real_run_deleted(client, admin_token):
+    # Correctif post-phase B / orphelins : un snapshot dont le listing_id
+    # n'existe pas dans comparables est compte dans purged_orphan_snapshots
+    # (compteur DEDIE, pas purged_snapshots). dry_run : compte sans supprimer ;
+    # run reel : supprime.
+    from db.session import init_db
+
+    init_db()
+    _insert_snapshot_direct("ghost-orphan", price_total=250000.0)
+    assert _row("ghost-orphan") is None  # precondition : vraiment orphelin
+
+    dry = client.post(
+        "/admin/comparables/maintenance",
+        json={"dry_run": True},
+        headers={"X-Admin-Token": admin_token},
+    )
+    assert dry.status_code == 200
+    b_dry = dry.json()
+    assert b_dry["purged_orphan_snapshots"] == 1, (
+        "l'orphelin preexistant doit etre COMPTE en dry_run"
+    )
+    assert b_dry["purged_snapshots"] == 0, (
+        "un orphelin ne doit pas fuir dans purged_snapshots (compteur dedie)"
+    )
+    assert _snapshot_count("ghost-orphan") == 1, (
+        "dry_run ne doit PAS supprimer l'orphelin"
+    )
+
+    real = client.post(
+        "/admin/comparables/maintenance",
+        json={"dry_run": False},
+        headers={"X-Admin-Token": admin_token},
+    )
+    assert real.status_code == 200
+    b_real = real.json()
+    assert b_real["purged_orphan_snapshots"] == 1
+    assert b_real["purged_snapshots"] == 0
+    assert _snapshot_count("ghost-orphan") == 0, (
+        "le balayage reel doit supprimer l'orphelin (correctif post-phase B)"
+    )
+
+
+def test_no_double_count_cascade_plus_preexisting_orphan_single_run(client, admin_token):
+    # Correctif post-phase B / pas de double comptage : un MEME run contient une
+    # purge band (2 snapshots cascades) ET un orphelin preexistant (1 snapshot).
+    # Chaque snapshot doit etre compte UNE fois dans le BON compteur, en dry_run
+    # comme en reel (parite dry/reel), et le run reel supprime tout. Si
+    # l'autoflush n'appliquait pas les suppressions de boucle avant le balayage,
+    # les 2 snapshots cascades seraient recomptes en orphelins (3 au lieu de 1).
+    from db.session import init_db
+
+    init_db()
+    _insert_comparable_full("ndc-band", price_total=2000000.0, surface=80.0)
+    _insert_snapshot_direct("ndc-band", price_total=2000000.0)
+    _insert_snapshot_direct("ndc-band", price_total=1900000.0)
+    _insert_snapshot_direct("ndc-ghost", price_total=250000.0)
+    assert _row("ndc-ghost") is None  # precondition : orphelin
+
+    dry = client.post(
+        "/admin/comparables/maintenance",
+        json={"dry_run": True},
+        headers={"X-Admin-Token": admin_token},
+    )
+    b_dry = dry.json()
+    assert (b_dry["purged_snapshots"], b_dry["purged_orphan_snapshots"]) == (2, 1), (
+        f"dry_run : 2 cascades + 1 orphelin attendus, recu "
+        f"(purged_snapshots={b_dry['purged_snapshots']}, "
+        f"purged_orphan_snapshots={b_dry['purged_orphan_snapshots']})"
+    )
+    assert _snapshot_count("ndc-band") == 2 and _snapshot_count("ndc-ghost") == 1, (
+        "dry_run ne doit rien supprimer"
+    )
+
+    real = client.post(
+        "/admin/comparables/maintenance",
+        json={"dry_run": False},
+        headers={"X-Admin-Token": admin_token},
+    )
+    b_real = real.json()
+    assert (b_real["purged_snapshots"], b_real["purged_orphan_snapshots"]) == (2, 1), (
+        f"run reel : chaque snapshot compte UNE fois dans le bon compteur, recu "
+        f"(purged_snapshots={b_real['purged_snapshots']}, "
+        f"purged_orphan_snapshots={b_real['purged_orphan_snapshots']})"
+    )
+    assert b_real["purged_band"] == 1
+    assert _row("ndc-band") is None
+    assert _snapshot_count("ndc-band") == 0
+    assert _snapshot_count("ndc-ghost") == 0
+
+
+def test_maintenance_second_real_run_is_idempotent_all_counters_zero(client, admin_token):
+    # Correctif post-phase B / idempotence : apres un run reel qui a purge
+    # cascade + orphelin, un SECOND run reel ne trouve plus rien a faire ->
+    # tous les compteurs de purge a 0 (un residu trahirait une suppression
+    # incomplete au 1er passage : snapshot survivant ou orphelin regenere).
+    from db.session import init_db
+
+    init_db()
+    now = datetime.utcnow()
+    _insert_comparable_full("idem-band", price_total=2000000.0, surface=80.0)
+    _insert_snapshot_direct("idem-band", price_total=2000000.0)
+    _insert_comparable_direct("idem-ret", last_seen_at=now - timedelta(days=731))
+    _insert_snapshot_direct("idem-ret", observed_at=now - timedelta(days=731))
+    _insert_snapshot_direct("idem-ghost", price_total=250000.0)
+
+    first = client.post(
+        "/admin/comparables/maintenance",
+        json={"dry_run": False},
+        headers={"X-Admin-Token": admin_token},
+    )
+    assert first.status_code == 200
+    b1 = first.json()
+    assert b1["purged_band"] == 1 and b1["purged_retention"] == 1
+    assert b1["purged_snapshots"] == 2 and b1["purged_orphan_snapshots"] == 1
+
+    second = client.post(
+        "/admin/comparables/maintenance",
+        json={"dry_run": False},
+        headers={"X-Admin-Token": admin_token},
+    )
+    assert second.status_code == 200
+    b2 = second.json()
+    zeroed = {
+        k: b2[k] for k in (
+            "purged_band", "purged_zone", "purged_dept", "purged_retention",
+            "purged_snapshots", "purged_orphan_snapshots",
+        )
+    }
+    assert all(v == 0 for v in zeroed.values()), (
+        f"second run reel : tous les compteurs de purge doivent etre a 0, "
+        f"recu {zeroed} (idempotence du correctif)"
+    )
+    assert b2["total_after"] == 0
