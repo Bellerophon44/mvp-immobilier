@@ -762,6 +762,40 @@ def test_conftest_resets_snapshots_table():
     )
 
 
+def test_conftest_reimport_under_second_name_keeps_db_writable():
+    # AC22 / regression phase B (cause racine du "readonly database" de phase A) :
+    # importer conftest sous un SECOND nom de module (`tests.conftest`, alors que
+    # pytest l'a charge comme `conftest`) re-execute son top-level. Sans la
+    # sentinelle MVP_TEST_DB_BOOTSTRAPPED, ce double-import re-supprimait le
+    # fichier SQLite SOUS le moteur SQLAlchemy connecte -> toutes les ecritures
+    # suivantes echouaient en OperationalError "readonly database" (faux rouge
+    # dependant de l'ordre). Ce test declenche le double-import PUIS prouve que
+    # la base reste ecrivable.
+    import tests.conftest as conftest_mod  # noqa: F401  (declencheur volontaire)
+    from db.session import engine
+
+    # La sentinelle doit etre posee et pointer la base jetable de la session.
+    import os as _os
+    assert _os.environ.get("MVP_TEST_DB_BOOTSTRAPPED") == _os.environ["DATABASE_PATH"], (
+        "sentinelle MVP_TEST_DB_BOOTSTRAPPED absente ou incoherente : le "
+        "double-import de conftest redeviendrait destructif (lecon phase A)"
+    )
+
+    # Ecriture reelle apres le double-import : ne doit PAS lever readonly.
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "INSERT INTO listing_price_snapshots "
+                "(listing_id, price_total, price_m2, observed_at) "
+                "VALUES ('reimport-probe', 1000.0, 1000.0, :obs)"
+            ),
+            {"obs": datetime.utcnow()},
+        )
+        conn.execute(
+            text("DELETE FROM listing_price_snapshots WHERE listing_id = 'reimport-probe'")
+        )
+
+
 def test_snapshots_table_starts_empty_between_runs(frozen_now):
     # AC22 (dynamique) : deux runs successifs de save_comparables partent d'une
     # table vierge -> pas d'accumulation inter-tests. Si l'isolation conftest ne
@@ -779,4 +813,240 @@ def test_snapshots_table_starts_empty_between_runs(frozen_now):
     save_comparables([_make_ad(listing_id="ac22-iso", price_total=250000.0)])
     assert _snapshot_count("ac22-iso") == 1, (
         "1re observation isolee : exactement 1 snapshot (AC22)"
+    )
+
+
+# ===========================================================================
+# Durcissements phase B (challenge) — adversite, bords fins, anti-fuite
+# ===========================================================================
+def test_rejected_reobservation_leaves_existing_history_untouched(frozen_now):
+    # Phase B / AC5+AC10 combine : une RE-observation d'un id existant dont le
+    # prix est desormais hors bande [800-12000] doit etre rejetee AVANT toute
+    # ecriture -> la ligne existante garde son historique INTACT : last_seen_at
+    # NON rafraichi, first_seen_at inchange, prix inchange, AUCUN snapshot.
+    from ingestion.save import save_comparables
+
+    t1 = datetime(2026, 1, 6, 4, 0, 0)
+    frozen_now["now"] = t1
+    save_comparables([_make_ad(listing_id="advers-id", price_total=250000.0, surface=80.0)])
+    assert _snapshot_count("advers-id") == 1
+
+    # 2e run : meme id, prix delirant (20000 euros/m2 > 12000 -> rejet bande).
+    frozen_now["now"] = datetime(2026, 3, 10, 4, 0, 0)
+    save_comparables([_make_ad(listing_id="advers-id", price_total=1600000.0, surface=80.0)])
+
+    row = _row("advers-id")
+    assert row.last_seen_at == t1, (
+        "annonce rejetee = AUCUNE ecriture : last_seen_at ne doit PAS etre "
+        "rafraichi par une re-observation hors bande (phase B)"
+    )
+    assert row.first_seen_at == t1, "first_seen_at altere par une re-observation rejetee (phase B)"
+    assert row.price_total == 250000.0, (
+        "le prix existant a ete ecrase par une re-observation hors bande (phase B)"
+    )
+    assert _snapshot_count("advers-id") == 1, (
+        "un snapshot a ete ecrit pour une re-observation rejetee (phase B)"
+    )
+
+
+def test_history_legacy_row_returns_200_with_nulls_and_empty_snapshots(client, admin_token):
+    # Phase B / SPEC §4.3 : ligne prod heritee (first_seen/last_seen NULL, aucun
+    # snapshot) -> 200, pas 500 ; dates null, weeks_on_market null, price_* null,
+    # price_change_pct null, snapshots [].
+    from db.session import init_db, engine
+
+    init_db()
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "INSERT INTO comparables "
+                "(id, source, city, property_type, surface_m2, price_total, price_m2, "
+                " first_seen_at, last_seen_at, collected_at) "
+                "VALUES ('legacy-id', 'bienici', 'Metz', 'appartement', 80, 250000, "
+                " 3125, NULL, NULL, NULL)"
+            )
+        )
+
+    resp = client.get(
+        "/admin/comparables/legacy-id/history",
+        headers={"X-Admin-Token": admin_token},
+    )
+    assert resp.status_code == 200, (
+        f"ligne heritee sans dates ni snapshots : attendu 200, recu {resp.status_code} (phase B)"
+    )
+    body = resp.json()
+    assert body["first_seen_at"] is None
+    assert body["last_seen_at"] is None
+    assert body["weeks_on_market"] is None, "weeks_on_market doit etre null si dates manquantes"
+    assert body["price_first"] is None
+    assert body["price_last"] is None
+    assert body["price_change_pct"] is None
+    assert body["snapshots"] == []
+    # Meme une ligne heritee ne doit fuiter aucune cle re-publiable.
+    assert set(body.keys()) <= HISTORY_ALLOWED_KEYS
+
+
+def test_history_id_with_special_characters_in_url(client, admin_token, frozen_now):
+    # Phase B : id stable contenant espaces / accents / & a encoder dans l'URL.
+    # L'id reel est un sha256 hex, mais l'endpoint ne doit pas 500 sur un id
+    # exotique passe encode, et le round-trip doit retrouver la ligne.
+    #
+    # Limite framework constatee (et figee ici) : Starlette/httpx DOUBLE-decode
+    # le path param (`%2525` envoye -> `percent%` recu) ; un id contenant un `%`
+    # litteral n'est donc PAS adressable via l'URL. Sans impact produit (ids =
+    # sha256 hex), mais l'endpoint doit alors repondre un 404 metier generique,
+    # jamais un 500.
+    from urllib.parse import quote
+    from ingestion.save import save_comparables
+
+    weird_id = "id avec espaces & ç"
+    frozen_now["now"] = datetime(2026, 1, 6, 4, 0, 0)
+    save_comparables([_make_ad(listing_id=weird_id, price_total=250000.0)])
+    assert _row(weird_id) is not None
+
+    resp = client.get(
+        f"/admin/comparables/{quote(weird_id, safe='')}/history",
+        headers={"X-Admin-Token": admin_token},
+    )
+    assert resp.status_code == 200, (
+        f"id avec caracteres speciaux encode : attendu 200, recu {resp.status_code} (phase B)"
+    )
+    assert resp.json()["listing_id"] == weird_id
+
+    # Id avec % litteral : inatteignable (double-decode framework) mais doit
+    # donner un 404 metier propre et generique, jamais un 500.
+    percent_id = "id-percent%25-litteral"
+    save_comparables([_make_ad(listing_id=percent_id, price_total=250000.0)])
+    resp_pct = client.get(
+        f"/admin/comparables/{quote(percent_id, safe='')}/history",
+        headers={"X-Admin-Token": admin_token},
+    )
+    assert resp_pct.status_code == 404, (
+        f"id avec % litteral : attendu 404 metier (double-decode framework), "
+        f"recu {resp_pct.status_code} (phase B)"
+    )
+    assert resp_pct.json() == {"detail": "Identifiant inconnu."}
+
+
+def test_history_error_responses_do_not_echo_input(client, admin_token):
+    # Phase B / AC14 etendu aux erreurs : ni le 404 (id inconnu) ni le 401
+    # (token errone) ne doivent echo-iser le contenu fourni par l'appelant
+    # (anti log/reponse-injection, detail generique).
+    probe_id = "id-sonde-jamais-stocke-9f8e7d"
+    resp404 = client.get(
+        f"/admin/comparables/{probe_id}/history",
+        headers={"X-Admin-Token": admin_token},
+    )
+    assert resp404.status_code == 404
+    assert probe_id not in resp404.text, (
+        "le detail du 404 ne doit pas echo-iser l'id fourni (phase B / AC14)"
+    )
+
+    probe_token = "token-sonde-secret-3c2b1a"
+    resp401 = client.get(
+        "/admin/comparables/whatever/history",
+        headers={"X-Admin-Token": probe_token},
+    )
+    assert resp401.status_code == 401
+    assert probe_token not in resp401.text, (
+        "le detail du 401 ne doit pas echo-iser le token fourni (phase B)"
+    )
+
+
+def test_retention_day_granularity_730_days_plus_hours_kept(client, admin_token):
+    # Phase B / borne fine AC15-AC16 : l'implementation calcule l'age en jours
+    # REVOLUS ((now - last_seen).days, troncature) au lieu du seuil litteral
+    # `last_seen < now - 730j` de la spec §5.2. Ecart ASSUME et juge acceptable :
+    # - les deux bornes testables de la spec tiennent (730j pile = conserve,
+    #   731j = purge) ;
+    # - la zone intermediaire (730j + quelques heures) est CONSERVEE, soit une
+    #   retention prolongee d'au plus <24h, dans le sens conservateur (jamais de
+    #   purge prematuree) et toujours "24 mois" au sens calendaire ;
+    # - le litteral etait intestable (latence sub-seconde insert -> now endpoint).
+    # Ce test FIGE cette semantique : purge seulement a partir de 731 jours pleins.
+    from db.session import init_db
+
+    init_db()
+    now = datetime.utcnow()
+    last_seen = now - timedelta(days=730, hours=6)
+    _insert_comparable_direct("fine-730p6h", last_seen_at=last_seen)
+    _insert_snapshot_direct("fine-730p6h", observed_at=last_seen)
+
+    resp = client.post(
+        "/admin/comparables/maintenance",
+        json={"dry_run": False},
+        headers={"X-Admin-Token": admin_token},
+    )
+    assert resp.status_code == 200
+    assert _row("fine-730p6h") is not None, (
+        "730j + 6h = 730 jours revolus -> CONSERVE (granularite jour, purge a "
+        "partir de 731 jours pleins ; phase B)"
+    )
+    assert _snapshot_count("fine-730p6h") == 1
+    assert resp.json()["purged_retention"] == 0
+
+
+def test_maintenance_row_purgeable_for_two_reasons_counted_once(client, admin_token):
+    # Phase B / interaction des purges : un comparable purgeable pour DEUX
+    # raisons (hors bande prix/m2 ET retention expiree) doit etre supprime UNE
+    # fois et compte UNE fois au total (pas de double comptage band+retention).
+    from db.session import init_db
+
+    init_db()
+    now = datetime.utcnow()
+    # 2 000 000 / 80 = 25 000 euros/m2 (hors bande) ET last_seen 731j (expire).
+    _insert_comparable_direct(
+        "double-purge", last_seen_at=now - timedelta(days=731),
+        price_total=2000000.0, surface=80.0,
+    )
+
+    resp = client.post(
+        "/admin/comparables/maintenance",
+        json={"dry_run": False},
+        headers={"X-Admin-Token": admin_token},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+
+    assert _row("double-purge") is None, "le comparable doit etre purge (phase B)"
+    total_counted = body["purged_band"] + body["purged_retention"]
+    assert total_counted == 1, (
+        f"un comparable purgeable pour deux raisons doit etre compte UNE fois, "
+        f"compte {total_counted} fois (band={body['purged_band']}, "
+        f"retention={body['purged_retention']}) (phase B)"
+    )
+
+
+def test_maintenance_dry_run_retention_counters_without_mutation(client, admin_token):
+    # Phase B / AC17 durci : en dry_run, les compteurs retention COMPTENT
+    # (purged_retention/purged_snapshots > 0) mais rien n'est mute, et un second
+    # appel dry_run renvoie les MEMES compteurs (pas d'effet de bord cache).
+    from db.session import init_db
+
+    init_db()
+    now = datetime.utcnow()
+    _insert_comparable_direct("dry-cnt", last_seen_at=now - timedelta(days=731))
+    _insert_snapshot_direct("dry-cnt", observed_at=now - timedelta(days=731))
+
+    first = client.post(
+        "/admin/comparables/maintenance",
+        json={"dry_run": True},
+        headers={"X-Admin-Token": admin_token},
+    )
+    assert first.status_code == 200
+    b1 = first.json()
+    assert b1["purged_retention"] == 1, "dry_run doit COMPTER la purge retention (phase B)"
+    assert b1["purged_snapshots"] == 1, "dry_run doit COMPTER les snapshots purgeables (phase B)"
+    assert _row("dry-cnt") is not None
+    assert _snapshot_count("dry-cnt") == 1
+
+    second = client.post(
+        "/admin/comparables/maintenance",
+        json={"dry_run": True},
+        headers={"X-Admin-Token": admin_token},
+    )
+    b2 = second.json()
+    assert (b2["purged_retention"], b2["purged_snapshots"]) == (1, 1), (
+        "un dry_run repete doit renvoyer les memes compteurs : un ecart "
+        "trahirait une mutation cachee au 1er passage (phase B)"
     )
