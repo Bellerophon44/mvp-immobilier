@@ -93,6 +93,41 @@ def _reset_events_table():
 
 
 @pytest.fixture(autouse=True)
+def _reset_snapshots_table():
+    """Vide `listing_price_snapshots` (et les `comparables`) AVANT chaque test.
+
+    Chantier cross-agence increment 1 (SPEC AC22, lecons 9.7/9.9) : la table de
+    snapshots de prix est un etat partage persistant (fichier SQLite jetable de
+    la suite). Sans reset, les snapshots/comparables d'un test s'accumulent entre
+    tests d'une meme session : un `count()` de snapshots ou un appel repete a
+    `save_comparables` sur le meme id deviendrait dependant de l'ordre
+    d'execution (faux rouge/vert). On vide AUSSI `comparables` car la logique de
+    capture (first_seen immuable, snapshot conditionnel) lit la ligne existante :
+    un comparable laisse par un test precedent fausserait la 1re observation du
+    suivant.
+
+    Autouse en conftest (jamais en fixture locale, lecon 9.9). Import et reset
+    proteges : tant que la table n'existe pas (phase tests-first, avant le code),
+    on n'echoue pas a la collecte ; les tests echoueront proprement sur l'absence
+    de la colonne/table/endpoint. Reset par DELETE pour ne pas dependre d'un ORM
+    eventuellement absent.
+    """
+    try:
+        from db.session import engine
+        from sqlalchemy import inspect, text
+
+        insp = inspect(engine)
+        with engine.begin() as conn:
+            if insp.has_table("listing_price_snapshots"):
+                conn.execute(text("DELETE FROM listing_price_snapshots"))
+            if insp.has_table("comparables"):
+                conn.execute(text("DELETE FROM comparables"))
+    except Exception:
+        pass
+    yield
+
+
+@pytest.fixture(autouse=True)
 def _reset_photo_cache():
     """Vide le cache memoire de photo_evidence entre chaque test. Le cache
     (spec photo-evidence §3.2) est un etat module global : deux tests utilisant le
