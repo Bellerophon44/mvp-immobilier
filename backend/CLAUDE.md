@@ -484,9 +484,17 @@ en ancien format) persistent. Cet endpoint les assainit en base :
   `canonical_district` aux quartiers existants (`renamed_district`) ;
 - **purge de rétention** (cross-agence incrément 1) : comparables dont
   `last_seen_at` date de **plus de 730 jours révolus** (24 mois ; exactement
-  730 jours = conservé), avec leurs `listing_price_snapshots` —
-  compteurs `purged_retention` et `purged_snapshots`. Une ligne
+  730 jours = conservé) — compteur `purged_retention`. Une ligne
   `last_seen_at` NULL n'est jamais purgée par cette règle.
+
+**Cascade snapshots** : TOUTE purge d'un comparable (band, zone, dept ou
+rétention) supprime aussi ses `listing_price_snapshots` dans la même
+transaction — compteur `purged_snapshots`. Un **balayage final d'orphelins**
+supprime en plus les snapshots dont le `listing_id` n'existe plus dans
+`comparables` (rattrape les orphelins laissés par d'anciennes purges sans
+cascade ou par tout chemin de suppression futur oublié) — compteur dédié
+`purged_orphan_snapshots` (un orphelin signale une anomalie passée, pas une
+cascade attendue).
 
 `dry_run` est **true par défaut** (simulation, ne supprime rien) ; passer
 `{"dry_run": false}` pour appliquer. Renvoie les compteurs + `total_after`.

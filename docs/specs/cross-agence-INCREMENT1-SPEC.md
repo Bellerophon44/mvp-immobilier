@@ -263,12 +263,18 @@ band/zone/dept existantes.
 - `dry_run=true` (defaut) compte sans supprimer ; `dry_run=false` applique. Les
   snapshots d'un comparable purge sont supprimes dans la **meme transaction** que
   le comparable.
+- **Correctif post-phase B (2026-06-10)** : la cascade snapshots est generalisee
+  a **toutes** les purges de comparables (band, zone, dept, retention), comptee
+  dans `purged_snapshots` ; un **balayage final d'orphelins** supprime les
+  snapshots dont le `listing_id` n'existe plus dans `comparables` (compteur
+  dedie `purged_orphan_snapshots`). Voir §8.
 
 ### 5.3 Reponse (extension du dict existant)
-Le dict de reponse (`main.py:310-318`) gagne `purged_retention` et
-`purged_snapshots` ; les cles existantes (`purged_band`, `purged_zone`,
-`purged_dept`, `renamed`, `renamed_district`, `total_after`, `dry_run`) sont
-**inchangees** (pas de regression du contrat maintenance).
+Le dict de reponse (`main.py:310-318`) gagne `purged_retention`,
+`purged_snapshots` et (correctif post-phase B) `purged_orphan_snapshots` ; les
+cles existantes (`purged_band`, `purged_zone`, `purged_dept`, `renamed`,
+`renamed_district`, `total_after`, `dry_run`) sont **inchangees** (pas de
+regression du contrat maintenance).
 
 ---
 
@@ -416,9 +422,18 @@ jetable reelle (leçon 9.10), pas un mock de `db.merge`.
   partir du 1er run post-merge — assume (on ne peut pas reconstruire un passe
   non collecte). Documente, pas bloquant.
 - **Pas de FK formelle** snapshot -> comparable (SQLite/MVP) : la coherence est
-  applicative ; la purge supprime explicitement les snapshots des ids purges. Un
-  snapshot orphelin ne peut apparaitre que par ecriture hors `save_comparables`
-  (non prevu). A surveiller si increment 2 multiplie les ecrivains.
+  applicative. *Note initiale corrigee (post-phase B)* : la version livree en
+  phase A ne cascadait les snapshots que sur la purge **retention** — les purges
+  band/zone/dept (dont le chemin reel `extra_out_of_scope`) supprimaient le
+  comparable SANS ses snapshots, creant des orphelins que la regle de retention
+  (qui ne scanne que `comparables`) ne rattrapait jamais. Corrige : **toute**
+  purge d'un comparable supprime ses snapshots dans la meme transaction
+  (`purged_snapshots`), et la maintenance termine par un **balayage
+  d'orphelins** (snapshots dont le `listing_id` n'existe plus dans
+  `comparables`, compteur dedie `purged_orphan_snapshots`) qui rattrape les
+  orphelins laisses par d'anciennes purges et tout chemin de suppression futur
+  oublie. Respecte `dry_run` comme le reste. A surveiller si increment 2
+  multiplie les ecrivains, mais le filet d'orphelins couvre desormais ce cas.
 - **Volume** : mode delta (1 snapshot au 1er passage + 1 par changement de prix),
   ~20-50k lignes/an ≈ 5-10 Mo/an (ANALYSE §6.3) — confortable sur le volume 1 Go.
 - **Increment 2 (hors scope)** : hashes photo + clustering cross-agence,

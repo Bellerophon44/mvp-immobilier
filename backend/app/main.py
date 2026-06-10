@@ -325,8 +325,10 @@ def comparables_maintenance(
     """
     Assainit l'historique : purge les comparables hors bande prix/m², purge les
     communes hors périmètre, purge les historiques expirés (rétention 24 mois
-    après last_seen_at, snapshots compris), et ré-applique la forme canonique
-    aux villes.
+    après last_seen_at), et ré-applique la forme canonique aux villes. TOUTE
+    purge d'un comparable supprime aussi ses listing_price_snapshots
+    (purged_snapshots) ; un balayage final supprime les snapshots orphelins
+    dont le parent a disparu (purged_orphan_snapshots).
 
     dry_run=true (défaut) ne fait que compter ce qui serait modifié.
     """
@@ -347,11 +349,24 @@ def comparables_maintenance(
 
     db = SessionLocal()
     purged_band = purged_zone = purged_dept = renamed = renamed_district = 0
-    purged_retention = purged_snapshots = 0
+    purged_retention = purged_snapshots = purged_orphan_snapshots = 0
     try:
+        def _purge_snapshots_of(listing_id: str) -> int:
+            # Toute purge d'un comparable emporte ses snapshots dans la même
+            # transaction : aucun chemin de suppression ne doit laisser
+            # d'orphelin (le balayage post-boucle n'est qu'un filet).
+            snaps_q = db.query(ListingPriceSnapshot).filter(
+                ListingPriceSnapshot.listing_id == listing_id
+            )
+            count = snaps_q.count()
+            if not payload.dry_run:
+                snaps_q.delete(synchronize_session=False)
+            return count
+
         for c in db.query(Comparable).all():
             if c.price_m2 is None or c.price_m2 < MIN_PRICE_M2 or c.price_m2 > MAX_PRICE_M2:
                 purged_band += 1
+                purged_snapshots += _purge_snapshots_of(c.id)
                 if not payload.dry_run:
                     db.delete(c)
                 continue
@@ -359,6 +374,7 @@ def comparables_maintenance(
             canon = canonical_city(c.city)
             if canon in out_of_scope:
                 purged_zone += 1
+                purged_snapshots += _purge_snapshots_of(c.id)
                 if not payload.dry_run:
                     db.delete(c)
                 continue
@@ -367,6 +383,7 @@ def comparables_maintenance(
             # code postal restent couvertes par la blocklist de noms ci-dessus).
             if c.postal_code and not c.postal_code.startswith(IN_SCOPE_DEPARTMENT):
                 purged_dept += 1
+                purged_snapshots += _purge_snapshots_of(c.id)
                 if not payload.dry_run:
                     db.delete(c)
                 continue
@@ -376,13 +393,8 @@ def comparables_maintenance(
                 and (maintenance_now - c.last_seen_at).days > 730
             ):
                 purged_retention += 1
-                snaps_q = db.query(ListingPriceSnapshot).filter(
-                    ListingPriceSnapshot.listing_id == c.id
-                )
-                purged_snapshots += snaps_q.count()
+                purged_snapshots += _purge_snapshots_of(c.id)
                 if not payload.dry_run:
-                    # Même transaction que le comparable : pas de snapshot orphelin.
-                    snaps_q.delete(synchronize_session=False)
                     db.delete(c)
                 continue
 
@@ -397,7 +409,20 @@ def comparables_maintenance(
                 if not payload.dry_run:
                     c.district = canon_d
 
+        # Filet de sécurité : snapshots dont le comparable parent n'existe plus
+        # (orphelins laissés par d'anciennes purges sans cascade, ou par un
+        # futur chemin de suppression oublié). Compteur dédié (et non fondu
+        # dans purged_snapshots) : un orphelin signale une anomalie passée,
+        # pas une cascade attendue — le distinguer rend les runs lisibles.
+        # En non-dry_run, l'autoflush du count() a déjà appliqué les
+        # suppressions de la boucle dans la transaction : le balayage ne voit
+        # que les orphelins préexistants, jamais les snapshots déjà comptés.
+        orphan_q = db.query(ListingPriceSnapshot).filter(
+            ~ListingPriceSnapshot.listing_id.in_(db.query(Comparable.id))
+        )
+        purged_orphan_snapshots = orphan_q.count()
         if not payload.dry_run:
+            orphan_q.delete(synchronize_session=False)
             db.commit()
         total_after = db.query(Comparable).count()
     finally:
@@ -412,6 +437,7 @@ def comparables_maintenance(
         "renamed_district": renamed_district,
         "purged_retention": purged_retention,
         "purged_snapshots": purged_snapshots,
+        "purged_orphan_snapshots": purged_orphan_snapshots,
         "total_after": total_after,
     }
     logger.info("ADMIN maintenance: %s", result)
