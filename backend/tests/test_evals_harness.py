@@ -291,6 +291,21 @@ def test_ac8_garde_cle_placeholder(placeholder):
     _assert_echec_explicite(_run_pytest(["evals"], key=placeholder))
 
 
+@pytest.mark.parametrize(
+    "cle_bord",
+    ["   ", "\t", " test-key-not-real ", "test-key-not-used "],
+    ids=["espaces", "tabulation", "placeholder-padde-1", "placeholder-padde-2"],
+)
+def test_ac8_durci_garde_cle_blancs_et_placeholders_paddes(cle_bord):
+    """AC8 durci (phase B) : une cle composee uniquement de blancs, ou un
+    placeholder entoure d'espaces, doit etre refusee comme la chaine vide.
+    Le step workflow `[ -z "$OPENAI_API_KEY" ]` laisse passer une valeur
+    d'espaces : la garde du conftest est la derniere ligne de defense — elle
+    doit normaliser (strip) avant comparaison."""
+    assert EVALS_DIR.is_dir(), "backend/evals/ absent (AC8 durci)"
+    _assert_echec_explicite(_run_pytest(["evals"], key=cle_bord))
+
+
 def test_ac9_conftest_evals_database_path_force_avant_imports_app():
     """AC9 (statique) : evals/conftest.py force os.environ["DATABASE_PATH"]
     (affectation directe, suffixe pid, jamais setdefault) avant tout import
@@ -518,6 +533,41 @@ def test_ac17_regression_b_questions_copropriete_xfail():
     for f, mark in candidats:
         assert mark["strict"] is False, (
             f"{f.name} : strict doit valoir False explicitement (AC17)"
+        )
+
+
+def test_phase_b_fixtures_des_xfail_partagees_avec_un_test_bloquant():
+    """Durcissement phase B (anti faux-vert structurel) : pytest convertit en
+    XFAIL silencieux (exit 0) l'ERREUR DE SETUP d'un test marque xfail — une
+    fixture module qui leve ne produit PAS d'error sur ces tests (verifie par
+    sonde : fixture raise + xfail(strict=False) -> `1 xfailed`, rc=0).
+
+    Le harnais n'est donc protege que si CHAQUE fixture consommee par un test
+    xfail est aussi consommee par au moins un test bloquant (sans xfail) : la
+    meme erreur de fixture y devient alors un ERROR qui met le job au rouge.
+    Ce test fige cette propriete ; il echoue si un refactor donne aux tests de
+    regression une fixture dediee ou retire les tests bloquants partages."""
+    src = _read(EVAL_MODULE)
+    tests_xfail = []
+    tests_bloquants = []
+    for f in _functions(src):
+        if not f.name.startswith("test_"):
+            continue
+        params = {a.arg for a in f.args.args if a.arg != "self"}
+        if _xfail_marks(f):
+            tests_xfail.append((f.name, params))
+        else:
+            tests_bloquants.append((f.name, params))
+    assert tests_xfail, "Aucun test xfail dans le module d'eval (AC16/AC17)"
+    assert tests_bloquants, "Aucun test bloquant dans le module d'eval (AC15)"
+    params_bloquants = set().union(*(p for _, p in tests_bloquants))
+    for nom, params in tests_xfail:
+        orphelines = params - params_bloquants
+        assert not orphelines, (
+            f"{nom} consomme des fixtures qu'aucun test bloquant ne partage "
+            f"({sorted(orphelines)}) : une erreur de cette fixture serait "
+            "convertie en XFAIL silencieux (exit 0) au lieu de mettre le job "
+            "au rouge (piege pytest setup-error + xfail)"
         )
 
 
