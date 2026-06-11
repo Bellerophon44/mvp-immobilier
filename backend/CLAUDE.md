@@ -5,9 +5,11 @@
 > [`/CONTEXT.md`](../CONTEXT.md) à la racine du repo (source de vérité).
 > Ce fichier-ci se concentre sur l'état technique courant du backend.
 >
-> **Dernière mise à jour :** 2026-06-10 (cross-agence incrément 1 : tracking
-> temporel par id stable — `first_seen_at`/`last_seen_at`, snapshots de prix,
-> endpoint admin `/history`, rétention 24 mois en maintenance)
+> **Dernière mise à jour :** 2026-06-11 (cross-agence incrément 1 **déployé en
+> production**, PR #71 → `staging` puis PR #72 → `main`, deploy Fly prod OK :
+> tracking temporel par id stable — `first_seen_at`/`last_seen_at`, snapshots de
+> prix, endpoint admin `/history`, rétention 24 mois + cascade snapshots en
+> maintenance). Incrément 2 (clustering photo) : à faire, staging-first.
 
 ---
 
