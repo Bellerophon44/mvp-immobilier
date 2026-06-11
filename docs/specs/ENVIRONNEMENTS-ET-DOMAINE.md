@@ -6,7 +6,11 @@
 > (1) un **environnement de test isolé de la prod**, (2) le **domaine définitif** et
 > l'hébergement. Les valeurs non sourcées sont marquées `[HYPOTHÈSE]`.
 >
-> **Dernière mise à jour** : 2026-06-09.
+> **Dernière mise à jour** : 2026-06-11.
+>
+> **STATUT : LIVRÉ EN PRODUCTION (2026-06-11).** Prod et staging tournent chacun
+> sur leurs sous-domaines `coherence-metz.fr`, totalement isolés. Détail des URL
+> et des actions réalisées en §5.3 et §8.
 
 ---
 
@@ -129,28 +133,34 @@ fonctionner** → bascule sans coupure.
    `backend/**` → deploy `coherence-staging` (`--config fly.staging.toml`) ; push `main`
    → prod (inchangé) ; concurrency par environnement.
 
-### 5.3 Actions externes restantes (dashboards / CLI — hors repo)
-1. **Vercel** : ajouter `coherence-metz.fr` + `www` au projet ; définir la branche de
-   prod = `main` et un alias stable pour `staging` (→ `staging.coherence-metz.fr`).
-2. **Env Vercel par environnement** : `NEXT_PUBLIC_API_URL` = `https://api.coherence-metz.fr`
-   (Production) **et** `https://api-staging.coherence-metz.fr` (Preview + branche staging) ;
-   `NEXT_PUBLIC_SITE_URL` = `https://coherence-metz.fr` (canonicals/sitemap SEO 9.5).
-   ⚠️ Mettre l'API **staging** sur l'environnement Preview évite que le trafic de preview
-   écrive dans la table `events` de prod.
-3. **Fly staging (one-shot)** : `fly apps create coherence-staging` ;
-   `fly volumes create comparables_data -a coherence-staging -r cdg -s 1` ; secrets
-   `OPENAI_API_KEY` (idéalt clé/usage-limit distincts) + `ADMIN_TOKEN` propres.
-4. **Certs** : `fly certs add api.coherence-metz.fr` (+ `api-staging.`) une fois le DNS
-   posé ; Vercel gère son cert automatiquement à l'ajout du domaine.
-5. **FLY_API_TOKEN** : vérifier qu'il a accès aux **deux** apps (jeton org-scoped) sinon le
-   deploy staging échouera.
-6. **Seed données staging** : amorcer la base comparables (sinon pilier prix « Indéterminé »).
-   Workflow dédié **fourni** : `.github/workflows/collect-staging.yml` (manuel,
-   `workflow_dispatch`, cible `BACKEND_URL` paramétrable, défaut `coherence-staging.fly.dev`).
-   Prérequis : secret repo `STAGING_ADMIN_TOKEN` = `ADMIN_TOKEN` de l'app staging. One-shot
-   suffit ; relancer ponctuellement pour rafraîchir.
+### 5.3 Actions externes — FAIT (2026-06-11, dashboards / CLI)
+1. **Domaine** : `coherence-metz.fr` acheté chez OVH, DNS géré chez OVH.
+2. **Vercel** : `coherence-metz.fr` + `www` (→ apex, redirect 308) en Production ;
+   `staging.coherence-metz.fr` sur la branche `staging` (Preview).
+3. **Env Vercel par environnement** : `NEXT_PUBLIC_API_URL`/`NEXT_PUBLIC_SITE_URL`
+   scindées **Production** (`api.` / apex) **et** **Preview** (`api-staging.` /
+   `staging.`). Le redeploy `staging` a inliné les valeurs Preview → vérifié dans
+   l'onglet Network (requête `/analyze` part bien vers `api-staging.coherence-metz.fr`).
+4. **Fly staging** : `coherence-staging` créée + volume `comparables_data` + secrets
+   `OPENAI_API_KEY`/`ADMIN_TOKEN` propres (staged au 1ᵉʳ deploy).
+5. **DNS OVH** (Zone DNS) : apex `A 216.198.79.1` ; `www A 216.198.79.1` ;
+   `api A 66.241.125.182` + `AAAA 2a09:8280:1::112:836d:0` ;
+   `api-staging A 66.241.124.250` + `AAAA 2a09:8280:1::124:5032:0` ;
+   `staging CNAME <cible-unique>.vercel-dns-017.com.`.
+   *Piège rencontré* : un CNAME OVH refuse de cohabiter avec un autre champ — le TXT
+   de parking « welcome » sur `www` bloquait ; contourné en mettant `www` en **A**
+   (cohabite avec le TXT) plutôt qu'en CNAME.
+6. **Certs Fly** : `api.` et `api-staging.coherence-metz.fr` émis (Let's Encrypt, actifs).
+7. **`FLY_API_TOKEN`** remplacé par un **jeton org-scoped** (accès aux 2 apps).
+8. **Seed staging** : secret repo `STAGING_ADMIN_TOKEN` créé ; workflow
+   `.github/workflows/collect-staging.yml` lancé (success) → base staging peuplée.
 
-### 5.3 Migration domaine sans coupure (ordre)
+> **Note données 9.10** : pendant la fenêtre où le front staging tapait encore l'API
+> prod (avant le redeploy Preview), **quelques events de test ont été écrits dans la
+> table `events` de prod**. Volume négligeable et antérieur au roll-out ; retenir le
+> 2026-06-11 comme début de comptage propre si l'on veut des métriques pures.
+
+### 5.4 Migration domaine sans coupure (ordre suivi)
 1. Achat domaine + DNS chez le provider choisi.
 2. Ajouter `coherence-metz.fr` + `www` au projet Vercel → poser les enregistrements DNS → Vercel émet le cert.
 3. `fly certs add api.coherence-metz.fr` + enregistrements DNS → Fly émet le cert.
@@ -175,9 +185,27 @@ fonctionner** → bascule sans coupure.
 ## 7. Points ouverts
 
 - ~~Disponibilité réelle de `coherence-metz.fr`~~ → **acquis chez OVH** (2026-06-09).
-  DNS géré chez OVH par défaut (bascule Cloudflare possible plus tard, optionnelle).
-- ~~Séparation analytics staging/prod~~ → **résolue par construction** (DB SQLite dédiée
-  côté staging ; cf. §2). Seul soin : `NEXT_PUBLIC_API_URL` du Preview Vercel = API staging.
+  DNS géré chez OVH (bascule Cloudflare possible plus tard, optionnelle).
+- ~~Séparation analytics staging/prod~~ → **résolue + vérifiée** (DB SQLite dédiée côté
+  staging ; Preview Vercel pointe sur `api-staging.`, confirmé via l'onglet Network).
 - Cadence de rafraîchissement des comparables staging (one-shot vs cron mensuel) `[HYPOTHÈSE — à fixer]`.
 - Politique réseau de l'env staging : autoriser l'egress vers `api-adresse.data.gouv.fr`
   (géocodage couche C) et OpenAI, comme en prod (cf. `backend/CLAUDE.md` §11bis).
+- **Débloqués par le domaine, à faire plus tard** : email/Resend + SPF/DKIM (9.2),
+  canonicals SEO (9.5), auth magic-link (9.6).
+
+---
+
+## 8. État livré (2026-06-11)
+
+| | Prod | Staging |
+|---|---|---|
+| Front (Vercel) | `coherence-metz.fr` (+ `www`→apex) | `staging.coherence-metz.fr` (branche `staging`) |
+| API (Fly) | `api.coherence-metz.fr` → `backend-frosty-sound-441-docker` | `api-staging.coherence-metz.fr` → `coherence-staging` |
+| Base / events 9.10 | SQLite prod | SQLite staging — **isolé** (vérifié) |
+| Deploy | merge `main` → `deploy-backend.yml` (prod) | push/run `staging` → `deploy-backend.yml` (staging) |
+| Seed comparables | `collect.yml` (hebdo) | `collect-staging.yml` (manuel) |
+
+TLS Let's Encrypt actif sur les 4 hôtes. Anciennes URL `*.fly.dev` / `*.vercel.app`
+conservées en filet. Flux de travail : `claude/* → PR → staging` (test sur
+`staging.coherence-metz.fr`) `→ main` (prod).

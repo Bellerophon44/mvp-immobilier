@@ -45,7 +45,7 @@ Anti-patterns à ne JAMAIS introduire :
 | CI | GitHub Actions : `test.yml` (pytest), `collect.yml`, `diagnose-scrapers.yml`, `diag-bienici.yml` |
 | CD backend | `deploy-backend.yml` — **auto-deploy Fly** : push `main`→**prod** (`fly.toml`), push `staging`→**staging** (`fly.staging.toml`, app `coherence-staging`). `flyctl deploy --remote-only`, secret `FLY_API_TOKEN` (accès aux 2 apps), concurrency par env ; `workflow_dispatch` manuel |
 | App Fly staging | `coherence-staging` (env de test isolé, base SQLite + volume dédiés ⇒ events 9.10 séparés de la prod). Voir `docs/specs/ENVIRONNEMENTS-ET-DOMAINE.md` |
-| Domaine définitif | `coherence-metz.fr` (acquis OVH) — prod `coherence-metz.fr`/`api.`, staging `staging.`/`api-staging.` (câblage en cours) |
+| Domaine définitif | `coherence-metz.fr` (OVH) — **LIVRÉ 2026-06-11**, TLS actif : prod `coherence-metz.fr` / `api.coherence-metz.fr`, staging `staging.` / `api-staging.`. Détail : `docs/specs/ENVIRONNEMENTS-ET-DOMAINE.md` |
 
 ⚠️ **Pas de Railway.** Toute documentation interne qui mentionne encore Railway
 ou le port 8000 est périmée et doit être ignorée.
@@ -60,7 +60,7 @@ ou le port 8000 est périmée et doit être ignorée.
 | `OPENAI_MODEL` (optionnel) | `fly secrets` | Par défaut `gpt-4.1-mini` |
 | `ADMIN_TOKEN` | `fly secrets` **et** GitHub repo secret | Authentifie `POST /admin/comparables` |
 | `DATABASE_PATH` | `fly.toml [env]` | `/data/comparables.db` |
-| `CORS_ORIGINS` (optionnel) | env Fly | Par défaut : localhost + regex `*.vercel.app` |
+| `CORS_ORIGINS` (optionnel) | env Fly | Par défaut : localhost + `coherence-metz.fr`/`www.`/`staging.` + regex `*.vercel.app` (cf. `main.py`) |
 | `NEXT_PUBLIC_API_URL` | Vercel | URL prod du backend |
 
 ---
