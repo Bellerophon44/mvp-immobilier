@@ -434,6 +434,16 @@ jetable reelle (leçon 9.10), pas un mock de `db.merge`.
   orphelins laisses par d'anciennes purges et tout chemin de suppression futur
   oublie. Respecte `dry_run` comme le reste. A surveiller si increment 2
   multiplie les ecrivains, mais le filet d'orphelins couvre desormais ce cas.
+- **Id duplique intra-batch (preexistant, consigne post-revue)** : deux
+  occurrences du MEME id nouveau dans un seul batch `POST /admin/comparables`
+  provoquent un `IntegrityError` au `commit()` final (session `autoflush=False` :
+  le second `db.get` ne voit pas l'insert pendant, double `db.add`), hors du
+  try/except par annonce → le batch entier est perdu (500). Comportement
+  IDENTIQUE sous l'ancien `db.merge` (verifie par le testeur) : pas une
+  regression de cet increment. Improbable en pratique (ids sha256 prefixes par
+  source ; bienici dedupe par id en amont). A durcir si un jour une source
+  emet des doublons intra-page : dedupliquer le batch par id cote
+  `save_comparables` avant la boucle.
 - **Volume** : mode delta (1 snapshot au 1er passage + 1 par changement de prix),
   ~20-50k lignes/an ≈ 5-10 Mo/an (ANALYSE §6.3) — confortable sur le volume 1 Go.
 - **Increment 2 (hors scope)** : hashes photo + clustering cross-agence,

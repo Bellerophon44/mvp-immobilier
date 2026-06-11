@@ -26,6 +26,73 @@
 
 ## Entrées
 
+- **[2026-06-11] [cross-agence-inc1] Bootstrap destructif en top-level de conftest ré-exécuté par un double-import**
+  - Symptôme : `OperationalError: attempt to write a readonly database` non
+    déterministe sur des tests d'écriture collectés APRÈS le fichier
+    cross-agence, en run combiné d'un seul processus. Diagnostiqué d'abord à
+    tort comme « artefact sandbox lié au volume d'écritures ».
+  - Cause racine : le test statique AC22 faisait `import tests.conftest as
+    conftest_mod` ; pytest ayant déjà chargé conftest sous le nom `conftest`,
+    l'import sous un SECOND nom de module ré-exécutait son top-level, donc le
+    `os.remove(_tmp_db)` du bootstrap — **sous le moteur SQLAlchemy déjà
+    connecté** → toute écriture suivante échouait. Déterministe, pas un effet
+    de volume.
+  - Garde-fou : bootstrap rendu idempotent par sentinelle d'env
+    (`MVP_TEST_DB_BOOTSTRAPPED == DATABASE_PATH`, suffixe pid pour re-bootstrap
+    d'une nouvelle session). Test de régression :
+    `tests/test_cross_agence_increment1.py::test_conftest_reimport_under_second_name_keeps_db_writable`
+    (double-import volontaire + écriture réelle). Règle : tout effet de bord
+    destructif en top-level de conftest doit être idempotent au double import.
+    Et : ne pas conclure « artefact sandbox » sur un `readonly database` sans
+    avoir cherché un ré-import/réinit de la base sous moteur ouvert.
+
+- **[2026-06-11] [cross-agence-inc1] Borne temporelle littérale `x < now - delta` intestable à l'exactitude**
+  - Symptôme : implémenter la rétention au mot près (`last_seen < now -
+    timedelta(days=730)`) faisait échouer l'AC de borne : le test insère
+    `last_seen = now_test - 730j`, l'endpoint recalcule son `now` quelques ms
+    plus tard → la ligne « exactement 730 jours » est déjà sous le seuil
+    sub-seconde et purgée à tort.
+  - Cause racine : une borne à la seconde près n'est pas spécifiable ni
+    testable de façon stable (latence entre l'insert du test et le `now` du
+    code).
+  - Garde-fou : spécifier les bornes de rétention en **jours révolus**
+    (`(now - last_seen).days > 730`), sens conservateur (jamais de purge
+    prématurée), et figer la zone intermédiaire par un test fin :
+    `tests/test_cross_agence_increment1.py::test_retention_day_granularity_730_days_plus_hours_kept`.
+
+- **[2026-06-11] [cross-agence-inc1] Nouvelle table dépendante : ré-auditer TOUS les chemins de suppression du parent**
+  - Symptôme : l'ajout de `listing_price_snapshots` n'a cascadé la suppression
+    que sur le NOUVEAU chemin de purge (rétention) ; les purges préexistantes
+    (band/zone/dept) supprimaient le comparable sans ses snapshots → orphelins
+    que la rétention (qui ne scanne que `comparables`) ne rattrapait jamais.
+    Livré sans oracle : aucun test n'aurait détecté l'absence de cascade.
+  - Cause racine : sans FK formelle (SQLite/MVP), la cohérence est applicative ;
+    on n'a traité que le chemin sous les yeux, pas l'invariant « tout chemin de
+    suppression du parent supprime ses dépendances ».
+  - Garde-fou : cascade généralisée aux 4 chemins + balayage d'orphelins en
+    maintenance (compteur dédié `purged_orphan_snapshots`). 5 oracles :
+    `tests/test_cross_agence_increment1.py::test_cascade_band_zone_dept_purges_delete_snapshots_real_run`
+    (+ dry_run, orphelin préexistant, non-double-comptage, idempotence).
+    Règles : (1) toute table dépendante sans FK impose de ré-auditer TOUS les
+    chemins de suppression du parent existants, pas seulement le nouveau ;
+    (2) un correctif de fin de cycle (post-verdict) doit être verrouillé par un
+    test dans le même mini-cycle — un fix non oraclé est réversible
+    silencieusement par n'importe quel refactor.
+
+- **[2026-06-11] [cross-agence-inc1] Justifier un invariant transactionnel par le mécanisme RÉEL, pas un mécanisme désactivé**
+  - Symptôme : un commentaire justifiait l'absence de double comptage du
+    balayage d'orphelins par « l'autoflush du count() a déjà appliqué les
+    suppressions » — alors que `SessionLocal` est créé `autoflush=False`. Code
+    correct, justification fausse : piège pour un futur agent qui raisonnerait
+    dessus.
+  - Cause racine : l'invariant tient en réalité par le DML immédiat de
+    `Query.delete` (indépendant du flush), pas par l'autoflush.
+  - Garde-fou : commentaire corrigé (cite `Query.delete` + note que les
+    `db.delete` pendants ne sont PAS flushés → un orphelin d'un futur chemin
+    sans cascade ne serait rattrapé qu'au run suivant). Règle : toute
+    justification d'invariant transactionnel doit citer le mécanisme réel et
+    être vérifiable contre la config de session (`autoflush`/`autocommit`).
+
 - **[2026-06-04] [9.7] Isolation des tests par fichier SQLite partagé**
   - Symptôme : les feedbacks persistés s'accumulent dans le même fichier
     `DATABASE_PATH` ; un `.one()` filtré sur un `analysis_id` réutilisé entre

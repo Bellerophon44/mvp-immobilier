@@ -414,9 +414,13 @@ def comparables_maintenance(
         # futur chemin de suppression oublié). Compteur dédié (et non fondu
         # dans purged_snapshots) : un orphelin signale une anomalie passée,
         # pas une cascade attendue — le distinguer rend les runs lisibles.
-        # En non-dry_run, l'autoflush du count() a déjà appliqué les
-        # suppressions de la boucle dans la transaction : le balayage ne voit
-        # que les orphelins préexistants, jamais les snapshots déjà comptés.
+        # Pas de double comptage avec la cascade (session autoflush=False) :
+        # les snapshots cascadés de la boucle sont supprimés par Query.delete
+        # (DML immédiat dans la transaction, indépendant du flush) avant ce
+        # balayage, qui ne voit donc que les orphelins préexistants.
+        # Corollaire : les db.delete des comparables de la boucle ne sont pas
+        # encore flushés ici — un orphelin créé par un futur chemin de
+        # suppression sans cascade ne serait rattrapé qu'au run SUIVANT.
         orphan_q = db.query(ListingPriceSnapshot).filter(
             ~ListingPriceSnapshot.listing_id.in_(db.query(Comparable.id))
         )
