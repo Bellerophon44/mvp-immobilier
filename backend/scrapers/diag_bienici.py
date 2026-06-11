@@ -268,6 +268,11 @@ def field_audit_md(city: str = CITY, max_pages: int = 4) -> str:
 
     energy_keys = _kw("energy", "dpe", "ges", "greenhouse", "energie")
     year_keys = _kw("year", "construction", "built", "annee")
+    # Prérequis #0 incrément 2 : le pivot du matching photo exige des URLs photo
+    # dans le JSON ; le wording « publié chez X » exige un nom d'agence/contact.
+    photo_keys = _kw("photo", "image", "picture", "media", "thumbnail", "visual")
+    agency_keys = _kw("agency", "agence", "contact", "professional", "advertiser",
+                      "account", "publisher", "vendor")
 
     def _samples(keys):
         out = []
@@ -282,7 +287,32 @@ def field_audit_md(city: str = CITY, max_pages: int = 4) -> str:
             out.append(f"  - `{k}` ({fill[k]}/{n}) ex: {vals}")
         return out
 
+    def _preview(v, maxlen: int = 160) -> str:
+        s = v if isinstance(v, str) else json.dumps(v, ensure_ascii=False, default=str)
+        return s[:maxlen] + ("…" if len(s) > maxlen else "")
+
+    def _media_samples(keys):
+        """Échantillon compact (les tableaux de photos sont volumineux) : pour
+        chaque clé, taux de remplissage + 1er exemple non vide tronqué, et la
+        taille si c'est une liste (nombre de photos)."""
+        out = []
+        for k in keys:
+            sample = None
+            for a in ads:
+                v = a.get(k)
+                if v not in (None, "", [], {}):
+                    sample = v
+                    break
+            extra = f" [liste de {len(sample)}]" if isinstance(sample, list) else ""
+            out.append(f"  - `{k}` ({fill[k]}/{n}){extra} ex: {_preview(sample)}")
+        return out
+
     lines = [f"## Audit champs bienici ({city}) — {n} annonces"]
+    lines.append("### Photos / médias (faisabilité matching incrément 2)")
+    lines += _media_samples(photo_keys) or ["  - AUCUN champ photo/image/media — "
+                                            "pivot du matching photo COMPROMIS"]
+    lines.append("### Agence / contact (wording « publié chez X »)")
+    lines += _media_samples(agency_keys) or ["  - aucun champ agence/contact exposé"]
     lines.append("### DPE / énergie")
     lines += _samples(energy_keys) or ["  - aucun champ"]
     lines.append("### Année de construction")
@@ -293,6 +323,81 @@ def field_audit_md(city: str = CITY, max_pages: int = 4) -> str:
     return "\n".join(lines) + "\n"
 
 
+def dedup_signals_md(city: str = CITY, max_pages: int = 20) -> str:
+    """Probe dédup EXACTE sans photo (prérequis #0bis incrément 2).
+
+    Mesure, sur un échantillon bienici, le potentiel de dédup/republication via
+    des identifiants DÉJÀ exposés dans le JSON — `reference` (mandat), `customerId`
+    (compte annonceur), `relatedAdsIds` — pour chiffrer la valeur captable AVANT
+    tout pipeline image. Aucune écriture en base.
+    """
+    from collections import defaultdict
+
+    zone_ids = discover_zone_ids(city)
+    if not zone_ids:
+        return f"## Dédup exacte bienici ({city})\n\n_(pas de zoneId)_\n"
+
+    ads = []
+    for page in range(max_pages):
+        data = fetch_json(ADS_URL, params=_build_filters(zone_ids, page))
+        if not isinstance(data, dict):
+            break
+        page_ads = data.get("realEstateAds", [])
+        if not page_ads:
+            break
+        ads.extend(page_ads)
+        if len(page_ads) < PAGE_SIZE:
+            break
+
+    n = len(ads)
+    if not n:
+        return f"## Dédup exacte bienici ({city})\n\n_(aucune annonce)_\n"
+
+    # `reference` : référence de mandat. Une même référence sur >1 annonce =
+    # republication / doublon exact à l'intérieur du portail, sans photo.
+    ref_groups = defaultdict(list)
+    for a in ads:
+        r = a.get("reference")
+        if r not in (None, "", []):
+            ref_groups[str(r)].append(a)
+    ref_with = sum(len(v) for v in ref_groups.values())
+    ref_dups = {k: v for k, v in ref_groups.items() if len(v) > 1}
+    ref_dup_ads = sum(len(v) for v in ref_dups.values())
+
+    # `customerId` : compte annonceur (concentration = agrégation d'agences).
+    cust = Counter(str(a.get("customerId")) for a in ads
+                   if a.get("customerId") not in (None, "", []))
+
+    # `relatedAdsIds` : liens d'annonces déjà déclarés par bienici.
+    rel_with = 0
+    rel_links = 0
+    for a in ads:
+        rel = a.get("relatedAdsIds")
+        if isinstance(rel, list) and rel:
+            rel_with += 1
+            rel_links += len(rel)
+
+    lines = [
+        f"## Dédup exacte bienici ({city}) — {n} annonces (échantillon {max_pages} pages)",
+        f"- `reference` présent : {ref_with}/{n} · groupes de référence partagée (>1) : "
+        f"**{len(ref_dups)}** ({ref_dup_ads} annonces) — dédup mandat exacte SANS photo",
+        f"- `customerId` présent : {sum(cust.values())}/{n} · comptes distincts : "
+        f"{len(cust)} · top comptes (nb annonces) : {dict(cust.most_common(5))}",
+        f"- `relatedAdsIds` présent : {rel_with}/{n} · liens déclarés : {rel_links} "
+        f"— bienici relie déjà certaines annonces",
+    ]
+    if ref_dups:
+        lines.append("- exemples de références partagées (prix par annonce) :")
+        for k, v in list(ref_dups.items())[:5]:
+            prices = [a.get("price") for a in v]
+            lines.append(f"  - ref `{k}` ×{len(v)} | prix {prices}")
+    else:
+        lines.append("- (aucune référence partagée dans l'échantillon : la dédup "
+                     "intra-bienici par `reference` serait ténue ; valeur surtout "
+                     "cross-source, qui exigerait d'exposer la référence côté agences)")
+    return "\n".join(lines) + "\n"
+
+
 def main() -> None:
     zone_ids = step1_zone()
     step2_raw(zone_ids)
@@ -300,6 +405,8 @@ def main() -> None:
     step4_low_tail(zone_ids)
     print("\n" + "=" * 70)
     print(field_audit_md())
+    print("\n" + "=" * 70)
+    print(dedup_signals_md())
     print("\n" + "=" * 70)
     print("Succès attendu : total bas, dépt 57, prix/m² réalistes (~2000-3500).")
 
