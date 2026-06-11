@@ -1,0 +1,78 @@
+name: Retour pilote
+description: Documenter un constat fait sur une analyse réelle (qualité, crédibilité, UX)
+title: "[pilote] "
+labels: ["retour-pilote", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Un constat = une issue.** Coller des **extraits** de texte (les liens meurent,
+        les grands portails ne sont pas re-fetchables). Retirer l'**adresse exacte** et
+        toute donnée personnelle avant de coller (règle CONTEXT.md §11.3).
+  - type: input
+    id: bien
+    attributes:
+      label: Bien concerné
+      description: Type + quartier/commune. Pas d'adresse exacte.
+      placeholder: "ex. maison de plain-pied, Vantoux"
+    validations:
+      required: true
+  - type: textarea
+    id: annonce
+    attributes:
+      label: Extrait de l'annonce
+      description: Le ou les passages pertinents du texte de l'annonce, adresse exacte retirée. Le lien seul ne suffit pas.
+    validations:
+      required: true
+  - type: input
+    id: lien
+    attributes:
+      label: Lien de l'annonce (optionnel)
+      description: Utile tant qu'il vit, mais l'extrait ci-dessus fait foi.
+  - type: textarea
+    id: analyse
+    attributes:
+      label: Ce que l'analyse a dit
+      description: Copier le passage exact du rapport concerné (verdict, question, levier, contexte local, score…).
+    validations:
+      required: true
+  - type: textarea
+    id: probleme
+    attributes:
+      label: Ce qui est faux, manquant ou trompeur
+      description: Et si possible, ce que l'analyse aurait dû dire.
+      placeholder: "ex. l'analyse traite le plain-pied (atout d'une maison) comme un rez-de-chaussée d'immeuble (point de vigilance) : conseil inversé."
+    validations:
+      required: true
+  - type: dropdown
+    id: categorie
+    attributes:
+      label: Catégorie (meilleure estimation)
+      description: Le triage affinera ; en cas de doute, choisir « autre ».
+      options:
+        - extraction-llm — l'analyse a mal lu ou mal compris l'annonce
+        - scoring — le score ou un verdict semble injuste
+        - comparables — pilier prix, périmètre ou valeurs douteux
+        - ancrage-local — contexte local, distances, allégations
+        - wording — formulation maladroite, jargon, ton
+        - ux — parcours, affichage, lenteur
+        - autre / je ne sais pas
+    validations:
+      required: true
+  - type: dropdown
+    id: gravite
+    attributes:
+      label: Gravité perçue
+      options:
+        - bloquant-crédibilité — fait douter de tout l'outil
+        - majeur — conseil erroné ou inversé
+        - mineur — perfectible, pas trompeur
+    validations:
+      required: true
+  - type: checkboxes
+    id: verifications
+    attributes:
+      label: Vérifications
+      options:
+        - label: J'ai retiré l'adresse exacte et toute donnée personnelle des extraits collés
+          required: true

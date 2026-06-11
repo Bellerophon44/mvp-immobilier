@@ -1,0 +1,62 @@
+[
+  {
+    "name": "retour-pilote",
+    "color": "B3552F",
+    "description": "Constat documente d'un utilisateur pilote sur une analyse reelle"
+  },
+  {
+    "name": "triage",
+    "color": "C28E2D",
+    "description": "A qualifier (categorie, gravite, dedup) avant arbitrage"
+  },
+  {
+    "name": "pret-atelier",
+    "color": "5B7553",
+    "description": "Valide en gate humaine, pret a entrer dans l'atelier"
+  },
+  {
+    "name": "qualite/extraction-llm",
+    "color": "1F6FEB",
+    "description": "Le LLM a mal lu ou mal interprete l'annonce"
+  },
+  {
+    "name": "qualite/scoring",
+    "color": "1F6FEB",
+    "description": "Score ou verdict incoherent avec les constats"
+  },
+  {
+    "name": "qualite/comparables",
+    "color": "1F6FEB",
+    "description": "Pilier prix : perimetre, cascade ou valeurs douteux"
+  },
+  {
+    "name": "qualite/ancrage-local",
+    "color": "1F6FEB",
+    "description": "Contexte local, distances, controle des allegations"
+  },
+  {
+    "name": "qualite/wording",
+    "color": "6E7781",
+    "description": "Formulation, ton, jargon dans le rapport ou l'UI"
+  },
+  {
+    "name": "ux",
+    "color": "6E7781",
+    "description": "Parcours, affichage, performance percue"
+  },
+  {
+    "name": "gravite/bloquant-credibilite",
+    "color": "8C2F1B",
+    "description": "Erreur qui fait douter de tout l'outil"
+  },
+  {
+    "name": "gravite/majeur",
+    "color": "D4622A",
+    "description": "Conseil errone ou inverse"
+  },
+  {
+    "name": "gravite/mineur",
+    "color": "D9B98A",
+    "description": "Perfectible, pas trompeur"
+  }
+]
