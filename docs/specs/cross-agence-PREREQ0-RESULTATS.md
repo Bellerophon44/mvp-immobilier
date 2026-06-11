@@ -8,6 +8,38 @@
 
 ---
 
+## 0. Cadrage produit (clarifié 2026-06-11) — but réel = suivi LONGITUDINAL du prix
+
+Le but de l'incrément 2 n'est **pas** « ce bien est simultanément chez deux agences
+concurrentes » (cas concurrent, instant T — info marginale, utile surtout en cas de
+prix différents). Le but est de **suivre l'évolution du prix d'un même bien physique
+dans le temps**, alors qu'à un instant T il n'est jamais que chez **une seule agence** :
+
+- **(1) Même agence, re-publication** (nouvelle annonce, nouveau prix) ;
+- **(2) Changement d'agence** (delisté de A → relisté par B, nouveau prix).
+
+**Pourquoi l'incrément 1 ne suffit pas** : il suit par **id stable PAR ANNONCE**. Un
+bien re-listé reçoit un **nouvel id** → l'incrément 1 le voit comme neuf et **rompt la
+continuité de prix**. L'incrément 2 doit **re-lier les annonces successives du même
+bien** pour reconstruire la trajectoire.
+
+**Où chaque signal est pertinent** (re-cartographie des mesures ci-dessous) :
+
+| Cas | Continuité d'id (inc.1) | `reference` mandat | Photos |
+|---|---|---|---|
+| Même annonce, prix change | ✅ déjà couvert | — | — |
+| (1) Même agence, re-list | ❌ rompue (nouvel id) | **souvent stable → dédup sans photo (inc.2a)** | renfort |
+| (2) Changement d'agence | ❌ rompue | ❌ change (autre agence) | **✅ discriminant requis (inc.2b)** |
+
+**Lecture importante** : les paires *concurrentes* mesurées en §2 (et la « découverte
+structurante » bienici-agrégateur) sont **tangentielles** à ce but. Le signal réellement
+pertinent est **temporel** (disparition → réapparition d'un même bien), que l'historique
+de l'incrément 1 **commence justement à accumuler** — une mesure propre du taux de
+re-list sera possible quand quelques semaines d'historique seront en base (probe à venir
+sur snapshots successifs, pas sur un snapshot unique).
+
+---
+
 ## 1. Partie B — Faisabilité du pivot photo (le « point dur » §3)
 
 **VERDICT : ✅ FAISABLE — gate dur franchi.**
@@ -80,38 +112,50 @@ matching photo.
 
 ---
 
-## 3. Recommandation GO/NO-GO
+## 3. Recommandation GO/NO-GO (cadrée « suivi longitudinal du prix », §0)
 
-**GO conditionnel, avec recadrage de la valeur de l'incrément 2.**
+**GO conditionnel, décomposé en 2a (sans photo) puis 2b (photo).**
 
-1. **Faisabilité : GO.** Photos en JSON (95,5 %, 3 URLs CDN) → le pipeline image
-   est réaliste, sans scraping HTML de masse. Le gate dur du chantier est levé.
-2. **Recadrage de la valeur (important).** La cible la plus rentable n'est pas
-   « même bien chez deux agences concurrentes » (gisement étroit car bienici
-   agrège déjà), mais :
-   - **(a) dédup / republication** : relier les annonces du même bien dans le
-     temps et entre bienici et le site propre de l'agence — pour fiabiliser
-     « depuis quand sur le marché » et l'évolution de prix (prolonge directement
-     l'incrément 1, déjà en prod) ;
-   - **(b) détection de multi-mandat réel** quand il existe (deux agences
-     distinctes) — bonus, volume probablement faible.
-3. **Mesuré (Partie C) : la dédup sans photo capte déjà une part de (a).**
-   `reference` (99,9 % rempli) donne ~20 % d'annonces en groupes partagés ;
-   `customerId` scope par compte. `relatedAdsIds` est inexploitable (1/1000).
-   → **Livrer d'abord une couche de dédup `reference`/`customerId` (zéro image)**
-   comme incrément 2a : elle prolonge l'incrément 1 (republication, « depuis
-   quand », évolution de prix) à coût quasi nul, et **réduit le périmètre** que le
-   pipeline photo (incrément 2b) devrait justifier — désormais cantonné au
-   multi-mandat à références différentes et au même-bien-référence-différente.
-4. **Si l'on garde le pipeline photo** : staging-first non négociable (§8),
-   politique conservatrice §5.2 (Hamming ≤ 6/64, ≥ 2 photos, corroboration
-   attributs, wording hedgé), calibration des seuils sur corpus réel (§4.4.3).
-5. **Wording « publié chez X »** : nom d'agence dispo à ~11 % seulement → prévoir
-   le repli neutre « semble aussi publié ailleurs » par défaut (incrément 3).
+1. **Faisabilité photo : GO.** Photos en JSON (95,5 %, 3 URLs CDN) → pipeline image
+   réaliste, sans scraping HTML de masse. Le gate dur du chantier est levé — mais
+   les photos ne servent que le cas (2) ci-dessous, pas tout l'incrément.
 
-**Prochaine étape proposée** : ajouter une probe `reference`/`customerId`/`relatedAdsIds`
-(dédup exacte, 0 image) pour chiffrer la part de (a) captable sans photos, AVANT
-d'arbitrer le pipeline image. C'est le complément naturel de ce prérequis #0.
+2. **Incrément 2a — re-link SANS photo (à livrer d'abord).** Cible le cas (1)
+   « même agence, re-list » du §0. Mécanique :
+   - À l'ingestion, quand un nouvel id apparaît, chercher un bien **récemment
+     disparu** (absent du dernier passage) de **même `reference` + même
+     `customerId`** (et attributs cohérents) → rattacher le nouvel id à la même
+     **lignée de bien** et **prolonger la trajectoire de prix** par-dessus la
+     rupture d'id.
+   - Coût quasi nul, zéro image, zéro dépendance. Prolonge directement l'inc.1.
+   - Mesuré : `reference` rempli à 99,9 %, `customerId` à ~59 % — clés exploitables.
+   - **Garde-fou** : `reference` courtes/non uniques (`67`, `1416179`) → exiger
+     `reference` + `customerId` (ou + attributs) pour éviter les collisions ;
+     `relatedAdsIds` (1/1000) écarté.
+
+3. **Incrément 2b — re-link PAR PHOTO (le seul cas où les photos paient).** Cible
+   le cas (2) « changement d'agence » du §0 : nouvelle agence ⇒ `reference`
+   différente ⇒ seules les **photos** (pHash) relient l'ancienne et la nouvelle
+   annonce du même bien. Staging-first non négociable (§8), politique conservatrice
+   §5.2 (Hamming ≤ 6/64, ≥ 2 photos distinctes, corroboration attributs, wording
+   hedgé), seuils calibrés sur corpus réel (§4.4.3). Watermarks présents (22/200) à
+   anticiper.
+
+4. **Mesure du gisement RÉEL (temporel) à faire quand l'historique aura mûri.** Le
+   prérequis #0 a été mesuré sur un **snapshot unique** : il prouve la faisabilité
+   (photos, reference) mais **pas** le taux de re-list, qui est par nature temporel
+   (disparition → réapparition). Dès que l'inc.1 aura accumulé quelques semaines de
+   `first_seen`/`last_seen` + snapshots, ajouter une probe « taux de réapparition »
+   (biens disparus puis revus sous un nouvel id, % via `reference` vs via attributs)
+   pour dimensionner 2a et 2b sur du réel.
+
+5. **Note marché (non bloquante)** : le cas « même bien, deux agences au même
+   instant, prix différents » existe et a de la valeur, mais reste **secondaire**
+   vs le suivi longitudinal ; il tombe gratuitement de 2b sans le viser.
+
+**Prochaine étape proposée** : spécifier l'**incrément 2a** (re-link `reference`/
+`customerId` à l'ingestion, prolongement de l'inc.1, zéro image) — c'est le pas le
+plus rentable et le moins risqué, et il réduit le périmètre que 2b devra justifier.
 
 ---
 
