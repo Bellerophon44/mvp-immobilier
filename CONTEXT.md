@@ -69,6 +69,16 @@
   `docs/specs/cross-agence-INCREMENT1-SPEC.md`.
   - **Suite : incrément 2 (clustering photo) ⬜ à faire**, staging-first — voir
     « versus prod » en §11.3 / ANALYSE §8.
+- **Harnais d'évals qualité (`backend/evals/`) — livré (2026-06-11).** Filet
+  anti-régression des corrections de prompt : cas synthétiques rejoués avec de
+  vrais appels LLM par `.github/workflows/evals.yml` sur toute PR touchant
+  prompt/pipeline ; suite gratuite isolée (`backend/pytest.ini`). Premier cas :
+  issue #80 (régressions connues en xfail, fix au chantier suivant). Prérequis
+  humain : clé OpenAI **dédiée CI** en secret repo `OPENAI_API_KEY` +
+  **usage limit** mensuel côté OpenAI (item 9.4 acté pour cette clé, garde-fou
+  financier du harnais) — sans secret, le
+  workflow échoue explicitement, jamais de faux vert. Spec :
+  `docs/specs/evals-harness-SPEC.md`.
 
 ---
 

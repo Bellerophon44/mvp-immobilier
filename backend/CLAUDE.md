@@ -42,7 +42,7 @@ Anti-patterns à ne JAMAIS introduire :
 | Persistence | SQLite, chemin via `DATABASE_PATH=/data/comparables.db` |
 | Auto-stop / auto-start machines | `true` / `min_machines_running = 0` |
 | Plateforme frontend | Vercel (Next.js **16.2.6** App Router) |
-| CI | GitHub Actions : `test.yml` (pytest), `collect.yml`, `diagnose-scrapers.yml`, `diag-bienici.yml` |
+| CI | GitHub Actions : `test.yml` (pytest, suite gratuite `backend/tests/`), `evals.yml` (suite `backend/evals/`, **payante : vrais appels LLM**, PR touchant prompt/pipeline, secret `OPENAI_API_KEY` requis), `collect.yml`, `diagnose-scrapers.yml`, `diag-bienici.yml` |
 | CD backend | `deploy-backend.yml` — **auto-deploy Fly** : push `main`→**prod** (`fly.toml`), push `staging`→**staging** (`fly.staging.toml`, app `coherence-staging`). `flyctl deploy --remote-only`, secret `FLY_API_TOKEN` (accès aux 2 apps), concurrency par env ; `workflow_dispatch` manuel |
 | App Fly staging | `coherence-staging` (env de test isolé, base SQLite + volume dédiés ⇒ events 9.10 séparés de la prod). Voir `docs/specs/ENVIRONNEMENTS-ET-DOMAINE.md` |
 | Domaine définitif | `coherence-metz.fr` (OVH) — **LIVRÉ 2026-06-11**, TLS actif : prod `coherence-metz.fr` / `api.coherence-metz.fr`, staging `staging.` / `api-staging.`. Détail : `docs/specs/ENVIRONNEMENTS-ET-DOMAINE.md` |
@@ -593,6 +593,13 @@ exactes géocodées, `"quartier"` = repli profil). `AnalyzeRequest` accepte
   photo_evidence), exécutés en CI par `test.yml`. Isolation via `conftest.py`
   (base SQLite jetable, `OPENAI_API_KEY` factice, `init_db` session-scope, reset
   des caches mémoire). Couverture encore partielle — à étendre.
+- **Évals LLM** sous `backend/evals/` (harnais anti-régression des corrections
+  de prompt, spec `docs/specs/evals-harness-SPEC.md`) : suite **séparée et
+  payante** (vrais appels OpenAI, ~0,01 €/run), jamais collectée par la suite
+  gratuite (`backend/pytest.ini`, `testpaths = tests`). Invocation explicite :
+  `python -m pytest evals -q -rxX` avec une vraie clé ; en CI via `evals.yml`
+  (PR touchant `llm_semantic`/`analysis`/`market_stats`/`scoring`/`evals/`).
+  Régressions connues en xfail ; process d'ajout de cas : `docs/pilotes/README.md`.
 - **Pas de monitoring** d'erreurs (pas de Sentry).
 - **Filtre SSRF dans `url_fetch.py`** : volontairement minimal (refuse
   localhost / IP privées RFC1918 / scheme non http(s)). Ne résout pas le
