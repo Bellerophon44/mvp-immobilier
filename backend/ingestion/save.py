@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import List, Dict, Any
 
 from db.session import SessionLocal, init_db
-from db.models import Comparable
+from db.models import Comparable, ListingPriceSnapshot
 from scrapers.base import canonical_city
 
 logger = logging.getLogger("ingestion")
@@ -74,8 +74,27 @@ def save_comparables(listings: List[Dict[str, Any]]) -> int:
                 rejected_zone += 1
                 continue
 
-            comparable = Comparable(
-                id=ad["id"],
+            now = datetime.utcnow()
+
+            # Lecture explicite de la ligne existante (et non db.merge, qui
+            # reconstruirait un objet detache et ecraserait first_seen_at) :
+            # le tracking temporel exige de relire l'historique avant d'ecrire.
+            existing = db.get(Comparable, ad["id"])
+
+            if existing is None:
+                first_seen = now
+                write_snapshot = True
+            else:
+                # first_seen_at immuable ; repli collected_at pour les lignes
+                # prod heritees d'avant cet increment (first_seen_at NULL).
+                first_seen = existing.first_seen_at or existing.collected_at or now
+                # Egalite exacte voulue : price_total est un parsing
+                # deterministe (entiers euros), une tolerance serait de la
+                # fausse precision. On ne compare pas price_m2 (derive de la
+                # surface, instable au reparsing).
+                write_snapshot = existing.price_total != price
+
+            fields = dict(
                 source=ad["source"],
                 city=city,
                 district=ad.get("district"),
@@ -95,11 +114,25 @@ def save_comparables(listings: List[Dict[str, Any]]) -> int:
                 has_cellar=ad.get("has_cellar"),
                 parking=ad.get("parking"),
                 bedrooms=ad.get("bedrooms"),
-                collected_at=datetime.utcnow()
+                collected_at=now,
+                first_seen_at=first_seen,
+                last_seen_at=now,
             )
 
-            # merge = insert ou update si déjà existant
-            db.merge(comparable)
+            if existing is None:
+                db.add(Comparable(id=ad["id"], **fields))
+            else:
+                for key, value in fields.items():
+                    setattr(existing, key, value)
+
+            if write_snapshot:
+                db.add(ListingPriceSnapshot(
+                    listing_id=ad["id"],
+                    price_total=price,
+                    price_m2=price_m2,
+                    observed_at=now,
+                ))
+
             saved_count += 1
 
         except Exception:
