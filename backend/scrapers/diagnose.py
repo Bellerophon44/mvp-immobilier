@@ -152,6 +152,14 @@ def diagnose_sources(only: Optional[str] = None) -> tuple[str, bool]:
         except Exception as e:
             logger.warning("mesure profondeur secteur a échoué : %s", e)
 
+    # Probe « gisement » cross-agence (prérequis #0 incrément 2) : n'a de sens
+    # qu'avec plusieurs sources scrapées (recouvrement INTER-sources).
+    if len(scraped) >= 2:
+        try:
+            report += "\n\n---\n\n" + cross_source_overlap_md(scraped)
+        except Exception as e:
+            logger.warning("probe recouvrement cross-source a échoué : %s", e)
+
     return report, any_fail
 
 
@@ -299,6 +307,135 @@ def run_recon_all() -> str:
     for name, url in SITES.items():
         blocks.append(f"### {name}\n" + run_recon(url))
     return "\n".join(blocks)
+
+
+def cross_source_overlap_md(scraped: dict[str, list]) -> str:
+    """Probe « gisement » cross-agence — prérequis #0 de l'incrément 2 (§9.1).
+
+    Mesure, SUR LES ANNONCES FRAÎCHEMENT SCRAPÉES (≈ contenu de la base, le
+    sandbox n'ayant pas d'egress), le recouvrement réel ENTRE sources — borne
+    basse du multi-mandat visible chez nous, AVANT d'investir dans le pipeline
+    image :
+      - paires candidates INTER-sources strictes (§9.1 : même type, même ville,
+        code postal compatible, surface ±2 %, prix ±2 %) ;
+      - paires candidates INTER-sources larges (§5.2 : même type, même ville,
+        surface ±10 %, prix libre) — borne haute des cas que le matcher photo
+        aurait à arbitrer ;
+      - doublons INTRA-bienici (republications : même type/quartier/surface
+        arrondie) — indice de doublons à l'intérieur du portail pivot.
+
+    Aucun accès réseau au-delà du scrape déjà fait, aucune écriture en base.
+    """
+    from collections import defaultdict
+
+    all_listings = [l for ls in scraped.values() for l in ls]
+    n = len(all_listings)
+    by_source = Counter(l.source for l in all_listings)
+    if n == 0 or len(scraped) < 2:
+        return ("## Recouvrement inter-sources (prérequis #0 incrément 2)\n\n"
+                "_(probe ignorée : moins de 2 sources scrapées)_\n")
+
+    def _surf_ok(a, b, tol: float) -> bool:
+        sa, sb = a.surface_m2, b.surface_m2
+        return bool(sa and sb) and abs(sa - sb) <= tol * max(sa, sb)
+
+    def _price_ok(a, b, tol: float) -> bool:
+        pa, pb = a.price_total, b.price_total
+        return bool(pa and pb) and abs(pa - pb) <= tol * max(pa, pb)
+
+    def _postal_compatible(a, b) -> bool:
+        # Si les DEUX ont un code postal, ils doivent coïncider ; sinon la ville
+        # canonique fait déjà foi (on n'exclut pas).
+        if a.postal_code and b.postal_code:
+            return a.postal_code == b.postal_code
+        return True
+
+    # On ne compare que des biens plausiblement comparables : même (type, ville).
+    # Balayage trié par surface avec fenêtre glissante (évite le O(n²) global).
+    groups: dict = defaultdict(list)
+    for l in all_listings:
+        if l.surface_m2 and l.price_total and l.city and l.property_type:
+            groups[(l.property_type, l.city)].append(l)
+
+    strict_pairs = 0
+    loose_pairs = 0
+    cross_ids: set = set()       # ids ayant >=1 candidat inter-source (large)
+    agency_bienici_pairs = 0     # paires agence <-> bienici (large)
+    examples: list = []
+
+    for group in groups.values():
+        group.sort(key=lambda x: x.surface_m2)
+        m = len(group)
+        for i in range(m):
+            a = group[i]
+            for j in range(i + 1, m):
+                b = group[j]
+                # Fenêtre : marge un peu au-delà de +10 % pour ne rien manquer
+                # à la borne (le test exact est fait par _surf_ok).
+                if b.surface_m2 > a.surface_m2 * 1.12:
+                    break
+                if a.source == b.source or not _postal_compatible(a, b):
+                    continue
+                if not _surf_ok(a, b, 0.10):
+                    continue
+                loose_pairs += 1
+                cross_ids.add(a.id)
+                cross_ids.add(b.id)
+                if "bienici" in (a.source, b.source):
+                    agency_bienici_pairs += 1
+                if _surf_ok(a, b, 0.02) and _price_ok(a, b, 0.02):
+                    strict_pairs += 1
+                    if len(examples) < 8:
+                        examples.append((a, b))
+
+    pct_cross = len(cross_ids) / n * 100.0
+
+    # Doublons intra-bienici (republications) : même (type, quartier, surface arrondie).
+    bienici = scraped.get("bienici", [])
+    buckets: dict = defaultdict(int)
+    for l in bienici:
+        if l.surface_m2 and l.district and l.property_type:
+            buckets[(l.property_type, l.district, round(l.surface_m2))] += 1
+    intra_dup_groups = sum(1 for c in buckets.values() if c > 1)
+    intra_dup_listings = sum(c for c in buckets.values() if c > 1)
+
+    verdict = (
+        "gisement FAIBLE (< 1 % de recouvrement inter-sources) -> l'incrément 2 "
+        "perd l'essentiel de sa valeur ; repli incrément 1 seul à considérer "
+        "(à recouper avec la faisabilité photos — Partie B / diag-bienici)"
+        if pct_cross < 1.0 else
+        "gisement NON négligeable -> le matching photo aurait matière à arbitrer ; "
+        "décision conditionnée à la faisabilité photos (Partie B / diag-bienici)"
+    )
+
+    lines = [
+        "## Recouvrement inter-sources (prérequis #0 incrément 2)",
+        f"- annonces scrapées : {n} · par source : {dict(by_source.most_common())}",
+        f"- paires candidates INTER-sources **strictes** (±2 % surface ET ±2 % prix) : "
+        f"**{strict_pairs}**",
+        f"- paires candidates INTER-sources **larges** (±10 % surface, prix libre) : "
+        f"{loose_pairs} (dont {agency_bienici_pairs} impliquant bienici)",
+        f"- annonces avec ≥1 candidat inter-source (large) : {len(cross_ids)}/{n} "
+        f"= **{pct_cross:.2f} %**",
+        f"- doublons INTRA-bienici (republications, même type/quartier/surface±0.5 m²) : "
+        f"{intra_dup_listings} annonces dans {intra_dup_groups} grappes",
+        f"- **verdict gisement** : {verdict}",
+    ]
+    if examples:
+        lines.append("- exemples de paires strictes :")
+        for a, b in examples:
+            lines.append(
+                f"  - {a.source}↔{b.source} | {a.property_type} {a.city} | "
+                f"{a.surface_m2:.0f}/{b.surface_m2:.0f} m² | "
+                f"{a.price_total:.0f}/{b.price_total:.0f} € | "
+                f"cp {a.postal_code}/{b.postal_code} · quartier {a.district}/{b.district}"
+            )
+    lines.append(
+        "- NB : borne BASSE (un même bien chez deux agences n'a pas toujours des "
+        "attributs identiques ; le matching photo en récupérerait davantage). "
+        "Une probe attributs ne PROUVE pas le « même bien » — elle borne le gisement."
+    )
+    return "\n".join(lines) + "\n"
 
 
 def main() -> int:

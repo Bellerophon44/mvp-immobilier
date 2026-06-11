@@ -268,6 +268,11 @@ def field_audit_md(city: str = CITY, max_pages: int = 4) -> str:
 
     energy_keys = _kw("energy", "dpe", "ges", "greenhouse", "energie")
     year_keys = _kw("year", "construction", "built", "annee")
+    # Prérequis #0 incrément 2 : le pivot du matching photo exige des URLs photo
+    # dans le JSON ; le wording « publié chez X » exige un nom d'agence/contact.
+    photo_keys = _kw("photo", "image", "picture", "media", "thumbnail", "visual")
+    agency_keys = _kw("agency", "agence", "contact", "professional", "advertiser",
+                      "account", "publisher", "vendor")
 
     def _samples(keys):
         out = []
@@ -282,7 +287,32 @@ def field_audit_md(city: str = CITY, max_pages: int = 4) -> str:
             out.append(f"  - `{k}` ({fill[k]}/{n}) ex: {vals}")
         return out
 
+    def _preview(v, maxlen: int = 160) -> str:
+        s = v if isinstance(v, str) else json.dumps(v, ensure_ascii=False, default=str)
+        return s[:maxlen] + ("…" if len(s) > maxlen else "")
+
+    def _media_samples(keys):
+        """Échantillon compact (les tableaux de photos sont volumineux) : pour
+        chaque clé, taux de remplissage + 1er exemple non vide tronqué, et la
+        taille si c'est une liste (nombre de photos)."""
+        out = []
+        for k in keys:
+            sample = None
+            for a in ads:
+                v = a.get(k)
+                if v not in (None, "", [], {}):
+                    sample = v
+                    break
+            extra = f" [liste de {len(sample)}]" if isinstance(sample, list) else ""
+            out.append(f"  - `{k}` ({fill[k]}/{n}){extra} ex: {_preview(sample)}")
+        return out
+
     lines = [f"## Audit champs bienici ({city}) — {n} annonces"]
+    lines.append("### Photos / médias (faisabilité matching incrément 2)")
+    lines += _media_samples(photo_keys) or ["  - AUCUN champ photo/image/media — "
+                                            "pivot du matching photo COMPROMIS"]
+    lines.append("### Agence / contact (wording « publié chez X »)")
+    lines += _media_samples(agency_keys) or ["  - aucun champ agence/contact exposé"]
     lines.append("### DPE / énergie")
     lines += _samples(energy_keys) or ["  - aucun champ"]
     lines.append("### Année de construction")
