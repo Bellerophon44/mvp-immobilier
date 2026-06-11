@@ -61,6 +61,25 @@ multi-mandat entre agences indépendantes.
 
 ---
 
+## 2bis. Partie C — Dédup EXACTE sans photo (probe #0bis)
+
+Échantillon 1 000 annonces bienici (`dedup_signals_md`, 20 pages) :
+
+| Identifiant | Mesure | Lecture |
+|---|---|---|
+| `reference` | 999/1000 rempli · **79 groupes partagés = 198 annonces (~20 %)** | Dédup mandat **sans photo** : capte ~10-20 % d'overlap intra-bienici. Sous-ensemble à prix identique (`FR344950 ×2` 33000, `FR327103 ×2` 10000) = fiable ; refs courtes (`67`, `1416179`) = bruit possible (collisions). |
+| `customerId` | 588/1000 · **43 comptes distincts** | Top : `pericles-dumur` 87, `icr-57` 81, **`cabinet-benedic-montigny-groupe-benedic` 53** (= notre scraper benedic !), `immosky` 45. Confirme que **bienici syndique nos propres agences**. |
+| `relatedAdsIds` | **1/1000** | Inexploitable (trop rare). |
+
+**Conséquence** : une couche de dédup `reference` (+ `customerId` pour scoper),
+**zéro image**, capterait déjà une part de la valeur « republication / depuis quand »
+(prolongement direct de l'incrément 1). Les `customerId` montrent aussi que les
+« matches » benedic↔bienici sont en grande partie **la même annonce syndiquée**,
+pas du multi-mandat concurrent — ce qui réduit d'autant le gisement spécifique au
+matching photo.
+
+---
+
 ## 3. Recommandation GO/NO-GO
 
 **GO conditionnel, avec recadrage de la valeur de l'incrément 2.**
@@ -76,14 +95,14 @@ multi-mandat entre agences indépendantes.
      l'incrément 1, déjà en prod) ;
    - **(b) détection de multi-mandat réel** quand il existe (deux agences
      distinctes) — bonus, volume probablement faible.
-3. **Avant d'écrire le pipeline, deux quasi-gratuits à tenter d'abord** (ordre de
-   coût croissant), car ils pourraient capter (a) **sans images** :
-   - **`reference` + `customerId`** (200/200 et 63 %) : dédup exacte par
-     référence mandat / compte annonceur — à mesurer comme nouvelle probe.
-   - **`relatedAdsIds`** : exploiter le lien que bienici expose déjà.
-   Si ces signaux suffisent pour (a), l'incrément 2 « photos » se justifie alors
-   uniquement pour (b) et les cas sans référence partagée — périmètre plus mince,
-   décision à réévaluer.
+3. **Mesuré (Partie C) : la dédup sans photo capte déjà une part de (a).**
+   `reference` (99,9 % rempli) donne ~20 % d'annonces en groupes partagés ;
+   `customerId` scope par compte. `relatedAdsIds` est inexploitable (1/1000).
+   → **Livrer d'abord une couche de dédup `reference`/`customerId` (zéro image)**
+   comme incrément 2a : elle prolonge l'incrément 1 (republication, « depuis
+   quand », évolution de prix) à coût quasi nul, et **réduit le périmètre** que le
+   pipeline photo (incrément 2b) devrait justifier — désormais cantonné au
+   multi-mandat à références différentes et au même-bien-référence-différente.
 4. **Si l'on garde le pipeline photo** : staging-first non négociable (§8),
    politique conservatrice §5.2 (Hamming ≤ 6/64, ≥ 2 photos, corroboration
    attributs, wording hedgé), calibration des seuils sur corpus réel (§4.4.3).
