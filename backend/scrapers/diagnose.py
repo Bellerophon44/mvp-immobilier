@@ -148,6 +148,11 @@ def diagnose_sources(only: Optional[str] = None) -> tuple[str, bool]:
         except Exception as e:
             logger.warning("diagnostic bienici étendu a échoué : %s", e)
         try:
+            from scrapers.diag_bienici import dedup_signals_md
+            report += "\n\n---\n\n" + dedup_signals_md()
+        except Exception as e:
+            logger.warning("probe dédup exacte bienici a échoué : %s", e)
+        try:
             report += "\n\n---\n\n" + sector_depth_md(scraped.get("bienici", []))
         except Exception as e:
             logger.warning("mesure profondeur secteur a échoué : %s", e)
