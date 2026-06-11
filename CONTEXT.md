@@ -58,6 +58,18 @@
    routing temps de trajet ; secteur « Metz métropole » (communes limitrophes) ;
    rééquilibrage scoring ; dette (lifespan, cache LLM/géocodage persistant, tests).
 
+### Livré depuis le snapshot (post-2026-06-04)
+- **Cross-agence — incrément 1 : ✅ EN PRODUCTION (2026-06-11).** Tracking
+  temporel mono-source par id stable : `first_seen_at`/`last_seen_at`, table
+  `listing_price_snapshots`, capture sans écrasement (`ingestion/save.py`),
+  endpoint admin `GET /admin/comparables/{id}/history`, purge de rétention
+  24 mois + cascade snapshots. **Aucune** exposition `/analyze`, score 40/30/30
+  intact (doctrine §11.3 amendée). Parcours staging-first (PR #71 → `staging`,
+  PR #72 → `main`). Specs : `docs/specs/cross-agence-ANALYSE.md`,
+  `docs/specs/cross-agence-INCREMENT1-SPEC.md`.
+  - **Suite : incrément 2 (clustering photo) ⬜ à faire**, staging-first — voir
+    « versus prod » en §11.3 / ANALYSE §8.
+
 ---
 
 ## 1. Vision et objectifs stratégiques

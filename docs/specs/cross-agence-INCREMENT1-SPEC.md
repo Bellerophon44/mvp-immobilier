@@ -1,5 +1,16 @@
 # cross-agence — INCREMENT 1 — SPEC (GATE 2)
 
+> **STATUT : ✅ LIVRÉ EN PRODUCTION le 2026-06-11.**
+> Parcours staging-first : PR #71 (`claude/cool-mccarthy-WlDhm` → `staging`,
+> deploy Fly `coherence-staging` OK) puis PR #72 (`staging` → `main`, deploy Fly
+> **prod** run 28 OK). Suite complète verte (257 tests), revue finale PASS.
+> En prod : `first_seen_at`/`last_seen_at`, table `listing_price_snapshots`,
+> capture sans écrasement dans `ingestion/save.py`, endpoint admin
+> `GET /admin/comparables/{id}/history`, purge de rétention 24 mois + cascade
+> snapshots sur toutes les purges. Aucune exposition `/analyze` (par design).
+> Suite : incrément 2 (clustering photo, staging-first) — cf.
+> `cross-agence-ANALYSE.md` §8/§9.2.
+
 > Role : SPEC-WRITER. Cahier des charges implementable du **seul increment 1**
 > du chantier cross-agence : tracking temporel mono-source par id stable.
 > GATE 1 actee par l'humain (arbitrages 1/2/3 ci-dessous, non rediscutables).

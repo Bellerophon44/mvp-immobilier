@@ -364,15 +364,19 @@ hebdo.
 
 ## 8. Stratégie de rollout (staging-first)
 
-1. Incrément 1 (historique mono-source) : mergeable prod directement — il ne
-   change aucune réponse API, n'ajoute aucune dep, répare l'écrasement.
-2. Incrément 2 : **staging d'abord** (`coherence-staging`, base dédiée) —
-   le job d'images pousse vers l'URL staging, on mesure précision/rappel du
-   matching sur le corpus réel (protocole §4.4.3 industrialisé), on calibre
+> **Légende statut** : ✅ Livré en prod · 🚧 En cours · ⬜ À faire.
+
+1. **[✅ LIVRÉ EN PROD le 2026-06-11]** Incrément 1 (historique mono-source) :
+   mergeable prod directement — il ne change aucune réponse API, n'ajoute aucune
+   dep, répare l'écrasement. Parcours staging-first respecté (PR #71 → `staging`,
+   PR #72 → `main`). Détail et verrous : `cross-agence-INCREMENT1-SPEC.md`.
+2. **[⬜ À faire]** Incrément 2 : **staging d'abord** (`coherence-staging`, base
+   dédiée) — le job d'images pousse vers l'URL staging, on mesure précision/rappel
+   du matching sur le corpus réel (protocole §4.4.3 industrialisé), on calibre
    les seuils, PUIS on pointe la prod.
-3. Incrément 3 : derrière la validation staging de la précision ; events 9.10
-   pour mesurer l'exposition ; rate-limit 9.9 inchangé (le hash transient
-   s'ajoute au coût d'un appel déjà limité à 10/min/IP).
+3. **[⬜ À faire]** Incrément 3 : derrière la validation staging de la précision ;
+   events 9.10 pour mesurer l'exposition ; rate-limit 9.9 inchangé (le hash
+   transient s'ajoute au coût d'un appel déjà limité à 10/min/IP).
 
 ---
 
