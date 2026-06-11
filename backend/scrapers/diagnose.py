@@ -389,6 +389,12 @@ def cross_source_overlap_md(scraped: dict[str, list]) -> str:
                         examples.append((a, b))
 
     pct_cross = len(cross_ids) / n * 100.0
+    agency_n = n - by_source.get("bienici", 0)
+    # Recouvrement STRICT rapporté au parc agences (hors bienici) : combien de
+    # mandats d'agence ont un quasi-jumeau (surface ET prix ±2 %) ailleurs. C'est
+    # le signal honnête ; la métrique « large » est une borne haute BRUITÉE
+    # (similarité d'attributs sur le même segment, PAS identité d'un bien).
+    pct_strict_vs_agency = (strict_pairs / agency_n * 100.0) if agency_n else 0.0
 
     # Doublons intra-bienici (republications) : même (type, quartier, surface arrondie).
     bienici = scraped.get("bienici", [])
@@ -399,26 +405,33 @@ def cross_source_overlap_md(scraped: dict[str, list]) -> str:
     intra_dup_groups = sum(1 for c in buckets.values() if c > 1)
     intra_dup_listings = sum(c for c in buckets.values() if c > 1)
 
+    # Verdict basé sur la métrique STRICTE (la large est du bruit). Seuil indicatif :
+    # si quasi aucune paire stricte, le gisement attribut est trop ténu pour
+    # justifier le pipeline image ; sinon il existe mais reste à départager du
+    # simple « même segment » par les photos.
     verdict = (
-        "gisement FAIBLE (< 1 % de recouvrement inter-sources) -> l'incrément 2 "
-        "perd l'essentiel de sa valeur ; repli incrément 1 seul à considérer "
-        "(à recouper avec la faisabilité photos — Partie B / diag-bienici)"
-        if pct_cross < 1.0 else
-        "gisement NON négligeable -> le matching photo aurait matière à arbitrer ; "
-        "décision conditionnée à la faisabilité photos (Partie B / diag-bienici)"
+        "gisement attribut TÉNU (quasi aucune paire stricte) -> repli incrément 1 "
+        "seul à considérer (à recouper avec la faisabilité photos)"
+        if strict_pairs < 10 else
+        "gisement attribut RÉEL mais à départager (attributs proches != même bien) "
+        "-> le matching photo est précisément le discriminant ; décision "
+        "conditionnée à la faisabilité photos (Partie B / diag-bienici)"
     )
 
     lines = [
         "## Recouvrement inter-sources (prérequis #0 incrément 2)",
         f"- annonces scrapées : {n} · par source : {dict(by_source.most_common())}",
+        f"- parc agences hors bienici : {agency_n}",
         f"- paires candidates INTER-sources **strictes** (±2 % surface ET ±2 % prix) : "
-        f"**{strict_pairs}**",
-        f"- paires candidates INTER-sources **larges** (±10 % surface, prix libre) : "
-        f"{loose_pairs} (dont {agency_bienici_pairs} impliquant bienici)",
-        f"- annonces avec ≥1 candidat inter-source (large) : {len(cross_ids)}/{n} "
-        f"= **{pct_cross:.2f} %**",
-        f"- doublons INTRA-bienici (republications, même type/quartier/surface±0.5 m²) : "
-        f"{intra_dup_listings} annonces dans {intra_dup_groups} grappes",
+        f"**{strict_pairs}** (= {pct_strict_vs_agency:.1f} % du parc agences)",
+        f"- paires candidates INTER-sources LARGES (±10 % surface, prix libre) : "
+        f"{loose_pairs} (dont {agency_bienici_pairs} impliquant bienici) "
+        f"— **borne haute BRUITÉE** (similarité d'attributs, PAS identité)",
+        f"- annonces avec ≥1 candidat large : {len(cross_ids)}/{n} = {pct_cross:.1f} % "
+        f"(non significatif : mesure la densité du segment, pas le multi-mandat)",
+        f"- doublons INTRA-bienici (même type/quartier/surface±0.5 m²) : "
+        f"{intra_dup_listings} annonces dans {intra_dup_groups} grappes — coarse, "
+        f"surévalue (attributs seuls ne distinguent pas deux biens du même segment)",
         f"- **verdict gisement** : {verdict}",
     ]
     if examples:
