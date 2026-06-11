@@ -148,9 +148,22 @@ def diagnose_sources(only: Optional[str] = None) -> tuple[str, bool]:
         except Exception as e:
             logger.warning("diagnostic bienici étendu a échoué : %s", e)
         try:
+            from scrapers.diag_bienici import dedup_signals_md
+            report += "\n\n---\n\n" + dedup_signals_md()
+        except Exception as e:
+            logger.warning("probe dédup exacte bienici a échoué : %s", e)
+        try:
             report += "\n\n---\n\n" + sector_depth_md(scraped.get("bienici", []))
         except Exception as e:
             logger.warning("mesure profondeur secteur a échoué : %s", e)
+
+    # Probe « gisement » cross-agence (prérequis #0 incrément 2) : n'a de sens
+    # qu'avec plusieurs sources scrapées (recouvrement INTER-sources).
+    if len(scraped) >= 2:
+        try:
+            report += "\n\n---\n\n" + cross_source_overlap_md(scraped)
+        except Exception as e:
+            logger.warning("probe recouvrement cross-source a échoué : %s", e)
 
     return report, any_fail
 
@@ -299,6 +312,148 @@ def run_recon_all() -> str:
     for name, url in SITES.items():
         blocks.append(f"### {name}\n" + run_recon(url))
     return "\n".join(blocks)
+
+
+def cross_source_overlap_md(scraped: dict[str, list]) -> str:
+    """Probe « gisement » cross-agence — prérequis #0 de l'incrément 2 (§9.1).
+
+    Mesure, SUR LES ANNONCES FRAÎCHEMENT SCRAPÉES (≈ contenu de la base, le
+    sandbox n'ayant pas d'egress), le recouvrement réel ENTRE sources — borne
+    basse du multi-mandat visible chez nous, AVANT d'investir dans le pipeline
+    image :
+      - paires candidates INTER-sources strictes (§9.1 : même type, même ville,
+        code postal compatible, surface ±2 %, prix ±2 %) ;
+      - paires candidates INTER-sources larges (§5.2 : même type, même ville,
+        surface ±10 %, prix libre) — borne haute des cas que le matcher photo
+        aurait à arbitrer ;
+      - doublons INTRA-bienici (republications : même type/quartier/surface
+        arrondie) — indice de doublons à l'intérieur du portail pivot.
+
+    Aucun accès réseau au-delà du scrape déjà fait, aucune écriture en base.
+    """
+    from collections import defaultdict
+
+    all_listings = [l for ls in scraped.values() for l in ls]
+    n = len(all_listings)
+    by_source = Counter(l.source for l in all_listings)
+    if n == 0 or len(scraped) < 2:
+        return ("## Recouvrement inter-sources (prérequis #0 incrément 2)\n\n"
+                "_(probe ignorée : moins de 2 sources scrapées)_\n")
+
+    def _surf_ok(a, b, tol: float) -> bool:
+        sa, sb = a.surface_m2, b.surface_m2
+        return bool(sa and sb) and abs(sa - sb) <= tol * max(sa, sb)
+
+    def _price_ok(a, b, tol: float) -> bool:
+        pa, pb = a.price_total, b.price_total
+        return bool(pa and pb) and abs(pa - pb) <= tol * max(pa, pb)
+
+    def _postal_compatible(a, b) -> bool:
+        # Si les DEUX ont un code postal, ils doivent coïncider ; sinon la ville
+        # canonique fait déjà foi (on n'exclut pas).
+        if a.postal_code and b.postal_code:
+            return a.postal_code == b.postal_code
+        return True
+
+    # On ne compare que des biens plausiblement comparables : même (type, ville).
+    # Balayage trié par surface avec fenêtre glissante (évite le O(n²) global).
+    groups: dict = defaultdict(list)
+    for l in all_listings:
+        if l.surface_m2 and l.price_total and l.city and l.property_type:
+            groups[(l.property_type, l.city)].append(l)
+
+    strict_pairs = 0
+    loose_pairs = 0
+    cross_ids: set = set()       # ids ayant >=1 candidat inter-source (large)
+    agency_bienici_pairs = 0     # paires agence <-> bienici (large)
+    examples: list = []
+
+    for group in groups.values():
+        group.sort(key=lambda x: x.surface_m2)
+        m = len(group)
+        for i in range(m):
+            a = group[i]
+            for j in range(i + 1, m):
+                b = group[j]
+                # Fenêtre : marge un peu au-delà de +10 % pour ne rien manquer
+                # à la borne (le test exact est fait par _surf_ok).
+                if b.surface_m2 > a.surface_m2 * 1.12:
+                    break
+                if a.source == b.source or not _postal_compatible(a, b):
+                    continue
+                if not _surf_ok(a, b, 0.10):
+                    continue
+                loose_pairs += 1
+                cross_ids.add(a.id)
+                cross_ids.add(b.id)
+                if "bienici" in (a.source, b.source):
+                    agency_bienici_pairs += 1
+                if _surf_ok(a, b, 0.02) and _price_ok(a, b, 0.02):
+                    strict_pairs += 1
+                    if len(examples) < 8:
+                        examples.append((a, b))
+
+    pct_cross = len(cross_ids) / n * 100.0
+    agency_n = n - by_source.get("bienici", 0)
+    # Recouvrement STRICT rapporté au parc agences (hors bienici) : combien de
+    # mandats d'agence ont un quasi-jumeau (surface ET prix ±2 %) ailleurs. C'est
+    # le signal honnête ; la métrique « large » est une borne haute BRUITÉE
+    # (similarité d'attributs sur le même segment, PAS identité d'un bien).
+    pct_strict_vs_agency = (strict_pairs / agency_n * 100.0) if agency_n else 0.0
+
+    # Doublons intra-bienici (republications) : même (type, quartier, surface arrondie).
+    bienici = scraped.get("bienici", [])
+    buckets: dict = defaultdict(int)
+    for l in bienici:
+        if l.surface_m2 and l.district and l.property_type:
+            buckets[(l.property_type, l.district, round(l.surface_m2))] += 1
+    intra_dup_groups = sum(1 for c in buckets.values() if c > 1)
+    intra_dup_listings = sum(c for c in buckets.values() if c > 1)
+
+    # Verdict basé sur la métrique STRICTE (la large est du bruit). Seuil indicatif :
+    # si quasi aucune paire stricte, le gisement attribut est trop ténu pour
+    # justifier le pipeline image ; sinon il existe mais reste à départager du
+    # simple « même segment » par les photos.
+    verdict = (
+        "gisement attribut TÉNU (quasi aucune paire stricte) -> repli incrément 1 "
+        "seul à considérer (à recouper avec la faisabilité photos)"
+        if strict_pairs < 10 else
+        "gisement attribut RÉEL mais à départager (attributs proches != même bien) "
+        "-> le matching photo est précisément le discriminant ; décision "
+        "conditionnée à la faisabilité photos (Partie B / diag-bienici)"
+    )
+
+    lines = [
+        "## Recouvrement inter-sources (prérequis #0 incrément 2)",
+        f"- annonces scrapées : {n} · par source : {dict(by_source.most_common())}",
+        f"- parc agences hors bienici : {agency_n}",
+        f"- paires candidates INTER-sources **strictes** (±2 % surface ET ±2 % prix) : "
+        f"**{strict_pairs}** (= {pct_strict_vs_agency:.1f} % du parc agences)",
+        f"- paires candidates INTER-sources LARGES (±10 % surface, prix libre) : "
+        f"{loose_pairs} (dont {agency_bienici_pairs} impliquant bienici) "
+        f"— **borne haute BRUITÉE** (similarité d'attributs, PAS identité)",
+        f"- annonces avec ≥1 candidat large : {len(cross_ids)}/{n} = {pct_cross:.1f} % "
+        f"(non significatif : mesure la densité du segment, pas le multi-mandat)",
+        f"- doublons INTRA-bienici (même type/quartier/surface±0.5 m²) : "
+        f"{intra_dup_listings} annonces dans {intra_dup_groups} grappes — coarse, "
+        f"surévalue (attributs seuls ne distinguent pas deux biens du même segment)",
+        f"- **verdict gisement** : {verdict}",
+    ]
+    if examples:
+        lines.append("- exemples de paires strictes :")
+        for a, b in examples:
+            lines.append(
+                f"  - {a.source}↔{b.source} | {a.property_type} {a.city} | "
+                f"{a.surface_m2:.0f}/{b.surface_m2:.0f} m² | "
+                f"{a.price_total:.0f}/{b.price_total:.0f} € | "
+                f"cp {a.postal_code}/{b.postal_code} · quartier {a.district}/{b.district}"
+            )
+    lines.append(
+        "- NB : borne BASSE (un même bien chez deux agences n'a pas toujours des "
+        "attributs identiques ; le matching photo en récupérerait davantage). "
+        "Une probe attributs ne PROUVE pas le « même bien » — elle borne le gisement."
+    )
+    return "\n".join(lines) + "\n"
 
 
 def main() -> int:
