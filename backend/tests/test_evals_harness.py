@@ -9,9 +9,15 @@ Couvre les AC verifiables SANS appel LLM, sans reseau et sans secret :
 - cas synthetique issue #80 : tokens requis/interdits (AC12-AC13), point
   d'appel LLM unique et assertions du module d'eval par inspection AST
   (AC14-AC17, le comportement runtime appartient a la suite evals payante) ;
-- tests deterministes gratuits (AC19-AC21) : presence, marqueurs xfail et
-  statuts d'execution reels (XFAIL, pas XPASS) ;
+- tests deterministes gratuits (AC19-AC21) : presence et statuts d'execution
+  reels ;
 - workflow CI evals.yml (AC22-AC26) et documentation (AC27-AC28).
+
+Etat post-fix #80 (chantier fix-issue-80, push 2, AC28-AC32 de sa spec) : les
+oracles qui figeaient les marqueurs xfail (etat pre-fix) sont bascules — les
+tests de regression A et B (evals) et le test deterministe `rez-de-chaussée`
+sont exiges SANS marqueur xfail (bloquants), et l'execution reelle du fichier
+deterministe ne doit plus produire ni xfailed ni xpassed.
 
 AC18 (preuve de reproduction XFAIL dans le run CI de la PR) est un AC de
 process non automatisable ici : il est couvert indirectement par l'exigence
@@ -474,36 +480,30 @@ def test_ac15_assertions_bloquantes_sans_xfail():
     )
 
 
-def _tests_xfail_strict_false(src: str):
-    out = []
-    for f in _functions(src):
-        if not f.name.startswith("test_"):
-            continue
-        for mark in _xfail_marks(f):
-            if mark["strict"] in (False, None) and "issue #80" in (mark["reason"] or ""):
-                out.append((f, mark))
-    return out
-
-
-def test_ac16_regression_a_rendu_rez_de_chaussee_xfail():
-    """AC16 : la regression A (rendu compose sur l'extraction reelle, sans
-    `rez-de-chaussée`) est en xfail(strict=False, reason issue #80), reutilise
-    la fixture (pas d'appel LLM supplementaire) et n'asserte pas `floor`."""
+def test_ac16_regression_a_rendu_rez_de_chaussee_bloquant():
+    """AC16, bascule AC28 (fix-issue-80 push 2) : la regression A (rendu
+    compose sur l'extraction reelle, sans `rez-de-chaussée`) est exigee SANS
+    aucun marqueur xfail (bloquante depuis le fix), compose toujours
+    _criteria_signal(_amenity_attrs(listing)), reutilise la fixture (pas
+    d'appel LLM supplementaire) et n'asserte pas `floor`. Echoue si un xfail
+    est reintroduit."""
     src = _read(EVAL_MODULE)
     candidats = [
-        (f, mark) for f, mark in _tests_xfail_strict_false(src)
-        if "_criteria_signal" in _segment(src, f)
+        f for f in _functions(src)
+        if f.name.startswith("test_")
+        and "_criteria_signal" in _segment(src, f)
         and "_amenity_attrs" in _segment(src, f)
         and "rez-de-chaussée" in _segment(src, f)
     ]
     assert candidats, (
-        "Test de regression A absent : xfail strict=False composant "
+        "Test de regression A absent : test composant "
         "_criteria_signal(_amenity_attrs(listing)) et assertant l'absence de "
-        "`rez-de-chaussée` (AC16)"
+        "`rez-de-chaussée` (AC16/AC28)"
     )
-    for f, mark in candidats:
-        assert mark["strict"] is False, (
-            f"{f.name} : strict doit valoir False explicitement (LLM non deterministe, AC16)"
+    for f in candidats:
+        assert not _xfail_marks(f), (
+            f"{f.name} : marqueur xfail reintroduit sur la regression A — fix "
+            "#80 livre, le test doit rester bloquant (AC28)"
         )
         corps = _segment(src, f)
         assert "analyze_semantic(" not in corps, (
@@ -516,23 +516,26 @@ def test_ac16_regression_a_rendu_rez_de_chaussee_xfail():
         )
 
 
-def test_ac17_regression_b_questions_copropriete_xfail():
-    """AC17 : la regression B (aucune question copropriete/syndic sur maison
-    individuelle) est en xfail(strict=False, reason issue #80)."""
+def test_ac17_regression_b_questions_copropriete_bloquant():
+    """AC17, bascule AC29 (fix-issue-80 push 2) : la regression B (aucune
+    question copropriete/syndic sur maison individuelle) est exigee SANS
+    marqueur xfail (bloquante depuis le fix)."""
     src = _read(EVAL_MODULE)
     candidats = [
-        (f, mark) for f, mark in _tests_xfail_strict_false(src)
-        if "questions" in _segment(src, f)
+        f for f in _functions(src)
+        if f.name.startswith("test_")
+        and "questions" in _segment(src, f)
         and "copropri" in _segment(src, f).casefold()
         and "syndic" in _segment(src, f).casefold()
     ]
     assert candidats, (
-        "Test de regression B absent : xfail strict=False assertant qu'aucune "
-        "entree de questions ne contient copropriété/copropriete/syndic (AC17)"
+        "Test de regression B absent : test assertant qu'aucune entree de "
+        "questions ne contient copropriété/copropriete/syndic (AC17/AC29)"
     )
-    for f, mark in candidats:
-        assert mark["strict"] is False, (
-            f"{f.name} : strict doit valoir False explicitement (AC17)"
+    for f in candidats:
+        assert not _xfail_marks(f), (
+            f"{f.name} : marqueur xfail reintroduit sur la regression B — fix "
+            "#80 livre, le test doit rester bloquant (AC29)"
         )
 
 
@@ -545,8 +548,11 @@ def test_phase_b_fixtures_des_xfail_partagees_avec_un_test_bloquant():
     Le harnais n'est donc protege que si CHAQUE fixture consommee par un test
     xfail est aussi consommee par au moins un test bloquant (sans xfail) : la
     meme erreur de fixture y devient alors un ERROR qui met le job au rouge.
-    Ce test fige cette propriete ; il echoue si un refactor donne aux tests de
-    regression une fixture dediee ou retire les tests bloquants partages."""
+
+    Bascule AC30 (fix-issue-80 push 2) : le fix #80 etant livre, le module
+    d'eval ne porte plus aucun xfail — la propriete devient CONDITIONNELLE
+    (verifiee pour tout futur test xfail, sans en exiger l'existence) ;
+    l'exigence d'au moins un test bloquant est conservee."""
     src = _read(EVAL_MODULE)
     tests_xfail = []
     tests_bloquants = []
@@ -558,7 +564,6 @@ def test_phase_b_fixtures_des_xfail_partagees_avec_un_test_bloquant():
             tests_xfail.append((f.name, params))
         else:
             tests_bloquants.append((f.name, params))
-    assert tests_xfail, "Aucun test xfail dans le module d'eval (AC16/AC17)"
     assert tests_bloquants, "Aucun test bloquant dans le module d'eval (AC15)"
     params_bloquants = set().union(*(p for _, p in tests_bloquants))
     for nom, params in tests_xfail:
@@ -575,36 +580,32 @@ def test_phase_b_fixtures_des_xfail_partagees_avec_un_test_bloquant():
 # Tests deterministes gratuits (AC19-AC21)
 # ===========================================================================
 
-def test_ac19_statique_xfail_strict_true_rez_de_chaussee():
-    """AC19 (statique) : tests/test_issue_80_deterministic.py porte un test
-    xfail(strict=True, reason issue #80) sur le rendu `rez-de-chaussée` pour
-    des attrs de maison avec floor=0 (memoire executable du fix)."""
+def test_ac19_statique_bloquant_rez_de_chaussee():
+    """AC19, bascule AC31 (fix-issue-80 push 2) :
+    tests/test_issue_80_deterministic.py porte le test deterministe du rendu
+    `rez-de-chaussée` (maison, floor=0, _criteria_signal) SANS marqueur xfail
+    — l'ex-memoire executable du fix est devenue bloquante."""
     src = _read(DETERMINISTIC_FILE)
     candidats = []
     for f in _functions(src):
         if not f.name.startswith("test_"):
             continue
         corps = _segment(src, f)
-        for mark in _xfail_marks(f):
-            if "issue #80" in (mark["reason"] or "") and "rez-de-chaussée" in corps:
-                candidats.append((f, mark, corps))
+        if (
+            "rez-de-chaussée" in corps
+            and "_criteria_signal" in corps
+            and re.search(r"floor[\"']?\s*[:=]\s*0", corps)
+            and "maison" in corps.casefold()
+        ):
+            candidats.append((f, corps))
     assert candidats, (
-        "Test xfail sur le rendu `rez-de-chaussée` absent du fichier "
-        "deterministe (AC19)"
+        "Test deterministe sur le rendu `rez-de-chaussée` (maison, floor=0, "
+        "_criteria_signal) absent du fichier deterministe (AC19/AC31)"
     )
-    for f, mark, corps in candidats:
-        assert mark["strict"] is True, (
-            f"{f.name} : strict=True exige (le XPASS du jour du fix doit casser "
-            "la suite et forcer le retrait du marqueur, AC19)"
-        )
-        assert re.search(r"floor[\"']?\s*[:=]\s*0", corps), (
-            f"{f.name} : le listing doit poser floor=0 (AC19)"
-        )
-        assert "maison" in corps.casefold(), (
-            f"{f.name} : le listing source doit etre une maison (AC19)"
-        )
-        assert "_criteria_signal" in corps, (
-            f"{f.name} : l'oracle porte sur le signal rendu par _criteria_signal (§6)"
+    for f, corps in candidats:
+        assert not _xfail_marks(f), (
+            f"{f.name} : marqueur xfail reintroduit — fix #80 livre, le test "
+            "deterministe doit rester bloquant (AC31)"
         )
 
 
@@ -630,12 +631,12 @@ def test_ac20_statique_garde_amenity_actions_sans_xfail():
     ), "Le listing de la garde doit poser condo_fees=None (AC20)"
 
 
-def test_ac19_ac20_ac21_statuts_reels_xfail_et_passants():
-    """AC19/AC20/AC21 (dynamique) : execution reelle du fichier deterministe
-    sous la cle factice de test.yml (aucun reseau possible : un appel OpenAI
-    avec cette cle echouerait) -> suite verte, au moins 1 xfailed (la
-    regression est reellement rouge aujourd'hui), au moins 1 passed, aucun
-    xpassed ni failed."""
+def test_ac19_ac20_ac21_statuts_reels_bloquants_et_passants():
+    """AC19/AC20/AC21 (dynamique), bascule AC32 (fix-issue-80 push 2) :
+    execution reelle du fichier deterministe sous la cle factice de test.yml
+    (aucun reseau possible : un appel OpenAI avec cette cle echouerait) ->
+    returncode 0, au moins 1 passed, AUCUN xfailed (fix livre : plus aucune
+    regression attendue), aucun xpassed, aucun failed."""
     assert DETERMINISTIC_FILE.is_file(), (
         "tests/test_issue_80_deterministic.py absent (AC19/AC20/AC21)"
     )
@@ -644,20 +645,19 @@ def test_ac19_ac20_ac21_statuts_reels_xfail_et_passants():
         key="test-key-not-real",
     )
     sortie = proc.stdout + proc.stderr
-    assert proc.returncode == 0, f"La suite deterministe doit rester verte (AC19) :\n{sortie}"
+    assert proc.returncode == 0, f"La suite deterministe doit etre verte (AC32) :\n{sortie}"
     assert re.search(r"\b[1-9]\d* passed", sortie), (
         f"Au moins un test passant attendu (garde AC20) :\n{sortie}"
     )
-    assert "xfailed" in sortie, (
-        f"Statut XFAIL attendu : la regression `rez-de-chaussée` doit echouer "
-        f"reellement sur le code actuel (AC19) :\n{sortie}"
+    assert "xfailed" not in sortie, (
+        f"XFAIL inattendu : le fix #80 est livre, aucun marqueur xfail ne doit "
+        f"subsister dans le fichier deterministe (AC32) :\n{sortie}"
     )
     assert "xpassed" not in sortie, (
-        f"XPASS inattendu : le marqueur xfail strict=True doit etre retire au "
-        f"chantier fix, pas avant (AC19) :\n{sortie}"
+        f"XPASS inattendu : aucun marqueur xfail ne doit subsister (AC32) :\n{sortie}"
     )
     assert not re.search(r"\b[1-9]\d* failed", sortie), (
-        f"Aucun echec sec attendu dans la suite gratuite (AC19/AC21) :\n{sortie}"
+        f"Aucun echec sec attendu dans la suite gratuite (AC32) :\n{sortie}"
     )
 
 

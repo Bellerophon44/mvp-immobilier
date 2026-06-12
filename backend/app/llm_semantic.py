@@ -215,9 +215,13 @@ def _coerce_int_opt(value):
     return i if i >= 0 else None
 
 
-def _strip_condo_items(items: list) -> list:
+def _strip_condo_items(items: Any) -> Any:
     """Retire les items mentionnant la copropriété ou le syndic (casefold),
-    ordre relatif préservé."""
+    ordre relatif préservé. Une forme non-liste (ex. chaîne renvoyée par le
+    LLM à la place du tableau attendu) est retournée telle quelle : itérer
+    dessus l'éclaterait en caractères."""
+    if not isinstance(items, list):
+        return items
     return [
         item for item in items
         if "copropri" not in str(item).casefold()

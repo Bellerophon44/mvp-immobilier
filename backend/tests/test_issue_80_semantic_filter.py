@@ -14,11 +14,9 @@ L'isolation inter-tests du cache module `llm_semantic._CACHE` est assuree par
 la fixture autouse de conftest.py (AC25, lecon 9.9 : jamais en fixture
 locale).
 
-AC DIFFERES AU PUSH 2 — hors perimetre de la phase verte initiale (ne PAS les
-implementer au push 1) : AC26-AC33 (retrait des 3 marqueurs xfail, bascule
-des 5 oracles de tests/test_evals_harness.py, suite complete verte) et
-AC34-AC35 (docs). AC36-AC39 (evals payantes) : portes par backend/evals/,
-intouche en phase A (les xfail existants sont la preuve de reproduction).
+Push 2 livre : AC26-AC33 (retrait des 3 marqueurs xfail, bascule des 5
+oracles de tests/test_evals_harness.py) et AC34-AC35 (docs) sont faits.
+AC36-AC39 (evals payantes) : portes par backend/evals/.
 """
 
 import ast
@@ -434,6 +432,24 @@ def test_b_fallback_non_mis_en_cache_puis_succes_filtre(mock_llm):
     assert out2.get("_fallback") is None
     assert out2["questions"] == ["Quelle est l'exposition ?"]
     assert out2["negotiation_levers"] == ["DPE C"]
+
+
+def test_b_questions_chaine_adverse_non_eclatee_en_caracteres(mock_llm):
+    """Regression (finding reviewer, push 2) : si le LLM renvoie `questions`
+    sous forme de CHAINE au lieu d'une liste, le filtre maison ne doit pas
+    l'eclater en liste de caracteres — la garde isinstance(items, list) de
+    _strip_condo_items retourne la forme non-liste telle quelle (et l'autre
+    liste, bien formee, reste filtree normalement). Un fix non oracle est
+    reversible silencieusement (lecon cross-agence-inc1)."""
+    mock_llm.content = _payload(
+        questions="Y a-t-il un syndic de copropriété ?",
+        levers=_LEVERS_AC16,
+    )
+    out = llm.analyze_semantic(
+        "maison synthetique fix80 push2 chaine adverse tilleul centenaire"
+    )
+    assert out["questions"] == "Y a-t-il un syndic de copropriété ?"
+    assert out["negotiation_levers"] == ["DPE C"]
 
 
 def test_b_filtre_preserve_ordre_multi_items_conserves(mock_llm):

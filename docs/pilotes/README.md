@@ -92,7 +92,10 @@ touchant le prompt ou le pipeline d'analyse.
    tournures déclenchantes et repousser.
 6. **Checklist du chantier fix** : retirer à la main les xfail LLM
    (`strict=False`) ; les xfail `strict=True` se signalent seuls par XPASS ;
-   mettre à jour les tests si les signatures internes changent.
+   **basculer dans la même PR les oracles de
+   `backend/tests/test_evals_harness.py` qui figent les marqueurs xfail (état
+   pré-fix)** — sinon `test.yml` reste rouge après le fix ; mettre à jour les
+   tests si les signatures internes changent.
 7. **Flaky** : tout cas flaky est traité (assertion élargie, ou rejeux k=3
    avec vote majoritaire et reset de `llm_semantic._CACHE` entre rejeux),
    **jamais** re-run jusqu'au vert.

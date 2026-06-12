@@ -51,7 +51,7 @@
     `analyze_semantic` ; l'enum n'est garanti que par le prompt.
   - Garde-fou : limite actée par la spec (égalité stricte, comportement
     conservateur) et figée par deux tests dédiés
-    (`tests/test_fix_issue_80_deterministic.py::test_b_property_type_casse_variante_comportement_conservateur`,
+    (`tests/test_issue_80_deterministic.py::test_b_property_type_casse_variante_comportement_conservateur` (replié au push 2 depuis le fichier dédié de phase A),
     `tests/test_issue_80_semantic_filter.py::test_b_property_type_casse_variante_maison_aucun_filtrage`).
     Si un cas réel de casse variante apparaît dans les évals : normaliser à
     la coercition (un seul endroit), jamais élargir chaque comparaison.
