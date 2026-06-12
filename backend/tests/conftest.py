@@ -139,6 +139,27 @@ def _reset_snapshots_table():
 
 
 @pytest.fixture(autouse=True)
+def _reset_llm_semantic_cache():
+    """Vide le cache memoire de llm_semantic AVANT chaque test (chantier
+    fix-issue-80, SPEC §3.4 / AC25 ; lecons photo-evidence et 9.9).
+
+    Le filtre deterministe copropriete du fix s'applique AVANT `_set_cache` :
+    la valeur mise en cache est la valeur filtree. Un test qui asserte un
+    compteur d'appels du client OpenAI mocke (cache hit attendu) ou le contenu
+    filtre serait fausse par une entree laissee par un test precedent. Reset
+    autouse en conftest GLOBAL, jamais en fixture locale (lecon 9.9). Import
+    protege (pattern des autres resets) ; cache pleinement actif intra-test.
+    """
+    try:
+        import app.llm_semantic as llm
+
+        llm._CACHE.clear()
+    except Exception:
+        pass
+    yield
+
+
+@pytest.fixture(autouse=True)
 def _reset_photo_cache():
     """Vide le cache memoire de photo_evidence entre chaque test. Le cache
     (spec photo-evidence §3.2) est un etat module global : deux tests utilisant le
