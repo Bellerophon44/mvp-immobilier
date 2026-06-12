@@ -26,6 +26,20 @@
 
 ## Entrées
 
+- **[2026-06-12] [evals-harness] Une erreur de setup de fixture sur un test xfail devient un XFAIL silencieux (exit 0), pas un ERROR**
+  - Symptôme : prouvé par sonde en phase B — sous pytest, si la fixture d'un
+    test marqué `xfail(strict=False)` lève pendant le setup, le test est
+    rapporté XFAIL et la session sort en exit 0. Un harnais dont les seuls
+    consommateurs d'une fixture seraient des tests xfail peut donc casser
+    entièrement (fixture en panne = aucun appel LLM) sans jamais mettre la CI
+    au rouge.
+  - Cause racine : sémantique pytest — le marqueur xfail couvre aussi les
+    échecs de setup, pas seulement les assertions du test.
+  - Garde-fou : règle structurelle — toute fixture consommée par un test xfail
+    doit aussi être consommée par au moins un test bloquant (sans xfail) de la
+    même suite, dont l'ERROR de setup met le job au rouge. Verrouillé par
+    `backend/tests/test_evals_harness.py::test_phase_b_fixtures_des_xfail_partagees_avec_un_test_bloquant`.
+
 - **[2026-06-11] [cross-agence-inc1] Bootstrap destructif en top-level de conftest ré-exécuté par un double-import**
   - Symptôme : `OperationalError: attempt to write a readonly database` non
     déterministe sur des tests d'écriture collectés APRÈS le fichier

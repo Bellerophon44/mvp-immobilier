@@ -61,13 +61,55 @@ La synchronisation des labels est assurée par `.github/workflows/sync-labels.ym
 Premier déclenchement : automatique au merge sur `main`, ou manuel via
 Actions → « Sync labels » → Run workflow.
 
-## Suites prévues (non livrées ici)
+## Du retour pilote au cas d'éval
 
-1. **Harnais d'évaluation** (`backend/evals/`) : chaque finding validé devient
-   un cas (annonce anonymisée + assertions attendues), rejoué avec de vrais
-   appels LLM par un workflow CI sur toute PR touchant le prompt — pattern
-   `diagnose-scrapers.yml`. C'est le filet anti-régression sans lequel les
-   corrections de prompt se cannibalisent.
-2. **Agent de triage asynchrone** : classement, dédup, questions de
-   clarification en commentaire, synthèse hebdomadaire. Il prépare la gate
+Process d'alimentation du harnais `backend/evals/` (spec :
+`docs/specs/evals-harness-SPEC.md`). Chaque issue `retour-pilote` validée
+`pret-atelier` (GATE fondateur) devient un cas d'évaluation versionné, rejoué
+avec de vrais appels LLM par `.github/workflows/evals.yml` sur toute PR
+touchant le prompt ou le pipeline d'analyse.
+
+1. **Entrée** : issue `retour-pilote` validée `pret-atelier`.
+2. **Annonce synthétique obligatoire** : réécrire un texte entièrement fictif
+   conservant les caractéristiques déclenchantes. **Jamais d'extrait réel
+   versionné** dans le repo (public — CONTEXT §11.3 + droit d'auteur du
+   rédacteur de l'annonce). L'extrait réel reste dans l'issue (usage interne
+   de qualification), pas dans le repo.
+3. **Convention de fichiers** : `backend/evals/cases/issue_<n>.txt` (texte de
+   l'annonce seul) + `backend/evals/test_eval_issue_<n>.py`. Une fixture
+   module-scoped = **un seul appel** LLM par cas et par run ; toutes les
+   assertions consomment son résultat. Assertions sur champs structurés et
+   mots-clés, jamais d'égalité de texte libre ; **aucun mock du LLM** (un
+   eval mocké est un mock de façade par définition).
+4. **Politique xfail** : comportement fautif connu non fixé →
+   `xfail(reason="issue #<n>, fix non livre")`. `strict=False` si l'oracle
+   dépend du LLM (non déterministe) ; `strict=True` si l'oracle est
+   déterministe — ces derniers vivent dans `backend/tests/` (suite gratuite).
+5. **Preuve de reproduction avant merge** : le run CI de la PR introduisant le
+   cas doit montrer le statut **XFAIL** (pas XPASS) sur ses assertions de
+   régression connue — c'est la preuve que l'annonce synthétique déclenche
+   bien les symptômes. Sinon, reformuler le texte en se rapprochant des
+   tournures déclenchantes et repousser.
+6. **Checklist du chantier fix** : retirer à la main les xfail LLM
+   (`strict=False`) ; les xfail `strict=True` se signalent seuls par XPASS ;
+   mettre à jour les tests si les signatures internes changent.
+7. **Flaky** : tout cas flaky est traité (assertion élargie, ou rejeux k=3
+   avec vote majoritaire et reset de `llm_semantic._CACHE` entre rejeux),
+   **jamais** re-run jusqu'au vert.
+8. **Diagnostic clé invalide** : une clé présente mais invalide (révoquée,
+   plafond atteint) passe la garde du conftest, puis le fallback silencieux
+   de `llm_semantic` renvoie une extraction vide → les assertions de sanity
+   échouent en bloc (« listing à None »). Si TOUTES les extractions sont
+   None, vérifier d'abord la validité de la clé `OPENAI_API_KEY` côté
+   OpenAI avant de chercher une régression de prompt.
+
+## Suites prévues
+
+1. **Harnais d'évaluation** (`backend/evals/`) — **livré** (2026-06-11, spec
+   `docs/specs/evals-harness-SPEC.md`) : chaque finding validé devient un cas
+   synthétique rejoué avec de vrais appels LLM par `evals.yml` sur toute PR
+   touchant le prompt — voir la section « Du retour pilote au cas d'éval »
+   ci-dessus. Premier cas : issue #80.
+2. **Agent de triage asynchrone** (non livré) : classement, dédup, questions
+   de clarification en commentaire, synthèse hebdomadaire. Il prépare la gate
    humaine, il ne la remplace pas.
