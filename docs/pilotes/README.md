@@ -96,6 +96,12 @@ touchant le prompt ou le pipeline d'analyse.
 7. **Flaky** : tout cas flaky est traité (assertion élargie, ou rejeux k=3
    avec vote majoritaire et reset de `llm_semantic._CACHE` entre rejeux),
    **jamais** re-run jusqu'au vert.
+8. **Diagnostic clé invalide** : une clé présente mais invalide (révoquée,
+   plafond atteint) passe la garde du conftest, puis le fallback silencieux
+   de `llm_semantic` renvoie une extraction vide → les assertions de sanity
+   échouent en bloc (« listing à None »). Si TOUTES les extractions sont
+   None, vérifier d'abord la validité de la clé `OPENAI_API_KEY` côté
+   OpenAI avant de chercher une régression de prompt.
 
 ## Suites prévues
 
