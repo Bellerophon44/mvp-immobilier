@@ -180,6 +180,63 @@ def test_table_property_type_null_single_storey_true_jamais_plain_pied():
 
 
 # ===========================================================================
+# Durcissement phase B (testeur) — bornes et valeurs adverses du rendu
+# ===========================================================================
+
+def test_b_table_maison_floor_1_single_storey_true_borne_contradiction():
+    """Durcit AC5 : la garde contradiction est `floor >= 1` — floor=1 (borne
+    basse) suffit a omettre plain-pied ET « 1er étage »."""
+    signal = _signal(_listing(property_type="maison", floor=1, single_storey=True))
+    assert "plain-pied" not in signal
+    assert "étage" not in signal
+    assert "rez-de-chaussée" not in signal
+
+
+def test_b_appartement_floor_0_single_storey_true_rdc_sans_plain_pied():
+    """Durcit AC7/AC8 (table §4 combinee) : appartement floor=0 reste
+    « rez-de-chaussée » meme avec single_storey=True, jamais plain-pied."""
+    signal = _signal(
+        _listing(property_type="appartement", floor=0, single_storey=True)
+    )
+    assert "rez-de-chaussée" in signal
+    assert "plain-pied" not in signal
+
+
+def test_b_property_type_casse_variante_comportement_conservateur():
+    """Durcit AC9 : « Maison » (casse variante) n'est pas « maison » explicite
+    — egalite stricte (spec §2), comportement historique conserve (rendu
+    rez-de-chaussée, pas de plain-pied). Limite documentee : la robustesse
+    repose sur l'enum du prompt + la sanity d'eval property_type."""
+    signal = _signal(
+        _listing(property_type="Maison", floor=0, single_storey=True)
+    )
+    assert "rez-de-chaussée" in signal
+    assert "plain-pied" not in signal
+
+
+def test_b_single_storey_chaine_true_jamais_plain_pied():
+    """Durcit AC3 : la preuve plain-pied est `is True` STRICT — une chaine
+    truthy « true » ne rend jamais plain-pied."""
+    signal = _signal(_listing(property_type="maison", single_storey="true"))
+    assert "plain-pied" not in signal
+
+
+def test_b_amenity_actions_property_type_null_etage_ascenseur_conserves():
+    """Durcit AC10/AC11 : property_type null -> generateur deterministe
+    inchange (conservateur, spec §2) : question ET levier etage/ascenseur
+    produits."""
+    actions = _amenity_actions(
+        _listing(property_type=None, floor=4, has_elevator=False)
+    )
+    assert any(
+        "étage" in q and "ascenseur" in q for q in actions["questions"]
+    ), f"Question etage/ascenseur attendue pour type null : {actions['questions']}"
+    assert any(
+        "4e étage sans ascenseur" in lev for lev in actions["negotiation"]
+    ), f"Levier etage/ascenseur attendu pour type null : {actions['negotiation']}"
+
+
+# ===========================================================================
 # §5.2 — actions deterministes (AC10-AC13)
 # ===========================================================================
 

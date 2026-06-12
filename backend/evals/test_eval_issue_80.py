@@ -51,6 +51,13 @@ def test_extraction_price_total(semantic_issue_80):
     assert semantic_issue_80["listing"]["price_total"] == 565000.0
 
 
+def test_extraction_single_storey(semantic_issue_80):
+    # AC37 (chantier fix #80) : le texte synthetique affirme litteralement
+    # « plain-pied » — meme classe de fiabilite que property_type, donc
+    # bloquant sans xfail.
+    assert semantic_issue_80["listing"]["single_storey"] is True
+
+
 def test_questions_non_vides(semantic_issue_80):
     # Garantit que la regression B (mots interdits dans `questions`) n'est pas
     # verte par vacuite.

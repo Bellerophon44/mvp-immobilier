@@ -327,6 +327,183 @@ def test_ac24_system_prompt_inchange():
     )
 
 
+def _durci_payload_avec_champs_annexes(questions, levers):
+    """Payload AC16 enrichi de champs annexes (local_claims, summary) pour
+    verifier que le filtre ne touche QUE les deux listes (spec §3.3)."""
+    payload = json.loads(_payload(questions=questions, levers=levers))
+    payload["local_claims"] = [{"text": "proche gare", "type": "gare"}]
+    payload["summary"] = "Maison individuelle synthetique."
+    return json.dumps(payload, ensure_ascii=False)
+
+
+# ===========================================================================
+# Durcissement phase B (testeur) — valeurs adverses, interactions filtre/cache
+# ===========================================================================
+
+def test_b_filtre_items_non_str_via_str_casefold(mock_llm):
+    """Durcit AC16 (spec §3.3) : le critere de retrait est
+    `str(item).casefold()` — un item non-str est converti avant le test. Un
+    objet JSON portant « syndic » ou « Copropriété » est retire, un nombre est
+    conserve, ordre relatif preserve, aucun TypeError."""
+    mock_llm.content = _payload(
+        questions=[42, {"sujet": "syndic"}, "Quelle est l'exposition ?"],
+        levers=[{"texte": "Copropriété calme"}, 7],
+    )
+    out = llm.analyze_semantic(
+        "maison synthetique fix80 b items non str grange attenante"
+    )
+    assert out["questions"] == [42, "Quelle est l'exposition ?"]
+    assert out["negotiation_levers"] == [7]
+
+
+def test_b_property_type_casse_variante_maison_aucun_filtrage(mock_llm):
+    """Durcit AC22 : « Maison » (casse variante, hors enum du prompt) n'est
+    pas « maison » explicite — egalite stricte (spec §2), comportement
+    conservateur : aucun item retire. Limite documentee : la robustesse
+    repose sur l'enum du prompt + la sanity d'eval property_type."""
+    mock_llm.content = _payload(
+        {"property_type": "Maison"},
+        questions=_QUESTIONS_AC16,
+        levers=_LEVERS_AC16,
+    )
+    out = llm.analyze_semantic(
+        "maison synthetique fix80 b casse variante longere restauree"
+    )
+    assert out["questions"] == _QUESTIONS_AC16
+    assert out["negotiation_levers"] == _LEVERS_AC16
+
+
+def test_b_single_storey_chaine_true_et_entier_1_coerces_a_none(mock_llm):
+    """Durcit AC14 : la coercition est STRICTEMENT booleenne — « true »
+    (chaine) et 1 (entier truthy) valent None, jamais True."""
+    mock_llm.content = _payload({"single_storey": "true"})
+    out = llm.analyze_semantic(
+        "maison synthetique fix80 b sst chaine annexe independante"
+    )
+    assert out["listing"]["single_storey"] is None
+
+    mock_llm.content = _payload({"single_storey": 1})
+    out = llm.analyze_semantic(
+        "maison synthetique fix80 b sst entier remise a velos"
+    )
+    assert out["listing"]["single_storey"] is None
+
+
+def test_b_condo_fees_zero_nest_pas_null_aucun_filtrage(mock_llm):
+    """Durcit AC21 : condition 3 de la spec §3.3 LITTERALE
+    (`condo_fees is None`). 0 est coerce en 0.0, non None -> pas de filtrage
+    (une valeur extraite, meme nulle en euros, vaut indice de copropriete)."""
+    mock_llm.content = _payload(
+        {"condo_fees": 0},
+        questions=_QUESTIONS_AC16,
+        levers=_LEVERS_AC16,
+    )
+    out = llm.analyze_semantic(
+        "maison synthetique fix80 b charges nulles cour pavee"
+    )
+    assert out["listing"]["condo_fees"] == 0.0
+    assert out["questions"] == _QUESTIONS_AC16
+    assert out["negotiation_levers"] == _LEVERS_AC16
+
+
+def test_b_texte_copropriete_majuscules_accentuees_bloque_le_filtre(mock_llm):
+    """Durcit AC20 : la condition 2 (texte) est en casefold elle aussi — un
+    texte mentionnant « COPROPRIÉTÉ » en majuscules accentuees bloque le
+    filtrage (les items copro restent legitimes)."""
+    mock_llm.content = _payload(questions=_QUESTIONS_AC16, levers=_LEVERS_AC16)
+    out = llm.analyze_semantic(
+        "maison synthetique fix80 b en COPROPRIÉTÉ horizontale allee privee"
+    )
+    assert out["questions"] == _QUESTIONS_AC16
+    assert out["negotiation_levers"] == _LEVERS_AC16
+
+
+def test_b_fallback_non_mis_en_cache_puis_succes_filtre(mock_llm):
+    """Interaction fallback/cache (durcit AC15+AC18) : le fallback n'est PAS
+    mis en cache — un appel suivant sur le MEME texte refait un appel reel et
+    obtient la sortie filtree (pas le fallback fige)."""
+    texte = "maison synthetique fix80 b panne puis succes appentis bois"
+    mock_llm.exc = RuntimeError("panne OpenAI simulee fix80 phase b")
+    out1 = llm.analyze_semantic(texte)
+    assert out1.get("_fallback") is True
+
+    mock_llm.exc = None
+    mock_llm.content = _payload(questions=_QUESTIONS_AC16, levers=_LEVERS_AC16)
+    out2 = llm.analyze_semantic(texte)
+    assert mock_llm.call_count == 2, "le fallback ne doit pas etre cache"
+    assert out2.get("_fallback") is None
+    assert out2["questions"] == ["Quelle est l'exposition ?"]
+    assert out2["negotiation_levers"] == ["DPE C"]
+
+
+def test_b_filtre_preserve_ordre_multi_items_conserves(mock_llm):
+    """Durcit AC16 : ordre relatif preserve quand PLUSIEURS items survivent
+    de part et d'autre des items retires."""
+    mock_llm.content = _payload(
+        questions=[
+            "Quelle est l'annee de la toiture ?",
+            "Y a-t-il un syndic ?",
+            "Quelle est l'exposition ?",
+            "Le reglement de copropriete est-il fourni ?",
+            "Le jardin est-il clos ?",
+        ],
+        levers=_LEVERS_AC16,
+    )
+    out = llm.analyze_semantic(
+        "maison synthetique fix80 b ordre preserve puits ancien"
+    )
+    assert out["questions"] == [
+        "Quelle est l'annee de la toiture ?",
+        "Quelle est l'exposition ?",
+        "Le jardin est-il clos ?",
+    ]
+
+
+def test_b_filtre_ne_touche_que_les_deux_listes(mock_llm):
+    """Spec §3.3 : « Aucun autre champ n'est modifie » — quand le filtre
+    retire des items, local_claims, summary, verdict et listing sont
+    intacts."""
+    mock_llm.content = _durci_payload_avec_champs_annexes(
+        _QUESTIONS_AC16, _LEVERS_AC16
+    )
+    out = llm.analyze_semantic(
+        "maison synthetique fix80 b champs annexes intacts cellier voute"
+    )
+    assert out["questions"] == ["Quelle est l'exposition ?"]
+    assert out["negotiation_levers"] == ["DPE C"]
+    assert out["local_claims"] == [{"text": "proche gare", "type": "gare"}]
+    assert out["summary"] == "Maison individuelle synthetique."
+    assert out["verdict"] == "Bonne"
+    assert out["listing"]["property_type"] == "maison"
+    assert out["listing"]["condo_fees"] is None
+
+
+def test_b_pipeline_floor_adverse_coerce_avant_rendu(mock_llm):
+    """Bout-en-bout coercition -> rendu (durcit AC5/AC14 + table §4) : le LLM
+    renvoie des floor adverses pour une maison single_storey=true.
+    floor='2' (chaine) est coerce en 2 -> contradiction, pas de plain-pied ;
+    floor=true (bool) est rejete en None -> plain-pied legitime."""
+    from app.analysis import _amenity_attrs
+    from app.market_stats import _criteria_signal
+
+    mock_llm.content = _payload({"floor": "2", "single_storey": True})
+    out = llm.analyze_semantic(
+        "maison synthetique fix80 b floor chaine mezzanine exposee"
+    )
+    assert out["listing"]["floor"] == 2
+    signal = _criteria_signal(None, None, {}, _amenity_attrs(out["listing"]))
+    assert "plain-pied" not in signal
+    assert "2e étage" not in signal
+
+    mock_llm.content = _payload({"floor": True, "single_storey": True})
+    out = llm.analyze_semantic(
+        "maison synthetique fix80 b floor booleen veranda plein sud"
+    )
+    assert out["listing"]["floor"] is None
+    signal = _criteria_signal(None, None, {}, _amenity_attrs(out["listing"]))
+    assert "de plain-pied" in signal
+
+
 def test_ac25_conftest_reset_autouse_cache_llm_semantic():
     """AC25 (statique) : tests/conftest.py definit une fixture AUTOUSE qui
     vide llm_semantic._CACHE avant chaque test (lecon 9.9 : reset d'etat
