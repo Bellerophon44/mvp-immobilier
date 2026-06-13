@@ -180,6 +180,50 @@ def _has_feature(ad: dict, flag_key: str, qty_key: str) -> Optional[bool]:
     return None
 
 
+# Cap d'URLs photo captees par annonce (increment 2b etape 1) — discipline
+# coherente avec l'etape 2 future (hash). Les URLs au-dela sont ignorees.
+_PHOTO_URL_CAP = 3
+# Cles candidates d'URL quand un element `photos` est un dict (la structure
+# exacte n'est pas figee par le code actuel : robuste aux deux formes).
+_PHOTO_URL_KEYS = ("url", "src", "href")
+
+
+def _extract_photo_urls(ad: dict) -> Optional[str]:
+    """URLs photo d'une annonce bien'ici (cle JSON `photos`). Defensif : une
+    structure absente/vide/inattendue retourne None, jamais d'exception (la
+    collecte ne doit jamais echouer sur ce champ optionnel).
+
+    Robuste aux elements `str` (URL directe) ET `dict` (cles candidates
+    `url`/`src`/`href`). Strip, ignore les vides, deduplique en preservant
+    l'ordre, cappe a `_PHOTO_URL_CAP`. Retourne `json.dumps(<liste>)` ou None."""
+    photos = ad.get("photos")
+    if not isinstance(photos, list) or not photos:
+        return None
+
+    urls: list[str] = []
+    seen: set[str] = set()
+    for item in photos:
+        url = None
+        if isinstance(item, str):
+            url = item.strip()
+        elif isinstance(item, dict):
+            for key in _PHOTO_URL_KEYS:
+                value = item.get(key)
+                if isinstance(value, str) and value.strip():
+                    url = value.strip()
+                    break
+        if not url or url in seen:
+            continue
+        seen.add(url)
+        urls.append(url)
+        if len(urls) >= _PHOTO_URL_CAP:
+            break
+
+    if not urls:
+        return None
+    return json.dumps(urls)
+
+
 def _extract_amenities(ad: dict) -> dict:
     """Critères affinés (chantier C) exposés par l'API bien'ici. Noms de champs
     confirmés par l'audit (field_audit_md). Tous nullables : absent -> None."""
@@ -246,6 +290,7 @@ def _parse_listing(ad: dict) -> Optional[PropertyListing]:
             construction_year=construction_year,
             reference=_as_str(ad.get("reference")),
             customer_id=_as_str(ad.get("customerId")),
+            photo_urls=_extract_photo_urls(ad),
             **_extract_amenities(ad),
         )
     except (KeyError, TypeError):

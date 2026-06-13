@@ -53,6 +53,9 @@ _ADD_COLUMNS = {
     "reference": "ALTER TABLE comparables ADD COLUMN reference VARCHAR",
     "customer_id": "ALTER TABLE comparables ADD COLUMN customer_id VARCHAR",
     "lineage_id": "ALTER TABLE comparables ADD COLUMN lineage_id VARCHAR",
+    # URLs photo captees a la collecte (increment 2b etape 1) — metadonnee
+    # interne nullable, pas d'index.
+    "photo_urls": "ALTER TABLE comparables ADD COLUMN photo_urls VARCHAR",
 }
 
 

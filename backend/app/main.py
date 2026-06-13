@@ -179,6 +179,9 @@ class ComparableIn(BaseModel):
     # nouvelle lignee). Jamais exposes en reponse API.
     reference: Optional[str] = None
     customer_id: Optional[str] = None
+    # URLs photo (increment 2b etape 1) — metadonnee technique interne optionnelle,
+    # liste d'URLs encodee JSON (str). Jamais exposee en reponse API.
+    photo_urls: Optional[str] = None
 
 
 class ImportRequest(BaseModel):
