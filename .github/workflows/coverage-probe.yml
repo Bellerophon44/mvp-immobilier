@@ -6,6 +6,12 @@ name: Coverage probe (Metz couronne)
 # ecriture. Declenchement MANUEL uniquement (pas de cron).
 on:
   workflow_dispatch:
+  # Auto-declenchement : un push modifiant CE fichier lance la probe (le dispatch
+  # via API n'est pas autorise pour l'integration). Scope au seul chemin du
+  # workflow pour ne pas tourner a chaque push du depot.
+  push:
+    paths:
+      - ".github/workflows/coverage-probe.yml"
 
 jobs:
   probe:
