@@ -818,9 +818,21 @@ def _build_lineage_two_members(frozen_now):
     from ingestion.save import save_comparables
 
     _require_lineage_column()
+    # VALIDE TESTEUR PHASE B (2026-06-13) : t2 ramene de 2026-06-13 a 2026-04-08.
+    # Statut formel de la modif d'oracle du developpeur : LEGITIME. Le candidat A
+    # porte last_seen_at = t1 ; au run de B, le garde temporel evalue
+    # (t2 - t1).days contre la fenetre W=90j revolus (SPEC §3.2, figee par
+    # AC12=90j inclus / AC13=91j exclu). Ancien t2 : (t2-t1).days = 123 > 90 -> A
+    # n'etait PAS candidat -> B creait sa propre lignee -> /history/{B} n'agregeait
+    # qu'1 snapshot : AC25 (3 snapshots) et AC26 (meme serie via A ou B) etaient
+    # MATHEMATIQUEMENT insatisfiables (aucune fenetre ne peut exclure 91j ET inclure
+    # 123j). C'etait donc une incoherence INTERNE de la DONNEE du helper, pas un
+    # defaut d'implementation. Nouveau t2 : (t2-t1).days = 57 <= 90 -> rattachement.
+    # AUCUNE assertion AC25/AC26 n'est affaiblie (toujours 3 snapshots, ordre
+    # croissant, price_first=T0, price_last=T2, baisse de prix, first_seen=MIN(t0)).
     t0 = datetime(2026, 1, 6, 4, 0, 0)
     t1 = datetime(2026, 2, 10, 4, 0, 0)
-    t2 = datetime(2026, 6, 13, 4, 0, 0)
+    t2 = datetime(2026, 4, 8, 4, 0, 0)
 
     frozen_now["now"] = t0
     save_comparables([_make_ad(
@@ -1408,4 +1420,334 @@ def test_ac42_no_new_module_memory_state_introduced_by_2a():
     assert not suspect, (
         f"2a a introduit un etat memoire de module suspect dans ingestion.save "
         f"(cache/compteur ?) sans reset autouse : {suspect} (AC42)"
+    )
+
+
+# ===========================================================================
+# DURCISSEMENT phase B (testeur) — challenge adversarial de l'implementation.
+# Ajoute par le TESTEUR, ne fait pas partie des AC d'origine ; vise les pieges
+# signales (db.flush, anti-fuite multi-membres, retention cas limites,
+# faux-liens, idempotence reelle, capture nullable bienici).
+# ===========================================================================
+
+# --- db.flush() : un lot mixte valides + invalide ne doit ni lever ni perdre
+#     le batch ; les valides sont persistees (regression potentielle 2a). ------
+def test_hardening_batch_mixed_valid_and_out_of_band_keeps_valid(frozen_now):
+    # Le dev a ajoute db.flush() dans la branche existing is None. Risque
+    # signale : une ligne invalide "poisonnerait" la session avant commit. Ici
+    # un lot melange 2 annonces VALIDES et une INVALIDE (prix/m2 hors bande
+    # [800-12000]). L'invalide est rejetee par le garde-fou AVANT toute ecriture
+    # (save.py:128-145, continue sans db.add) -> elle ne doit ni lever ni
+    # empecher le commit des valides. On verifie que les 2 valides sont bien
+    # persistees (batch non perdu).
+    from ingestion.save import save_comparables
+
+    _require_lineage_column()
+    frozen_now["now"] = datetime(2026, 6, 13, 4, 0, 0)
+    batch = [
+        _make_ad("hard-mix-ok1", price_total=250000.0, surface=80.0,
+                 reference="RMIX1", customer_id="CMIX"),
+        # price_m2 = 5_000_000/10 = 500_000 -> hors bande [800-12000] -> rejete.
+        _make_ad("hard-mix-bad", price_total=5_000_000.0, surface=10.0,
+                 reference="RMIX-BAD", customer_id="CMIX"),
+        _make_ad("hard-mix-ok2", price_total=260000.0, surface=82.0,
+                 reference="RMIX2", customer_id="CMIX"),
+    ]
+    saved = save_comparables(batch)  # ne doit PAS lever
+
+    assert _row("hard-mix-ok1") is not None, (
+        "annonce valide perdue dans un lot contenant une invalide (db.flush "
+        "regression ?)"
+    )
+    assert _row("hard-mix-ok2") is not None, (
+        "2e annonce valide (apres l'invalide) perdue : la session a-t-elle ete "
+        "poisonnee par l'invalide ?"
+    )
+    assert _row("hard-mix-bad") is None, (
+        "annonce hors bande prix/m2 ne doit PAS etre persistee (garde-fou)"
+    )
+    assert saved == 2, f"2 annonces valides attendues persistees, recu saved={saved}"
+    assert _snapshot_count("hard-mix-ok1") == 1
+    assert _snapshot_count("hard-mix-ok2") == 1
+
+
+def test_hardening_batch_mixed_valid_and_out_of_dept_keeps_valid(frozen_now):
+    # Variante du piege db.flush avec une invalide HORS DEPT 57 (postal_code
+    # connu d'un autre departement). Meme garde-fou AVANT ecriture (save.py:142).
+    # Les valides du meme lot ne doivent pas etre perdues ni leur ecriture
+    # rollbackee.
+    from ingestion.save import save_comparables
+
+    _require_lineage_column()
+    frozen_now["now"] = datetime(2026, 6, 13, 4, 0, 0)
+    batch = [
+        _make_ad("hard-dept-ok1", price_total=250000.0, reference="RD1",
+                 customer_id="CD"),
+        _make_ad("hard-dept-bad", price_total=250000.0, postal_code="54000",
+                 city="Nancy", reference="RD-BAD", customer_id="CD"),
+        _make_ad("hard-dept-ok2", price_total=255000.0, reference="RD2",
+                 customer_id="CD"),
+    ]
+    saved = save_comparables(batch)
+
+    assert _row("hard-dept-ok1") is not None and _row("hard-dept-ok2") is not None, (
+        "annonces valides perdues dans un lot contenant une hors-dept 57"
+    )
+    assert _row("hard-dept-bad") is None, "bien hors dept 57 (cp connu) ne doit pas etre ecrit"
+    assert saved == 2, f"2 valides attendues, recu saved={saved}"
+
+
+# --- Anti-fuite /history (AC27) multi-membres avec reference/customer_id
+#     renseignes sur PLUSIEURS membres : aucune fuite. --------------------------
+def test_hardening_history_no_leak_multi_member_with_refs_set(
+    client, admin_token, frozen_now
+):
+    # AC27 durci : on construit une lignee de 3 membres dont CHACUN porte une
+    # reference et un customer_id NON VIDES (rattachement bienici). Si une
+    # implementation future serialisait naivement les lignes (ex. row.__dict__),
+    # ces champs renseignes fuiteraient. On exige que la liste blanche tienne
+    # meme quand les champs interdits sont peuples sur tous les membres.
+    from ingestion.save import save_comparables
+
+    _require_lineage_column()
+    # Dates espacees pour une chaine A->B->C de 3 membres reels : A doit sortir
+    # de la fenetre 90j vu de C, sinon {A,B} = 2 candidats -> abstention (§3.4)
+    # et C ferait sa propre lignee (cf. test idempotence / bloc LECONS).
+    t0 = datetime(2025, 10, 1, 4, 0, 0)
+    t1 = datetime(2025, 12, 20, 4, 0, 0)
+    t2 = datetime(2026, 3, 15, 4, 0, 0)
+    for sid, t, price in (
+        ("hard-leak-A", t0, 250000.0),
+        ("hard-leak-B", t1, 240000.0),
+        ("hard-leak-C", t2, 230000.0),
+    ):
+        frozen_now["now"] = t
+        save_comparables([_make_ad(
+            sid, price_total=price, surface=80.0, source="bienici",
+            reference="RLEAK", customer_id="CLEAK",
+        )])
+
+    # Sanity : la lignee est bien fusionnee (les 3 membres partagent la lignee).
+    body = _history(client, admin_token, "hard-leak-C").json()
+    assert len(body["snapshots"]) == 3, (
+        "precondition durcissement : les 3 membres doivent former une seule "
+        "lignee (sinon le test de fuite est trivialement satisfait)"
+    )
+    # Chaque membre porte bien reference/customer_id en base (le champ interdit
+    # existe et est renseigne) -> la fuite serait possible si mal filtree.
+    for sid in ("hard-leak-A", "hard-leak-B", "hard-leak-C"):
+        r = _row(sid)
+        assert getattr(r, "reference", None) == "RLEAK"
+        assert getattr(r, "customer_id", None) == "CLEAK"
+        assert getattr(r, "lineage_id", None) is not None
+
+    keys = set(body.keys())
+    assert keys <= HISTORY_ALLOWED_KEYS, (
+        f"/history fuite (multi-membres refs peuplees) : {keys - HISTORY_ALLOWED_KEYS}"
+    )
+    assert not (keys & FORBIDDEN_KEYS), (
+        f"cle interne fuitee malgre refs peuplees sur tous les membres : "
+        f"{keys & FORBIDDEN_KEYS}"
+    )
+    # Anti-faux-vert : on prouve aussi que les VALEURS sensibles n'apparaissent
+    # nulle part dans la reponse serialisee (pas seulement leurs cles).
+    import json as _json
+
+    blob = _json.dumps(body)
+    assert "RLEAK" not in blob, "valeur de reference fuitee dans le corps /history"
+    assert "CLEAK" not in blob, "valeur de customer_id fuitee dans le corps /history"
+
+
+# --- Retention : lignee a 3 membres dont 2 expires + 1 vivant -> personne purge.
+def test_hardening_retention_three_members_two_expired_one_alive_keeps_all(
+    client, admin_token
+):
+    # AC29 durci a 3 membres : 2 anciens (731j, 800j) + 1 vivant (5j). La lignee
+    # est vivante (MAX = 5j) -> AUCUN membre purge par retention, tous snapshots
+    # conserves. Verrouille que le calcul de MAX(last_seen) se fait bien sur
+    # TOUTE la lignee (et pas par paire / par membre).
+    from db.session import init_db
+
+    init_db()
+    _require_lineage_column()
+    now = datetime.utcnow()
+    members = [
+        ("hard-ret3-old1", 731),
+        ("hard-ret3-old2", 800),
+        ("hard-ret3-alive", 5),
+    ]
+    for sid, age in members:
+        _insert_comparable_2a(
+            sid, last_seen_at=now - timedelta(days=age),
+            reference="RRET3", customer_id="CRET3", lineage_id="LRET3",
+        )
+        _insert_snapshot_direct(sid, observed_at=now - timedelta(days=age))
+
+    resp = client.post(
+        "/admin/comparables/maintenance",
+        json={"dry_run": False},
+        headers={"X-Admin-Token": admin_token},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["purged_retention"] == 0, (
+        "lignee vivante (1 membre a 5j) : aucune purge retention meme avec 2 "
+        "membres expires"
+    )
+    for sid, _ in members:
+        assert _row(sid) is not None, f"membre {sid} purge a tort (lignee vivante)"
+        assert _snapshot_count(sid) == 1, f"snapshot de {sid} supprime a tort"
+
+
+def test_hardening_retention_all_at_730_boundary_kept(client, admin_token):
+    # Borne 730 exacte sur une lignee multi-membres : tous les membres a
+    # EXACTEMENT 730j -> MAX = 730j, .days == 730 (pas > 730) -> conserve.
+    # Cote inclus de la borne sur une lignee (et pas seulement mono-membre AC31).
+    from db.session import init_db
+
+    init_db()
+    _require_lineage_column()
+    now = datetime.utcnow()
+    for sid in ("hard-bound-a", "hard-bound-b"):
+        _insert_comparable_2a(
+            sid, last_seen_at=now - timedelta(days=730),
+            reference="RBOUND", customer_id="CBOUND", lineage_id="LBOUND",
+        )
+        _insert_snapshot_direct(sid, observed_at=now - timedelta(days=730))
+
+    resp = client.post(
+        "/admin/comparables/maintenance",
+        json={"dry_run": False},
+        headers={"X-Admin-Token": admin_token},
+    )
+    assert resp.status_code == 200
+    assert _row("hard-bound-a") is not None and _row("hard-bound-b") is not None, (
+        "lignee entierement a 730j EXACTEMENT doit etre conservee (borne incluse)"
+    )
+
+
+# --- Faux-liens : corroboration d'attributs anti-collision de reference. -------
+def test_hardening_same_reference_surface_out_of_band_no_link(frozen_now):
+    # Faux-lien potentiel : meme agence (bienici), MEME reference + MEME
+    # customer_id, mais surfaces hors +-2 % (candidat 100 m2, nouveau 110 m2 =
+    # +10 %) -> deux biens DIFFERENTS reutilisant une reference triviale -> PAS
+    # de rattachement (corroboration d'attributs).
+    from ingestion.save import save_comparables
+
+    _require_lineage_column()
+    now = datetime(2026, 6, 13, 4, 0, 0)
+    _insert_comparable_2a(
+        "hard-fl-surf-old", last_seen_at=now - timedelta(days=10), surface=100.0,
+        price_total=350000.0, source="bienici", reference="RFLS",
+        customer_id="CFLS", lineage_id="LFLS",
+    )
+    frozen_now["now"] = now
+    save_comparables([_make_ad(
+        "hard-fl-surf-new", surface=110.0, price_total=360000.0, source="bienici",
+        reference="RFLS", customer_id="CFLS",
+    )])
+    assert _lineage_id("hard-fl-surf-new") == "hard-fl-surf-new", (
+        "meme reference mais surface hors +-2 % : pas de lien (faux-lien evite)"
+    )
+
+
+def test_hardening_same_customer_id_different_reference_no_link(frozen_now):
+    # customer_id egal (meme compte annonceur bienici) mais reference DIFFERENTE
+    # -> deux mandats distincts du meme annonceur -> PAS de lien (la reference
+    # est le 1er predicat cumulatif, §3.3.1).
+    from ingestion.save import save_comparables
+
+    _require_lineage_column()
+    now = datetime(2026, 6, 13, 4, 0, 0)
+    _insert_comparable_2a(
+        "hard-fl-ref-old", last_seen_at=now - timedelta(days=10), source="bienici",
+        reference="RREF-A", customer_id="CSAME", lineage_id="LFLR",
+    )
+    frozen_now["now"] = now
+    save_comparables([_make_ad(
+        "hard-fl-ref-new", source="bienici", reference="RREF-B",
+        customer_id="CSAME", price_total=240000.0,
+    )])
+    assert _lineage_id("hard-fl-ref-new") == "hard-fl-ref-new", (
+        "meme customer_id mais reference differente : pas de lien (mandats distincts)"
+    )
+
+
+# --- Idempotence reelle : re-list rejoue 2x PUIS un 3e membre -> 1 lignee. -----
+def test_hardening_idempotence_replay_then_third_member_one_lineage(frozen_now):
+    # Rejoue un re-list deux fois (B), puis ajoute un 3e membre (C). On exige
+    # une SEULE lignee coherente : A, B, C partagent le meme lineage_id, et la
+    # serie /history fusionne exactement 3 snapshots (pas de doublon du au
+    # replay de B).
+    #
+    # NB testeur (propriete de spec, pas un bug) : pour que C se rattache a B
+    # (et non a un duo {A,B} -> abstention §3.4), il faut que A soit HORS fenetre
+    # 90j vu de C (sinon A et B sont 2 candidats -> abstention). On espace donc
+    # tA->tC > 90j. Voir le bloc LECONS du verdict : une lignee ne s'etend a 3+
+    # membres QUE si les anciens membres sortent de la fenetre 90j.
+    from ingestion.save import save_comparables
+
+    _require_lineage_column()
+    tA = datetime(2025, 10, 1, 4, 0, 0)
+    tB = datetime(2025, 12, 20, 4, 0, 0)   # tB-tA=80j (B voit A)
+    tC = datetime(2026, 3, 15, 4, 0, 0)    # tC-tA=165j (A hors fenetre), tC-tB=85j (C voit B)
+
+    frozen_now["now"] = tA
+    save_comparables([_make_ad("hard-idem-A", price_total=250000.0,
+                               source="bienici", reference="RIDEM", customer_id="CIDEM")])
+    # B re-list (A a disparu), joue DEUX fois au meme instant/prix.
+    adB = _make_ad("hard-idem-B", price_total=240000.0, source="bienici",
+                   reference="RIDEM", customer_id="CIDEM")
+    frozen_now["now"] = tB
+    save_comparables([adB])
+    save_comparables([adB])  # replay : ne doit rien dupliquer
+    # C re-list (B a disparu).
+    frozen_now["now"] = tC
+    save_comparables([_make_ad("hard-idem-C", price_total=230000.0,
+                               source="bienici", reference="RIDEM", customer_id="CIDEM")])
+
+    lin_a = _lineage_id("hard-idem-A")
+    lin_b = _lineage_id("hard-idem-B")
+    lin_c = _lineage_id("hard-idem-C")
+    assert lin_a == lin_b == lin_c == "hard-idem-A", (
+        f"A/B/C doivent former UNE seule lignee (racine A) : "
+        f"A={lin_a!r} B={lin_b!r} C={lin_c!r}"
+    )
+    assert _snapshot_count("hard-idem-B") == 1, (
+        "le replay de B ne doit pas dupliquer son snapshot"
+    )
+
+
+# --- Capture nullable bienici : reference sans customerId -> pas de rattachement.
+def test_hardening_bienici_reference_without_customer_id_persists_and_no_link(
+    frozen_now
+):
+    # Un ad bienici avec reference mais SANS customerId : on persiste reference,
+    # customer_id None, ET (bienici!) il ne se rattache pas faute de customer_id,
+    # meme si un candidat de meme reference existe (regle par-source §3.3.7).
+    from ingestion.save import save_comparables
+
+    _require_lineage_column()
+    now = datetime(2026, 6, 13, 4, 0, 0)
+    # Candidat bienici complet (reference + customer_id) dans la fenetre.
+    _insert_comparable_2a(
+        "hard-nullc-old", last_seen_at=now - timedelta(days=10), source="bienici",
+        reference="RNULLC", customer_id="CNULLC", lineage_id="LNULLC",
+    )
+    frozen_now["now"] = now
+    save_comparables([_make_ad(
+        "hard-nullc-new", source="bienici", reference="RNULLC",
+        price_total=240000.0,  # pas de customer_id
+    )])
+    row = _row("hard-nullc-new")
+    assert row is not None
+    assert getattr(row, "reference", "__M__") == "RNULLC", (
+        "reference doit etre persistee meme sans customer_id"
+    )
+    assert getattr(row, "customer_id", "__M__") is None, (
+        "customer_id doit etre None quand absent"
+    )
+    assert _lineage_id("hard-nullc-new") == "hard-nullc-new", (
+        "bienici sans customer_id : pas de rattachement (nouvelle lignee), meme "
+        "si un candidat de meme reference existe"
     )
