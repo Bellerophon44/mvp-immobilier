@@ -31,6 +31,76 @@ OUT_OF_SCOPE_CITIES = {
 # le code postal est absent — sinon on perdrait les sources qui ne l'exposent pas.
 IN_SCOPE_DEPARTMENT = "57"
 
+# Re-link "sans photo" meme agence (increment 2a) — fenetre de reapparition d'un
+# bien delisté (jours revolus, sens conservateur) et tolerance de surface pour la
+# corroboration d'attributs. Bornes prudentes, recalibrables (cf. SPEC §7).
+LINEAGE_WINDOW_DAYS = 90
+LINEAGE_SURFACE_TOLERANCE = 0.02
+
+
+def _norm_ref(value: Any) -> str:
+    """Reference de mandat normalisee pour la comparaison : str strippe, "" si
+    absente/triviale (None, vide, espaces)."""
+    if value is None:
+        return ""
+    return str(value).strip()
+
+
+def _find_lineage_candidate(db, ad: Dict[str, Any], canonical: str, now: datetime):
+    """Cherche l'unique comparable disparu auquel rattacher une annonce neuve
+    (re-publication meme agence). Conservateur : tout doute (reference triviale,
+    plusieurs candidats, attributs trop ecartes) => None (nouvelle lignee).
+
+    Lecture seule (`db.query`, aucun `db.add`) : robuste a l'ordre du batch et
+    sans aggravation du cas id duplique intra-batch (SPEC §3.6).
+    """
+    reference = _norm_ref(ad.get("reference"))
+    if not reference:
+        return None  # reference absente/triviale => pas de recherche (§3.3.1)
+
+    source = ad.get("source")
+    surface = ad.get("surface_m2")
+    if not surface or surface <= 0:
+        return None
+
+    # bienici multiplexe plusieurs agences : customer_id requis et egal pour
+    # lever l'ambiguite d'une reference qui collisionne entre agences (§3.3.7).
+    is_bienici = source == "bienici"
+    ad_customer = _norm_ref(ad.get("customer_id"))
+    if is_bienici and not ad_customer:
+        return None
+
+    candidates = (
+        db.query(Comparable)
+        .filter(
+            Comparable.reference == reference,
+            Comparable.source == source,
+            Comparable.property_type == ad.get("property_type"),
+            Comparable.city == canonical,
+            Comparable.last_seen_at.isnot(None),
+        )
+        .all()
+    )
+
+    matches = []
+    for cand in candidates:
+        if (now - cand.last_seen_at).days > LINEAGE_WINDOW_DAYS:
+            continue
+        if not cand.surface_m2:
+            continue
+        if abs(cand.surface_m2 - surface) > LINEAGE_SURFACE_TOLERANCE * cand.surface_m2:
+            continue
+        if is_bienici:
+            cand_customer = _norm_ref(cand.customer_id)
+            if not cand_customer or cand_customer != ad_customer:
+                continue
+        matches.append(cand)
+
+    # 0 => nouvelle lignee ; >=2 => abstention (ambiguite) ; 1 => rattachement.
+    if len(matches) == 1:
+        return matches[0]
+    return None
+
 
 def save_comparables(listings: List[Dict[str, Any]]) -> int:
     """
@@ -82,9 +152,24 @@ def save_comparables(listings: List[Dict[str, Any]]) -> int:
             existing = db.get(Comparable, ad["id"])
 
             if existing is None:
-                first_seen = now
+                # Re-link "sans photo" meme agence (increment 2a) : un bien
+                # delisté qui reapparait sous un nouvel id stable est rattache a
+                # sa lignee pour prolonger l'historique de prix. La recherche est
+                # conservatrice (aucun faux lien) ; sinon nouvelle lignee.
+                candidate = _find_lineage_candidate(db, ad, city, now)
+                if candidate is not None:
+                    lineage_id = candidate.lineage_id or candidate.id  # repli heritage
+                    first_seen = (
+                        candidate.first_seen_at or candidate.collected_at or now
+                    )
+                else:
+                    lineage_id = ad["id"]  # nouvelle lignee (sur elle-meme)
+                    first_seen = now
                 write_snapshot = True
             else:
+                # Re-observation d'un id connu : comportement inc.1 inchange, le
+                # lineage_id deja pose est relu tel quel (jamais re-detecte).
+                lineage_id = existing.lineage_id or existing.id
                 # first_seen_at immuable ; repli collected_at pour les lignes
                 # prod heritees d'avant cet increment (first_seen_at NULL).
                 first_seen = existing.first_seen_at or existing.collected_at or now
@@ -114,6 +199,9 @@ def save_comparables(listings: List[Dict[str, Any]]) -> int:
                 has_cellar=ad.get("has_cellar"),
                 parking=ad.get("parking"),
                 bedrooms=ad.get("bedrooms"),
+                reference=ad.get("reference"),
+                customer_id=ad.get("customer_id"),
+                lineage_id=lineage_id,
                 collected_at=now,
                 first_seen_at=first_seen,
                 last_seen_at=now,
@@ -121,6 +209,14 @@ def save_comparables(listings: List[Dict[str, Any]]) -> int:
 
             if existing is None:
                 db.add(Comparable(id=ad["id"], **fields))
+                # Flush immediat : sans lui, session autoflush=False, un meme id
+                # apparaissant deux fois dans le batch ne serait pas vu par le
+                # db.get du second passage (identity map alimentee au flush) -> un
+                # 2e db.add du meme PK ferait echouer tout le commit en
+                # IntegrityError. Le flush rend l'id visible -> le doublon
+                # intra-batch emprunte la branche `existing is not None`
+                # (comportement attendu inc.1, AC40), sans nouvel etat memoire.
+                db.flush()
             else:
                 for key, value in fields.items():
                     setattr(existing, key, value)

@@ -27,6 +27,21 @@ START_URL = "https://idemmo.fr/rechercher/?es=1&address&es_category=6"
 MAX_PAGES = 15
 
 
+# Best-effort (increment 2a) : reference de mandat dans le texte de la carte.
+# Defensif : si rien -> None, jamais d'exception ni de perte d'annonce (§2.3).
+_REFERENCE_RE = re.compile(
+    r"r[ée]f(?:[ée]rence)?\.?\s*[:n°#]*\s*([A-Za-z0-9._\-]{2,})", re.IGNORECASE
+)
+
+
+def _extract_reference(card) -> Optional[str]:
+    try:
+        match = _REFERENCE_RE.search(card.get_text(" ", strip=True))
+        return match.group(1) if match else None
+    except Exception:
+        return None
+
+
 def _extract_external_id(href: str) -> Optional[str]:
     # .../hayange-...-87020413/?search_url=... -> 87020413
     match = re.search(r"-(\d+)/?(?:\?|$)", href.split("?")[0])
@@ -73,6 +88,7 @@ def _parse_card(card) -> Optional[PropertyListing]:
             price_total=price,
             dpe=dpe,
             construction_year=extract_construction_year(title_text),
+            reference=_extract_reference(card),
         )
     except Exception:
         return None

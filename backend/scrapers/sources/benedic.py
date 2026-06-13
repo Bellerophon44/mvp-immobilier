@@ -34,6 +34,22 @@ _PROPERTY_TYPE_MAP = {
 }
 
 _SURFACE_RE = re.compile(r"(\d+(?:[.,]\d+)?)\s*m[²2]", re.IGNORECASE)
+# Best-effort (increment 2a) : reference de mandat affichee dans le texte des
+# cartes ("Ref. 12345", "Reference : ABC"). Defensif : si rien -> None, jamais
+# d'exception ni de perte d'annonce (contrat §2.3).
+_REFERENCE_RE = re.compile(
+    r"r[ée]f(?:[ée]rence)?\.?\s*[:n°#]*\s*([A-Za-z0-9._\-]{2,})", re.IGNORECASE
+)
+
+
+def _extract_reference(*texts: str) -> Optional[str]:
+    for text in texts:
+        if not text:
+            continue
+        match = _REFERENCE_RE.search(text)
+        if match:
+            return match.group(1)
+    return None
 
 
 def _property_type(title: str) -> str:
@@ -88,6 +104,7 @@ def _parse_card(card) -> Optional[PropertyListing]:
             price_total=price,
             dpe=extract_dpe(card_text),
             construction_year=extract_construction_year(card_text),
+            reference=_extract_reference(meta, title, card_text),
         )
     except Exception:
         return None
