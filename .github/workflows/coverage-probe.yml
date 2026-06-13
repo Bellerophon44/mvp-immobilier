@@ -1,0 +1,39 @@
+name: Coverage probe (Metz couronne)
+
+# Probe de couverture READ-ONLY (docs/specs/comparables-coverage-ANALYSE.md
+# §7 Q3 / §8) : interroge l'endpoint admin /admin/comparables/coverage pour lire
+# le volume de comparables par (commune × type/source) sur la base prod. Aucune
+# ecriture. Declenchement MANUEL uniquement (pas de cron).
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Fetch coverage and write summary
+        env:
+          BACKEND_URL: https://backend-frosty-sound-441-docker.fly.dev
+          ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+        run: |
+          curl -fsS -H "X-Admin-Token: ${ADMIN_TOKEN}" \
+            "${BACKEND_URL}/admin/comparables/coverage" > coverage.json
+          if command -v jq >/dev/null 2>&1; then
+            jq . coverage.json | tee coverage.pretty.json
+          else
+            python -m json.tool coverage.json | tee coverage.pretty.json
+          fi
+          {
+            echo '## Coverage probe (comparables par commune)';
+            echo '';
+            echo '```json';
+            cat coverage.pretty.json;
+            echo '```';
+          } >> "$GITHUB_STEP_SUMMARY"
