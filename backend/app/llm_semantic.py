@@ -81,7 +81,8 @@ USER_PROMPT_TEMPLATE = """Analyse le texte d'annonce immobilière ci-dessous et 
     "has_cellar": boolean | null,
     "parking": number | null,
     "bedrooms": number | null,
-    "condo_fees": number | null
+    "condo_fees": number | null,
+    "single_storey": boolean | null
   }}
 }}
 
@@ -92,7 +93,7 @@ Règles :
 - `transparency_score` est un entier entre 0 et 100.
 - `verdict` ∈ ["Bonne", "Moyenne", "Faible"].
 - `risk_level` ∈ ["Faible", "Modéré", "Élevé"].
-- `questions` : points à clarifier AVANT la visite, formulés comme de vraies questions à poser au vendeur ou à l'agent (étage/ascenseur, charges, travaux, exposition, parking, nuisances, copropriété, etc.). Une liste unique, non redondante, sans estimation de prix.
+- `questions` : points à clarifier AVANT la visite, formulés comme de vraies questions à poser au vendeur ou à l'agent (étage/ascenseur, charges, travaux, exposition, parking, nuisances, copropriété, etc.). Adapter les sujets au type de bien : les questions copropriété / syndic / charges de copropriété ne s'appliquent qu'aux biens en copropriété, JAMAIS à une maison individuelle. Une liste unique, non redondante, sans estimation de prix.
 - `negotiation_levers` : arguments factuels mobilisables en négociation (intention distincte des questions), formulés en affirmations courtes.
 - `local_claims` : allégations de LOCALISATION / VOISINAGE affirmées par l'annonce (ex. "vue cathédrale", "proche gare", "5 min de l'A31", "quartier calme", "commerces à pied", "frontalier Luxembourg"). N'extraire QUE ce qui est affirmé dans le texte ; ne rien inventer. `text` = citation courte et fidèle. `type` ∈ ["centre","cathedrale","gare","transport","commerces","nature","ecoles","calme","a31","autre"]. Les repères visuels NOMMÉS — Centre Pompidou-Metz, Temple Neuf, Jardin Botanique (et analogues) — sont classés en "autre" (ou "nature" pour le Jardin Botanique / les plans d'eau), JAMAIS "centre" : le type "centre" est réservé à la proximité du centre-ville, pas aux lieux contenant le mot « Centre ». Liste vide si aucune allégation locale.
 - `property_type` ∈ ["appartement", "maison", null].
@@ -102,6 +103,7 @@ Règles :
 - `has_elevator`, `has_terrace`, `has_balcony`, `has_cellar` : true/false UNIQUEMENT si l'annonce le précise, sinon null (ne pas supposer).
 - `parking`, `bedrooms` : entier si mentionné, sinon null.
 - `condo_fees` : charges annuelles de copropriété en euros (entier) si mentionnées, sinon null.
+- `single_storey` : true UNIQUEMENT si l'annonce affirme explicitement que le bien est de plain-pied ; ne JAMAIS le déduire de la mention d'un rez-de-chaussée ou d'une pièce au rez-de-chaussée ; sinon null (ne pas supposer).
 - Pour `listing`, n'extraire que ce qui est EXPLICITEMENT présent dans le texte ; sinon `null`.
 
 Texte :
@@ -136,6 +138,7 @@ _FALLBACK = {
         "parking": None,
         "bedrooms": None,
         "condo_fees": None,
+        "single_storey": None,
     },
 }
 
@@ -212,6 +215,50 @@ def _coerce_int_opt(value):
     return i if i >= 0 else None
 
 
+def _strip_condo_items(items: Any) -> Any:
+    """Retire les items mentionnant la copropriété ou le syndic (casefold),
+    ordre relatif préservé. Une forme non-liste (ex. chaîne renvoyée par le
+    LLM à la place du tableau attendu) est retournée telle quelle : itérer
+    dessus l'éclaterait en caractères."""
+    if not isinstance(items, list):
+        return items
+    return [
+        item for item in items
+        if "copropri" not in str(item).casefold()
+        and "syndic" not in str(item).casefold()
+    ]
+
+
+def _filter_condo_for_house(semantic_output: Dict[str, Any], raw_text: str) -> None:
+    """Fix issue #80 (régression B) : pour une maison explicite sans aucune
+    preuve de copropriété (texte muet sur copro/syndic ET condo_fees null),
+    retire les questions / leviers copropriété générés par le LLM. Conditions
+    cumulatives pour préserver les maisons réellement en copropriété
+    horizontale ; property_type null ne filtre pas (conservateur). Appliqué
+    AVANT la mise en cache : la valeur cachée est la valeur filtrée."""
+    listing = semantic_output["listing"]
+    text_cf = raw_text.casefold()
+    if (
+        listing.get("property_type") != "maison"
+        or listing.get("condo_fees") is not None
+        or "copropri" in text_cf
+        or "syndic" in text_cf
+    ):
+        return
+    questions = _strip_condo_items(semantic_output["questions"])
+    levers = _strip_condo_items(semantic_output["negotiation_levers"])
+    removed = (
+        len(semantic_output["questions"]) - len(questions)
+        + len(semantic_output["negotiation_levers"]) - len(levers)
+    )
+    if removed:
+        logger.info(
+            "condo items filtered for standalone house: %d removed", removed
+        )
+    semantic_output["questions"] = questions
+    semantic_output["negotiation_levers"] = levers
+
+
 def analyze_semantic(raw_text: str) -> Dict[str, Any]:
     cache_key = _hash_text(raw_text)
     cached = _get_from_cache(cache_key)
@@ -262,6 +309,7 @@ def analyze_semantic(raw_text: str) -> Dict[str, Any]:
         "parking": _coerce_int_opt(raw_listing.get("parking")),
         "bedrooms": _coerce_int_opt(raw_listing.get("bedrooms")),
         "condo_fees": _coerce_float(raw_listing.get("condo_fees")),
+        "single_storey": _coerce_bool(raw_listing.get("single_storey")),
     }
 
     semantic_output = {
@@ -275,6 +323,8 @@ def analyze_semantic(raw_text: str) -> Dict[str, Any]:
         "local_claims": _coerce_claims(result.get("local_claims")),
         "listing": listing,
     }
+
+    _filter_condo_for_house(semantic_output, raw_text)
 
     _set_cache(cache_key, semantic_output)
     return semantic_output

@@ -73,7 +73,8 @@
   anti-régression des corrections de prompt : cas synthétiques rejoués avec de
   vrais appels LLM par `.github/workflows/evals.yml` sur toute PR touchant
   prompt/pipeline ; suite gratuite isolée (`backend/pytest.ini`). Premier cas :
-  issue #80 (régressions connues en xfail, fix au chantier suivant). Prérequis
+  issue #80 — **fix livré (2026-06-12, chantier fix-issue-80)** : les
+  régressions A/B sont des cas bloquants, plus aucun xfail. Prérequis
   humain : clé OpenAI **dédiée CI** en secret repo `OPENAI_API_KEY` +
   **usage limit** mensuel côté OpenAI (item 9.4 acté pour cette clé, garde-fou
   financier du harnais) — sans secret, le

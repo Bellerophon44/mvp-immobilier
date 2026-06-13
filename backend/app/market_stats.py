@@ -324,7 +324,17 @@ def _amenity_phrases(attrs: Optional[Dict[str, Any]]) -> List[str]:
     phrases = []
     floor = attrs.get("floor")
     elevator = attrs.get("has_elevator")
-    if isinstance(floor, int):
+    if attrs.get("property_type") == "maison":
+        # Fix issue #80 : étage/ascenseur sont des notions d'appartement — bloc
+        # entièrement neutralisé pour une maison explicite. « de plain-pied »
+        # n'est rendu que sur preuve explicite (single_storey True) et jamais
+        # si floor >= 1 (extraction contradictoire -> omission, prudence). Un
+        # property_type null garde le comportement historique (conservateur).
+        if attrs.get("single_storey") is True and not (
+            isinstance(floor, int) and floor >= 1
+        ):
+            phrases.append("de plain-pied")
+    elif isinstance(floor, int):
         loc = "rez-de-chaussée" if floor == 0 else f"{floor}er étage" if floor == 1 else f"{floor}e étage"
         if elevator is False and floor >= 2:
             loc += " sans ascenseur"

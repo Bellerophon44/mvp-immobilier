@@ -26,6 +26,50 @@
 
 ## Entrées
 
+- **[2026-06-12] [fix-issue-80] Livrable de push réparti sur plusieurs suites (tests/ gratuits + evals/ payants) partiellement livré sans détection locale**
+  - Symptôme : l'AC37 (sanity bloquante `single_storey` dans `evals/`) faisait
+    partie du contenu du push 1 selon la spec §6, mais le commit du fix ne
+    touchait pas `evals/` — aucune suite exécutée localement ne pouvait le
+    voir (les évals ne tournent qu'en CI). Aggravé par une consigne
+    d'orchestration trop large (« interdit de toucher evals/ ») qui
+    contredisait la spec.
+  - Cause racine : le « done » a été vérifié contre les tests verts, pas
+    contre la liste de contenu du push prescrite par la spec ; et une
+    interdiction d'orchestrateur a primé silencieusement sur la spec.
+  - Garde-fou : règle orchestrateur — avant de clore une phase dev, diff du
+    commit confronté à la liste de contenu du push (spec §6), suite par
+    suite ; toute interdiction donnée à un rôle doit citer ses exceptions
+    prévues par la spec. Détecté ici par le testeur phase B (audit de
+    livrable, pas seulement de code).
+
+- **[2026-06-12] [fix-issue-80] Conditionnement par égalité stricte sur une valeur d'enum extraite du LLM**
+  - Symptôme : tout le conditionnement maison (`property_type == "maison"`)
+    repose sur la discipline du prompt ; une variante de casse (« Maison »)
+    ferait resurgir le comportement pré-fix (rendu « rez-de-chaussée »,
+    question copropriété).
+  - Cause racine : `property_type` n'est jamais normalisé dans
+    `analyze_semantic` ; l'enum n'est garanti que par le prompt.
+  - Garde-fou : limite actée par la spec (égalité stricte, comportement
+    conservateur) et figée par deux tests dédiés
+    (`tests/test_issue_80_deterministic.py::test_b_property_type_casse_variante_comportement_conservateur` (replié au push 2 depuis le fichier dédié de phase A),
+    `tests/test_issue_80_semantic_filter.py::test_b_property_type_casse_variante_maison_aucun_filtrage`).
+    Si un cas réel de casse variante apparaît dans les évals : normaliser à
+    la coercition (un seul endroit), jamais élargir chaque comparaison.
+
+- **[2026-06-12] [fix-issue-80] Un oracle qui exécute un fichier de tests en sous-processus rend ce fichier inextensible en tests-first**
+  - Symptôme : la spec prescrivait d'ajouter les tests AC1-AC13 à
+    `tests/test_issue_80_deterministic.py`, mais l'oracle du harnais
+    (`test_evals_harness.py::test_ac19_ac20_ac21_statuts_reels_xfail_et_passants`)
+    exécute ce fichier en sous-processus et exige returncode 0 : tout rouge
+    légitime de phase A y devient un échec hors spec.
+  - Cause racine : dépendance cachée entre un fichier de tests et un oracle
+    de harnais qui l'observe, non anticipée au moment de la spec.
+  - Garde-fou : règle spec-writer/testeur — quand un fichier de tests est
+    observé par un oracle en sous-processus, la spec doit prévoir soit un
+    fichier dédié pour les nouveaux tests, soit la bascule simultanée de
+    l'oracle ; tout écart de placement se documente en tête de fichier (fait
+    ici) et s'acte explicitement au push suivant.
+
 - **[2026-06-12] [evals-harness] Une erreur de setup de fixture sur un test xfail devient un XFAIL silencieux (exit 0), pas un ERROR**
   - Symptôme : prouvé par sonde en phase B — sous pytest, si la fixture d'un
     test marqué `xfail(strict=False)` lève pendant le setup, le test est

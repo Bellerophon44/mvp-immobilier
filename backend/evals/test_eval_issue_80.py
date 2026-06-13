@@ -7,8 +7,9 @@ SYNTHETIQUE : reecriture entierement fictive reproduisant les declencheurs,
 jamais d'extrait reel d'annonce versionne (CONTEXT §11.3, repo public).
 
 Un seul appel LLM reel par run (fixture module-scoped). Assertions de sanity
-bloquantes sur l'extraction (§5.2) ; regressions connues en xfail strict=False
-(§5.3), a retirer au chantier fix.
+bloquantes sur l'extraction (§5.2) ; les regressions A et B (§5.3) sont
+BLOQUANTES depuis le fix (chantier fix-issue-80, marqueurs xfail retires au
+push 2 apres preuve XFAIL -> XPASS au push 1).
 """
 
 import pytest
@@ -51,6 +52,13 @@ def test_extraction_price_total(semantic_issue_80):
     assert semantic_issue_80["listing"]["price_total"] == 565000.0
 
 
+def test_extraction_single_storey(semantic_issue_80):
+    # AC37 (chantier fix #80) : le texte synthetique affirme litteralement
+    # « plain-pied » — meme classe de fiabilite que property_type, donc
+    # bloquant sans xfail.
+    assert semantic_issue_80["listing"]["single_storey"] is True
+
+
 def test_questions_non_vides(semantic_issue_80):
     # Garantit que la regression B (mots interdits dans `questions`) n'est pas
     # verte par vacuite.
@@ -58,12 +66,11 @@ def test_questions_non_vides(semantic_issue_80):
 
 
 # ---------------------------------------------------------------------------
-# Regressions connues (§5.3) — xfail strict=False (LLM non deterministe : un
-# run ou le bug ne se manifeste pas produit un XPASS qui ne doit pas mettre la
-# CI au rouge). Retrait des marqueurs = checklist du chantier fix.
+# Regressions de l'issue #80 (§5.3) — bloquantes depuis le fix (le filtre
+# deterministe de analyze_semantic et le conditionnement du rendu garantissent
+# ces invariants par construction au point observe ici).
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(strict=False, reason="issue #80, fix non livre")
 def test_regression_a_rendu_sans_rez_de_chaussee(semantic_issue_80):
     """Invariant visible utilisateur, agnostique du fix retenu : pour une
     maison de plain-pied, le signal du pilier prix compose a partir de
@@ -81,7 +88,6 @@ def test_regression_a_rendu_sans_rez_de_chaussee(semantic_issue_80):
     assert "rez-de-chaussée" not in signal
 
 
-@pytest.mark.xfail(strict=False, reason="issue #80, fix non livre")
 def test_regression_b_questions_sans_copropriete(semantic_issue_80):
     """Maison individuelle : aucune question generee ne doit mentionner la
     copropriete ou le syndic (le texte synthetique n'en parle pas, AC13 : le

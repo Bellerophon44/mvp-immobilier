@@ -599,7 +599,9 @@ exactes géocodées, `"quartier"` = repli profil). `AnalyzeRequest` accepte
   gratuite (`backend/pytest.ini`, `testpaths = tests`). Invocation explicite :
   `python -m pytest evals -q -rxX` avec une vraie clé ; en CI via `evals.yml`
   (PR touchant `llm_semantic`/`analysis`/`market_stats`/`scoring`/`evals/`).
-  Régressions connues en xfail ; process d'ajout de cas : `docs/pilotes/README.md`.
+  Cas issue #80 : fix livré (2026-06-12, chantier fix-issue-80), tests de
+  régression bloquants (plus aucun xfail) ; process d'ajout de cas :
+  `docs/pilotes/README.md`.
 - **Pas de monitoring** d'erreurs (pas de Sentry).
 - **Filtre SSRF dans `url_fetch.py`** : volontairement minimal (refuse
   localhost / IP privées RFC1918 / scheme non http(s)). Ne résout pas le
