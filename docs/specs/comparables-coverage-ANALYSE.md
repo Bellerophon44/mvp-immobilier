@@ -502,3 +502,42 @@ chantier technique. La crainte du porteur est donc légitime et ne doit pas êtr
    sachant qu'elle est hors atelier (commerciale/contractuelle) ?
    *Reco : à porter par le porteur/strategist ; ne corrige pas le biais
    transaction mais densifie proprement la couronne.*
+
+---
+
+## 8. ARBITRAGES HUMAINS (GATE 1 — tranché le 2026-06-13)
+
+1. **DVF → assouplissement encadré (Q1b).** L'humain ouvre la porte à DVF en
+   référence agrégée communale UNIQUEMENT (jamais estimation, jamais
+   redistribution brute), au prix d'une révision de doctrine et de marketing.
+   **À instruire par le strategist AVANT tout code** : sizing du gisement réel
+   de transactions sur la couronne, viabilité, recomparabilité prix/m² DVF vs
+   annonces, garde-fous anti-estimation, réécriture du positionnement. Aucun
+   chantier d'ingestion DVF ne démarre avant ce cadrage stratégique + une GATE
+   dédiée.
+
+2. **Chemin gratuit immédiat → mesurer PUIS élargir bien'ici (Q3 puis Q2).**
+   - Prérequis : probe read-only comptant les comparables par (commune × type)
+     sur la couronne, pour distinguer « bien'ici ne ratisse pas la couronne »
+     (réparable gratuitement) de « marché communal intrinsèquement étroit »
+     (→ seul DVF/partenariat aide).
+   - Puis : boucler le scraper bien'ici sur les communes de `_METRO_CITIES`
+     (au lieu de la seule ville de Metz) + ajuster `collect.yml` (timeout).
+
+3. **Compléments retenus (Q5 + Q6).**
+   - Dédup multi-mandat : avancer l'incrément 2 cross-agence (clustering photo)
+     pour réduire la sur-représentation d'un même bien listé par plusieurs
+     agences — passe de fiabilité.
+   - Agences couronne : tenter l'intégration de 1-2 agences listant en couronne
+     via le harnais `diagnose-scrapers.yml` (complément qualité, pas effet
+     volume massif).
+
+4. **Portails nationaux (Q4).** Non sélectionnés explicitement pour le MVP ;
+   restent écartés par défaut (JS-only / anti-bot / risque ToS / vendor payant),
+   sauf découverte d'une API JSON analogue à bien'ici.
+
+### Séquencement retenu
+1. Probe de couverture (prérequis, read-only) — éclaire tout le reste.
+2. Élargissement bien'ici à la couronne (gratuit, sans nouveau risque).
+3. En parallèle : strategist sur DVF (assouplissement encadré).
+4. Ensuite : incrément 2 (dédup multi-mandat) + 1-2 agences couronne.
