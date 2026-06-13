@@ -22,6 +22,8 @@ from ingestion.save import (
     IN_SCOPE_DEPARTMENT,
 )
 from scrapers.base import canonical_city, canonical_district
+from app.market_stats import _METRO_CITIES
+from sqlalchemy import func
 
 
 logging.basicConfig(level=logging.INFO, force=True)
@@ -221,6 +223,64 @@ def comparables_stats(x_admin_token: Optional[str] = Header(default=None)) -> di
     finally:
         db.close()
     return {"total": total, "cities": sorted(c[0] for c in cities)}
+
+
+@app.get("/admin/comparables/coverage")
+def comparables_coverage(x_admin_token: Optional[str] = Header(default=None)) -> dict:
+    """
+    Probe de couverture READ-ONLY (docs/specs/comparables-coverage-ANALYSE.md
+    §7 Q3 / §8) : compte les comparables par commune, croises par type et par
+    source, pour distinguer "bien'ici ne ratisse pas la couronne" (reparable)
+    de "marche communal intrinsequement etroit". Aucune ecriture/mutation.
+    N'expose AUCUN contenu re-publiable par-annonce (ni adresse, url, texte ou
+    prix individuel) — UNIQUEMENT des compteurs agreges + libelles
+    commune/type/source (conformite CONTEXT §11.3). `couronne` rappelle les
+    communes de `_METRO_CITIES` (reference pour lire la couronne).
+    """
+    _check_admin_token(x_admin_token)
+
+    db = SessionLocal()
+    try:
+        total = db.query(func.count(Comparable.id)).scalar() or 0
+
+        type_rows = (
+            db.query(
+                Comparable.city,
+                Comparable.property_type,
+                func.count(Comparable.id),
+            )
+            .group_by(Comparable.city, Comparable.property_type)
+            .all()
+        )
+        source_rows = (
+            db.query(
+                Comparable.city,
+                Comparable.source,
+                func.count(Comparable.id),
+            )
+            .group_by(Comparable.city, Comparable.source)
+            .all()
+        )
+    finally:
+        db.close()
+
+    by_city: Dict[str, dict] = {}
+    for city, property_type, count in type_rows:
+        entry = by_city.setdefault(city, {"total": 0, "by_type": {}, "by_source": {}})
+        entry["by_type"][property_type] = count
+        entry["total"] += count
+    for city, source, count in source_rows:
+        entry = by_city.setdefault(city, {"total": 0, "by_type": {}, "by_source": {}})
+        entry["by_source"][source] = count
+
+    logger.info(
+        "ADMIN coverage: total=%d cities=%d", total, len(by_city)
+    )
+    return {
+        "total": total,
+        "by_city": by_city,
+        "couronne": list(_METRO_CITIES),
+    }
 
 
 @app.get("/admin/comparables/{listing_id}/history")
