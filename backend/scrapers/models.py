@@ -30,6 +30,10 @@ class PropertyListing:
     # bienici (None hors bienici).
     reference: Optional[str] = None
     customer_id: Optional[str] = None
+    # URLs photo captees a la collecte (increment 2b etape 1) — liste d'URLs
+    # encodee JSON (str) ou None, homogene a la colonne String. Metadonnee
+    # technique INTERNE (usage futur : hash etape 2), jamais exposee en API.
+    photo_urls: Optional[str] = None
 
     def to_dict(self) -> dict:
         return asdict(self)
