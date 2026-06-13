@@ -23,7 +23,7 @@ logger = logging.getLogger("market_stats")
 # retombe sur un périmètre plus large et plus robuste. Même seuil que la
 # confiance "Élevée".
 MIN_REFINED_COMPARABLES = 10
-MIN_COMPARABLES = 3  # plancher absolu (niveau ville)
+MIN_COMPARABLES = 5  # plancher absolu (niveau ville) ; <5 -> quartiles trop fragiles
 MIN_PROFILE = 5      # mini pour calculer un profil DPE/année de pool fiable
 
 
@@ -270,6 +270,22 @@ def _scope_context(market_stats: Dict[str, Any]) -> str:
     return base
 
 
+def _scope_warning(market_stats: Dict[str, Any], property_city: str) -> str:
+    """Avertissement (issue #87) quand le périmètre retenu est plus large que la
+    commune du bien (à ce jour : repli métropole). Informe que la fourchette est
+    un repère, pas une référence locale de la commune ; n'estime aucun prix."""
+    if market_stats.get("scope") != "metropole":
+        return ""
+    scope_name = market_stats.get("scope_name") or _METRO_NAME
+    return (
+        f" Faute d'assez de transactions comparables à {property_city}, cette "
+        f"fourchette reflète {scope_name} (communes voisines), pas "
+        f"{property_city} seule : une commune recherchée peut s'en écarter "
+        "durablement. À interpréter comme un repère, pas comme une référence "
+        "locale."
+    )
+
+
 def interpret_price_positioning(
     listing_price_m2: float,
     market_stats: Dict[str, Any]
@@ -440,7 +456,11 @@ def compute_price_market_pillar(
 
     positioning = interpret_price_positioning(listing_price_m2, market_stats)
     epoch = construction_epoch(construction_year)
-    explanation = positioning["explanation"] + _criteria_signal(dpe, epoch, market_stats, attrs)
+    explanation = (
+        positioning["explanation"]
+        + _criteria_signal(dpe, epoch, market_stats, attrs)
+        + _scope_warning(market_stats, canonical_city(city))
+    )
 
     return {
         "verdict": positioning["verdict"],
