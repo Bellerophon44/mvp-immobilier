@@ -277,6 +277,18 @@ chantier technique immédiat.**
 
 ## 4. LE point d'arbitrage central — DVF (challenge adversarial)
 
+> **CORRECTION POST-GATE 1 (2026-06-13, source : `docs/strategy/DVF-couronne.md`).**
+> Cette section présume DVF disponible sur la couronne messine. C'est FAUX.
+> La Moselle (57), comme le Bas-Rhin et le Haut-Rhin, relève du droit local
+> d'Alsace-Moselle : les mutations sont enregistrées au Livre Foncier et NON
+> dans le fichier DGFiP qui alimente DVF. DVF exclut ces trois départements →
+> gisement DVF sur la couronne = ZÉRO (exclusion légale, pas étroitesse de
+> marché). Le raisonnement ci-dessous reste valable en théorie générale mais
+> est INAPPLICABLE au périmètre du projet. Verdict du strategist : NO-GO ferme
+> sur tout chantier DVF. Seules sources couvrant le 57 : PERVAL (notaires,
+> payante → casse < 1 €/mois) ou partenariat agences (ne corrige pas le biais
+> transaction). Voir §8 pour l'arbitrage corrigé.
+
 DVF (Demande de Valeurs Foncières, open data Etalab / data.gouv.fr) est
 **gratuit, légal (open data sous licence ouverte), et donne les PRIX DE
 TRANSACTION RÉELS commune par commune** — soit précisément les deux choses qui
@@ -507,14 +519,17 @@ chantier technique. La crainte du porteur est donc légitime et ne doit pas êtr
 
 ## 8. ARBITRAGES HUMAINS (GATE 1 — tranché le 2026-06-13)
 
-1. **DVF → assouplissement encadré (Q1b).** L'humain ouvre la porte à DVF en
-   référence agrégée communale UNIQUEMENT (jamais estimation, jamais
-   redistribution brute), au prix d'une révision de doctrine et de marketing.
-   **À instruire par le strategist AVANT tout code** : sizing du gisement réel
-   de transactions sur la couronne, viabilité, recomparabilité prix/m² DVF vs
-   annonces, garde-fous anti-estimation, réécriture du positionnement. Aucun
-   chantier d'ingestion DVF ne démarre avant ce cadrage stratégique + une GATE
-   dédiée.
+1. **DVF → assouplissement encadré (Q1b) — ARBITRAGE CADUC.** L'humain avait
+   ouvert la porte à DVF en référence agrégée communale. Le cadrage strategist
+   (`docs/strategy/DVF-couronne.md`) a établi un fait rédhibitoire : **DVF ne
+   couvre pas la Moselle** (droit local Alsace-Moselle → Livre Foncier, hors
+   fichier DGFiP). Gisement = zéro. **NO-GO ferme sur tout chantier DVF** ; il
+   n'y a rien à ingérer. La décision Q1b est sans objet pour ce territoire.
+   Alternatives corrigeant le biais transaction sur le 57 : PERVAL (notaires,
+   PAYANTE → casse < 1 €/mois) ou partenariat agences (densifie sans corriger
+   le biais) — décisions doctrine + budget à re-soumettre au porteur, hors
+   atelier. Le biais annonces ≠ transactions reste donc, à ce stade, NON
+   corrigeable à coût MVP : à assumer dans le positionnement.
 
 2. **Chemin gratuit immédiat → mesurer PUIS élargir bien'ici (Q3 puis Q2).**
    - Prérequis : probe read-only comptant les comparables par (commune × type)
