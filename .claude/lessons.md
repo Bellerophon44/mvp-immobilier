@@ -26,6 +26,41 @@
 
 ## Entrées
 
+- **[2026-06-13] [cross-agence-inc2b-etape1] Un AC « le body avec champ optionnel ne renvoie pas 422 » est un FAUX-VERT pour prouver qu'un champ est DÉCLARÉ dans un modèle Pydantic à `model_config` vide**
+  - Symptôme : l'AC d'acceptation de `POST /admin/comparables` (accepte
+    `photo_urls` sans 422 + contrat de réponse intact) restait vert MÊME si
+    `ComparableIn` ne déclarait pas le champ `photo_urls` — Pydantic ignore par
+    défaut les champs extra (`extra="ignore"`). Sans déclaration, `model_dump()`
+    ne transmet pas la valeur à `save_comparables` → colonne jamais persistée,
+    sans qu'aucun AC ne le voie (l'AC de persistance testait l'appel DIRECT à
+    `save_comparables`, pas le chemin endpoint).
+  - Cause racine : confusion entre assertion d'ACCEPTATION (absence de 422) et
+    assertion de DÉCLARATION/transit du champ ; le chemin endpoint → save n'était
+    jamais oraclé pour le nouveau champ. Trou de couverture entre « accepte » et
+    « persiste ».
+  - Garde-fou : test de persistance bout-en-bout via l'endpoint admin vérifiant
+    la valeur RÉELLE en base (`tests/test_cross_agence_increment2b_etape1.py::test_hardening_b_admin_import_actually_persists_photo_urls`,
+    falsifiabilité prouvée : rouge si le champ est retiré de `ComparableIn`).
+    Règle : pour prouver qu'un champ optionnel d'un modèle Pydantic
+    (`model_config` sans `extra="forbid"`) est bien pris en compte, asserter sa
+    PERSISTANCE/transit réel via le chemin endpoint complet, jamais seulement
+    l'absence de 422. Trouvé par le testeur phase B (sonde de falsifiabilité des
+    AC « passe-déjà »).
+
+- **[2026-06-13] [cross-agence-inc2b-etape1] Probe de mesure read-only en O(n²) : tolérable comme outil dev, à pré-filtrer avant tout usage récurrent**
+  - Symptôme : `tools/probe_cross_source.py::compute_probe` évalue les paires
+    candidates via `itertools.combinations` sur tout le corpus (~157 M paires sur
+    ~17,7k comparables prod). Justesse verrouillée par tests (~80 comparables),
+    mais coût d'exécution réel élevé.
+  - Cause racine : produit cartésien sans pré-filtrage, acceptable car le script
+    est un outil de mesure ponctuel, read-only, HORS chemin prod (jamais importé
+    par l'app, pas de surface API, pas dans un job de collecte).
+  - Garde-fou / dette : NON bloquant à l'étape 1 (documenté). Pour l'ÉTAPE 2, si
+    la probe doit tourner régulièrement / en CI sur le stock prod, pré-filtrer par
+    bucket `(city, postal_code, property_type)` (égalité stricte requise → group-by
+    ramène à des sous-corpus de quelques unités) avant le `combinations`. À porter
+    dans la spec étape 2.
+
 - **[2026-06-13] [cross-agence-inc2a] Sous `autoflush=False`, relire par PK un objet ajouté dans la MÊME session exige un `db.flush()` préalable**
   - Symptôme : un id présent deux fois dans le même batch (`save_comparables`)
     n'était pas vu par le `db.get(Comparable, id)` du second passage (session

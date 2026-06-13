@@ -201,6 +201,7 @@ def save_comparables(listings: List[Dict[str, Any]]) -> int:
                 bedrooms=ad.get("bedrooms"),
                 reference=ad.get("reference"),
                 customer_id=ad.get("customer_id"),
+                photo_urls=ad.get("photo_urls"),
                 lineage_id=lineage_id,
                 collected_at=now,
                 first_seen_at=first_seen,

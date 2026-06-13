@@ -67,6 +67,12 @@ class Comparable(Base):
     customer_id = Column(String, nullable=True)
     lineage_id = Column(String, nullable=True, index=True)
 
+    # URLs photo captees a la collecte (bienici cle JSON `photos`, increment 2b
+    # etape 1) — liste d'URLs encodee JSON (json.dumps) ou None. Metadonnee
+    # technique INTERNE (usage futur : hash perceptuel etape 2), JAMAIS exposee
+    # en reponse API. Pas d'index (jamais un critere de filtre).
+    photo_urls = Column(String, nullable=True)
+
 
 class ListingPriceSnapshot(Base):
     """
