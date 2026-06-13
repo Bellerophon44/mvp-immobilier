@@ -13,6 +13,7 @@ from scrapers.base import (
 )
 from scrapers.models import PropertyListing
 from scrapers.registry import register
+from app.market_stats import _METRO_CITIES
 
 logger = logging.getLogger(__name__)
 
@@ -299,39 +300,49 @@ def _parse_listing(ad: dict) -> Optional[PropertyListing]:
 
 @register("bienici")
 class BieniciScraper:
-    city: str = "Metz"
+    # Source unique de vérité : la couronne de Metz est définie par _METRO_CITIES
+    # (app.market_stats), partagée avec la cascade de comparables. On itère dessus
+    # plutôt que sur la seule ville de Metz pour densifier la couronne.
+    communes: "list[str]" = _METRO_CITIES
 
     def scrape(self) -> "list[PropertyListing]":
-        zone_ids = discover_zone_ids(self.city)
-        if not zone_ids:
-            return []
-
         results = []
+        # `seen` partagé entre TOUTES les communes : deux communes voisines (ou
+        # une annonce limitrophe) peuvent résoudre des zones qui se recouvrent et
+        # renvoyer la même annonce ; on ne l'ajoute qu'une fois (dédup intra-run).
         seen = set()
-        for min_area, max_area in SURFACE_BUCKETS:
-            for page in range(MAX_PAGES):
-                data = fetch_json(
-                    ADS_URL,
-                    params=_build_filters(zone_ids, page, min_area, max_area),
-                )
-                if not data:
-                    logger.warning("Bienici: no response (area %s-%s, page %d).",
-                                   min_area, max_area, page)
-                    break
+        for commune in self.communes:
+            zone_ids = discover_zone_ids(commune)
+            if not zone_ids:
+                logger.warning("Bienici: commune sautée (aucun zoneId): '%s'.",
+                               commune)
+                continue
 
-                ads = data.get("realEstateAds", [])
-                if not ads:
-                    break
+            for min_area, max_area in SURFACE_BUCKETS:
+                for page in range(MAX_PAGES):
+                    data = fetch_json(
+                        ADS_URL,
+                        params=_build_filters(zone_ids, page, min_area, max_area),
+                    )
+                    if not data:
+                        logger.warning(
+                            "Bienici: no response (%s, area %s-%s, page %d).",
+                            commune, min_area, max_area, page)
+                        break
 
-                for ad in ads:
-                    listing = _parse_listing(ad)
-                    if listing and listing.id not in seen:
-                        seen.add(listing.id)
-                        results.append(listing)
+                    ads = data.get("realEstateAds", [])
+                    if not ads:
+                        break
 
-                if len(ads) < PAGE_SIZE:
-                    break
+                    for ad in ads:
+                        listing = _parse_listing(ad)
+                        if listing and listing.id not in seen:
+                            seen.add(listing.id)
+                            results.append(listing)
 
-        logger.info("Bienici: %d listings collected for '%s' (%d tranches surface).",
-                    len(results), self.city, len(SURFACE_BUCKETS))
+                    if len(ads) < PAGE_SIZE:
+                        break
+
+        logger.info("Bienici: %d listings collected over %d communes (%d tranches surface).",
+                    len(results), len(self.communes), len(SURFACE_BUCKETS))
         return results
