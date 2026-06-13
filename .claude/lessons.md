@@ -26,6 +26,116 @@
 
 ## Entrées
 
+- **[2026-06-13] [cross-agence-inc2a] Sous `autoflush=False`, relire par PK un objet ajouté dans la MÊME session exige un `db.flush()` préalable**
+  - Symptôme : un id présent deux fois dans le même batch (`save_comparables`)
+    n'était pas vu par le `db.get(Comparable, id)` du second passage (session
+    `SessionLocal(autoflush=False)`), provoquant un SECOND `db.add` du même PK →
+    `IntegrityError` au commit → **tout le batch perdu**. Le re-link 2a, qui relit
+    la base avant d'écrire, exposait ce cas (inc.1 ne le déclenchait pas).
+  - Cause racine : avec `autoflush=False`, un objet `add`é mais non flushé n'est
+    PAS dans l'identity map interrogée par `db.get` (qui renvoie `None`). Le
+    doublon échappe donc à la branche `existing is not None`.
+  - Garde-fou : `db.flush()` après le `db.add` d'un nouveau comparable (rend l'id
+    visible → le doublon intra-batch emprunte la branche de re-observation, 1
+    comparable / 1 snapshot). Verrouillé par
+    `tests/test_cross_agence_increment2a.py` (AC40 + `test_hardening_batch_mixed_*`
+    : lot mêlant valides et invalides, batch jamais perdu). Règle : tout code qui
+    relit par PK un objet ajouté dans la même session sous `autoflush=False` doit
+    `flush()` d'abord ; et placer toute voie de rejet (`continue`) AVANT le
+    `db.add` pour ne pas poisonner la session.
+
+- **[2026-06-13] [cross-agence-inc2a] Une lignée longitudinale se fragmente si le re-list survient pendant que l'ancien membre est encore dans la fenêtre de rattachement**
+  - Symptôme : une lignée ne s'étend à 3+ membres que si les membres précédents
+    SORTENT de la fenêtre 90j avant le re-list suivant. Un bien re-publié à
+    cadence < 90j voit ≥ 2 candidats au 3e passage et **s'abstient** (§3.4) →
+    nouvelle lignée → historique de prix fragmenté en lignées de 2 membres.
+  - Cause racine : conséquence DIRECTE et VOULUE de l'invariant « jamais de faux
+    lien » (Q3 conservateur) combiné à « les membres existants ne sont jamais
+    mutés par un rattachement » (l'ancien membre garde son `last_seen_at`, donc
+    reste candidat tant qu'il est dans les 90j). Ce n'est PAS un bug.
+  - Garde-fou : test de régression
+    `tests/test_cross_agence_increment2a.py::test_hardening_idempotence_replay_then_third_member_one_lineage`
+    (chaîne A→B→C avec A hors fenêtre = lignée longue valide). Risque résiduel
+    consigné spec §7. Règle : à la calibration future du taux de re-list, mesurer
+    la part de chaînes fragmentées avant d'élargir la fenêtre (élargir augmente le
+    risque de faux lien — arbitrage, pas réglage libre).
+
+- **[2026-06-13] [cross-agence-inc2a / atelier] Le développeur ne possède pas l'oracle ; une incohérence INTERNE du fichier de tests se tranche en phase B**
+  - Symptôme : le développeur a dû modifier une donnée du fichier de tests
+    (`_build_lineage_two_members`, `t2` à 123j d'écart alors que la fenêtre est de
+    90j) pour atteindre le vert — l'oracle phase A était mathématiquement
+    insatisfiable (aucune fenêtre ne peut exclure 91j via AC13 ET inclure 123j via
+    AC25). Un développeur qui édite l'oracle est un risque de complaisance.
+  - Cause racine : (a) côté testeur, des bornes temporelles d'un scénario
+    MULTI-membres posées sans recalculer les écarts inter-membres contre la
+    fenêtre de rattachement → oracle faux ; (b) côté process, la correction a été
+    faite par le développeur, pas par le propriétaire de l'oracle.
+  - Garde-fou (règles atelier) : (1) tout test d'une chaîne de re-list explicite,
+    par membre, l'écart au candidat visé ET aux autres candidats potentiels
+    (abstention §3.4), pas seulement l'écart now→membre ; (2) si le développeur
+    détecte une incohérence interne de l'oracle, il la SIGNALE (commentaire +
+    rapport) sans l'« optimiser », et c'est le TESTEUR phase B qui statue et
+    reprend la propriété — fait ici (modif validée légitime, aucune assertion
+    affaiblie).
+
+- **[2026-06-12] [fix-issue-80] Livrable de push réparti sur plusieurs suites (tests/ gratuits + evals/ payants) partiellement livré sans détection locale**
+  - Symptôme : l'AC37 (sanity bloquante `single_storey` dans `evals/`) faisait
+    partie du contenu du push 1 selon la spec §6, mais le commit du fix ne
+    touchait pas `evals/` — aucune suite exécutée localement ne pouvait le
+    voir (les évals ne tournent qu'en CI). Aggravé par une consigne
+    d'orchestration trop large (« interdit de toucher evals/ ») qui
+    contredisait la spec.
+  - Cause racine : le « done » a été vérifié contre les tests verts, pas
+    contre la liste de contenu du push prescrite par la spec ; et une
+    interdiction d'orchestrateur a primé silencieusement sur la spec.
+  - Garde-fou : règle orchestrateur — avant de clore une phase dev, diff du
+    commit confronté à la liste de contenu du push (spec §6), suite par
+    suite ; toute interdiction donnée à un rôle doit citer ses exceptions
+    prévues par la spec. Détecté ici par le testeur phase B (audit de
+    livrable, pas seulement de code).
+
+- **[2026-06-12] [fix-issue-80] Conditionnement par égalité stricte sur une valeur d'enum extraite du LLM**
+  - Symptôme : tout le conditionnement maison (`property_type == "maison"`)
+    repose sur la discipline du prompt ; une variante de casse (« Maison »)
+    ferait resurgir le comportement pré-fix (rendu « rez-de-chaussée »,
+    question copropriété).
+  - Cause racine : `property_type` n'est jamais normalisé dans
+    `analyze_semantic` ; l'enum n'est garanti que par le prompt.
+  - Garde-fou : limite actée par la spec (égalité stricte, comportement
+    conservateur) et figée par deux tests dédiés
+    (`tests/test_issue_80_deterministic.py::test_b_property_type_casse_variante_comportement_conservateur` (replié au push 2 depuis le fichier dédié de phase A),
+    `tests/test_issue_80_semantic_filter.py::test_b_property_type_casse_variante_maison_aucun_filtrage`).
+    Si un cas réel de casse variante apparaît dans les évals : normaliser à
+    la coercition (un seul endroit), jamais élargir chaque comparaison.
+
+- **[2026-06-12] [fix-issue-80] Un oracle qui exécute un fichier de tests en sous-processus rend ce fichier inextensible en tests-first**
+  - Symptôme : la spec prescrivait d'ajouter les tests AC1-AC13 à
+    `tests/test_issue_80_deterministic.py`, mais l'oracle du harnais
+    (`test_evals_harness.py::test_ac19_ac20_ac21_statuts_reels_xfail_et_passants`)
+    exécute ce fichier en sous-processus et exige returncode 0 : tout rouge
+    légitime de phase A y devient un échec hors spec.
+  - Cause racine : dépendance cachée entre un fichier de tests et un oracle
+    de harnais qui l'observe, non anticipée au moment de la spec.
+  - Garde-fou : règle spec-writer/testeur — quand un fichier de tests est
+    observé par un oracle en sous-processus, la spec doit prévoir soit un
+    fichier dédié pour les nouveaux tests, soit la bascule simultanée de
+    l'oracle ; tout écart de placement se documente en tête de fichier (fait
+    ici) et s'acte explicitement au push suivant.
+
+- **[2026-06-12] [evals-harness] Une erreur de setup de fixture sur un test xfail devient un XFAIL silencieux (exit 0), pas un ERROR**
+  - Symptôme : prouvé par sonde en phase B — sous pytest, si la fixture d'un
+    test marqué `xfail(strict=False)` lève pendant le setup, le test est
+    rapporté XFAIL et la session sort en exit 0. Un harnais dont les seuls
+    consommateurs d'une fixture seraient des tests xfail peut donc casser
+    entièrement (fixture en panne = aucun appel LLM) sans jamais mettre la CI
+    au rouge.
+  - Cause racine : sémantique pytest — le marqueur xfail couvre aussi les
+    échecs de setup, pas seulement les assertions du test.
+  - Garde-fou : règle structurelle — toute fixture consommée par un test xfail
+    doit aussi être consommée par au moins un test bloquant (sans xfail) de la
+    même suite, dont l'ERROR de setup met le job au rouge. Verrouillé par
+    `backend/tests/test_evals_harness.py::test_phase_b_fixtures_des_xfail_partagees_avec_un_test_bloquant`.
+
 - **[2026-06-11] [cross-agence-inc1] Bootstrap destructif en top-level de conftest ré-exécuté par un double-import**
   - Symptôme : `OperationalError: attempt to write a readonly database` non
     déterministe sur des tests d'écriture collectés APRÈS le fichier

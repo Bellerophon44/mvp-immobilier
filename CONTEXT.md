@@ -69,6 +69,17 @@
   `docs/specs/cross-agence-INCREMENT1-SPEC.md`.
   - **Suite : incrément 2 (clustering photo) ⬜ à faire**, staging-first — voir
     « versus prod » en §11.3 / ANALYSE §8.
+- **Harnais d'évals qualité (`backend/evals/`) — livré (2026-06-11).** Filet
+  anti-régression des corrections de prompt : cas synthétiques rejoués avec de
+  vrais appels LLM par `.github/workflows/evals.yml` sur toute PR touchant
+  prompt/pipeline ; suite gratuite isolée (`backend/pytest.ini`). Premier cas :
+  issue #80 — **fix livré (2026-06-12, chantier fix-issue-80)** : les
+  régressions A/B sont des cas bloquants, plus aucun xfail. Prérequis
+  humain : clé OpenAI **dédiée CI** en secret repo `OPENAI_API_KEY` +
+  **usage limit** mensuel côté OpenAI (item 9.4 acté pour cette clé, garde-fou
+  financier du harnais) — sans secret, le
+  workflow échoue explicitement, jamais de faux vert. Spec :
+  `docs/specs/evals-harness-SPEC.md`.
 
 ---
 
@@ -562,7 +573,7 @@ Listés ici pour qu'un agent IA n'y retombe pas :
 
 1. **Ne pas estimer un prix.** Toute réponse qui ressemble à "ce bien vaut X €" est hors périmètre produit.
 2. **Ne pas inventer de données.** Si le LLM ne sait pas, il doit dire "non précisé dans l'annonce".
-3. **Stockage interne par-annonce autorisé ; redistribution du contenu interdite.** La collecte stocke déjà des annonces individuelles (table `comparables`) et peut conserver leur **historique horodaté** (dates de première/dernière observation, snapshots de prix) à usage interne. Ce qui reste interdit est la **redistribution du contenu** d'une annonce tierce : ne jamais re-publier texte, photos, adresse exacte ou URL. L'**exposition publique** se limite aux **agrégats statistiques** (médianes, Q1/Q3) et aux **métadonnées factuelles** non re-publiables (source, ancienneté, écart de prix en %). **Rétention** : purge des historiques 24 mois après la dernière observation (`last_seen_at`). Pas de DVF / notaires (point 4).
+3. **Stockage interne par-annonce autorisé ; redistribution du contenu interdite.** La collecte stocke déjà des annonces individuelles (table `comparables`) et peut conserver leur **historique horodaté** (dates de première/dernière observation, snapshots de prix) à usage interne. Ce qui reste interdit est la **redistribution du contenu** d'une annonce tierce : ne jamais re-publier texte, photos, adresse exacte ou URL. L'**exposition publique** se limite aux **agrégats statistiques** (médianes, Q1/Q3) et aux **métadonnées factuelles** non re-publiables (source, ancienneté, écart de prix en %). **Rétention** : purge des historiques 24 mois après la dernière observation (`last_seen_at`). Les identifiants techniques de collecte (`reference` de mandat, `customer_id` de compte agence, `lineage_id` de bien) sont des **métadonnées internes** au même titre : conservés pour le suivi longitudinal, **jamais exposés** dans une réponse API ni re-publiés. Pas de DVF / notaires (point 4).
 4. **Ne pas faire de DVF / notaires.** Cassé le positionnement.
 5. **Ne pas ajouter Tailwind / Material UI** sans validation explicite (le projet est volontairement sans dépendance UI).
 6. **Ne pas merger directement sur `main` sans PR.** Toujours passer par `claude/analyze-mvp-immobilier-vtne5` → PR → merge.

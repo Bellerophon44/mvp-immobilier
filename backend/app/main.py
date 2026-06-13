@@ -174,6 +174,11 @@ class ComparableIn(BaseModel):
     has_cellar: Optional[bool] = None
     parking: Optional[int] = None
     bedrooms: Optional[int] = None
+    # Re-link "sans photo" meme agence (increment 2a) — identifiants techniques
+    # internes, optionnels (un item sans reference reste valide ; il creera une
+    # nouvelle lignee). Jamais exposes en reponse API.
+    reference: Optional[str] = None
+    customer_id: Optional[str] = None
 
 
 class ImportRequest(BaseModel):
@@ -221,10 +226,13 @@ def comparable_history(
     x_admin_token: Optional[str] = Header(default=None),
 ) -> dict:
     """
-    Historique temporel d'une annonce (chantier cross-agence, increment 1).
-    Metadonnees factuelles UNIQUEMENT (CONTEXT §11.3 amende) : source, dates,
-    prix horodates et derives — jamais de contenu re-publiable (texte, adresse,
-    URL, photo, ni meme city/district).
+    Historique temporel d'une annonce (chantier cross-agence, increment 1/2a).
+    Agregation de la LIGNEE (increment 2a) : la serie de prix fusionne tous les
+    membres re-publies du meme bien (repli `lineage_id or id` pour les lignes
+    heritees), interrogeable par n'importe quel id membre. Metadonnees factuelles
+    UNIQUEMENT (CONTEXT §11.3 amende) : source, dates, prix horodates et derives —
+    jamais de contenu re-publiable (texte, adresse, URL, photo, city/district) ni
+    d'identifiant technique interne (reference/customer_id/lineage_id).
     """
     _check_admin_token(x_admin_token)
 
@@ -234,16 +242,35 @@ def comparable_history(
         if row is None:
             raise HTTPException(status_code=404, detail="Identifiant inconnu.")
 
+        # Resolution de lignee : un membre rattache porte lineage_id == lignee ;
+        # une ligne heritee (lineage_id NULL) est sa propre racine (id == lignee).
+        lineage = row.lineage_id or row.id
+        members = (
+            db.query(Comparable)
+            .filter(
+                (Comparable.lineage_id == lineage) | (Comparable.id == lineage)
+            )
+            .all()
+        )
+        member_ids = {m.id for m in members}
+
         snaps = (
             db.query(ListingPriceSnapshot)
-            .filter(ListingPriceSnapshot.listing_id == listing_id)
+            .filter(ListingPriceSnapshot.listing_id.in_(member_ids))
             .order_by(ListingPriceSnapshot.observed_at.asc())
             .all()
         )
 
+        first_seens = [m.first_seen_at for m in members if m.first_seen_at is not None]
+        if not first_seens:
+            first_seens = [m.collected_at for m in members if m.collected_at is not None]
+        last_seens = [m.last_seen_at for m in members if m.last_seen_at is not None]
+        first_seen_at = min(first_seens) if first_seens else None
+        last_seen_at = max(last_seens) if last_seens else None
+
         weeks_on_market = None
-        if row.first_seen_at is not None and row.last_seen_at is not None:
-            weeks_on_market = (row.last_seen_at - row.first_seen_at).days // 7
+        if first_seen_at is not None and last_seen_at is not None:
+            weeks_on_market = (last_seen_at - first_seen_at).days // 7
 
         price_first = snaps[0].price_total if snaps else None
         price_last = snaps[-1].price_total if snaps else None
@@ -259,8 +286,8 @@ def comparable_history(
         result = {
             "listing_id": row.id,
             "source": row.source,
-            "first_seen_at": row.first_seen_at,
-            "last_seen_at": row.last_seen_at,
+            "first_seen_at": first_seen_at,
+            "last_seen_at": last_seen_at,
             "weeks_on_market": weeks_on_market,
             "price_first": price_first,
             "price_last": price_last,
@@ -363,7 +390,21 @@ def comparables_maintenance(
                 snaps_q.delete(synchronize_session=False)
             return count
 
-        for c in db.query(Comparable).all():
+        # Retention sur LIGNEE (increment 2a) : un membre n'est purge par
+        # retention que si MAX(last_seen_at) de TOUTE sa lignee est expire — on
+        # ne purge jamais un bien re-publie recemment au pretexte qu'un de ses
+        # anciens membres a depasse 730j. Repli `lineage_id or id` (lignes
+        # heritees). Carte pre-calculee pour eviter une requete par comparable.
+        all_comparables = db.query(Comparable).all()
+        lineage_max_last_seen: Dict[str, datetime] = {}
+        for m in all_comparables:
+            key = m.lineage_id or m.id
+            if m.last_seen_at is not None:
+                prev = lineage_max_last_seen.get(key)
+                if prev is None or m.last_seen_at > prev:
+                    lineage_max_last_seen[key] = m.last_seen_at
+
+        for c in all_comparables:
             if c.price_m2 is None or c.price_m2 < MIN_PRICE_M2 or c.price_m2 > MAX_PRICE_M2:
                 purged_band += 1
                 purged_snapshots += _purge_snapshots_of(c.id)
@@ -388,9 +429,10 @@ def comparables_maintenance(
                     db.delete(c)
                 continue
 
+            lineage_last_seen = lineage_max_last_seen.get(c.lineage_id or c.id)
             if (
-                c.last_seen_at is not None
-                and (maintenance_now - c.last_seen_at).days > 730
+                lineage_last_seen is not None
+                and (maintenance_now - lineage_last_seen).days > 730
             ):
                 purged_retention += 1
                 purged_snapshots += _purge_snapshots_of(c.id)

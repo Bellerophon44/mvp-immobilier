@@ -143,6 +143,15 @@ def _extract_postal(ad: dict) -> Optional[str]:
     return None
 
 
+def _as_str(value) -> Optional[str]:
+    """Identifiant technique textuel d'une annonce bien'ici (reference de mandat,
+    customerId). str(...) si present et non vide apres strip, sinon None."""
+    if value is None or isinstance(value, bool):
+        return None
+    text = str(value).strip()
+    return text or None
+
+
 def _as_bool(value) -> Optional[bool]:
     return value if isinstance(value, bool) else None
 
@@ -235,6 +244,8 @@ def _parse_listing(ad: dict) -> Optional[PropertyListing]:
             price_total=price,
             dpe=dpe,
             construction_year=construction_year,
+            reference=_as_str(ad.get("reference")),
+            customer_id=_as_str(ad.get("customerId")),
             **_extract_amenities(ad),
         )
     except (KeyError, TypeError):

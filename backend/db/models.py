@@ -57,6 +57,16 @@ class Comparable(Base):
     first_seen_at = Column(DateTime, nullable=True)
     last_seen_at = Column(DateTime, nullable=True)
 
+    # Re-link "sans photo" meme agence (chantier cross-agence, increment 2a) —
+    # identifiants techniques INTERNES (jamais exposes en reponse API). reference
+    # = reference de mandat (bienici cle JSON ; HTML agences best-effort) ;
+    # customer_id = compte annonceur bienici. lineage_id = lignee du bien physique
+    # (survit au changement d'id), posee applicativement par ingestion/save.py
+    # (repli `lineage_id or id` en lecture pour les lignes heritees).
+    reference = Column(String, nullable=True)
+    customer_id = Column(String, nullable=True)
+    lineage_id = Column(String, nullable=True, index=True)
+
 
 class ListingPriceSnapshot(Base):
     """

@@ -60,9 +60,13 @@ def _price_pillar_from_listing(
     )
 
 
+# property_type / single_storey ne sont pas des "amenities" mais le rendu en a
+# besoin (fix issue #80) : étage/ascenseur sont des notions d'appartement, et
+# « de plain-pied » exige la preuve explicite single_storey.
 _AMENITY_KEYS = (
     "floor", "has_elevator", "has_terrace", "has_balcony",
     "has_cellar", "parking", "bedrooms", "condo_fees",
+    "property_type", "single_storey",
 )
 
 
@@ -93,7 +97,16 @@ def _amenity_actions(listing: Dict[str, Any]) -> Dict[str, list]:
     sont formulés en questions pour rejoindre la liste unique `questions`."""
     questions, negotiation = [], []
     floor = listing.get("floor")
-    if isinstance(floor, int) and floor >= 3 and listing.get("has_elevator") is False:
+    # Fix issue #80 : étage/ascenseur sont des notions d'appartement — jamais
+    # de question ni de levier étage-ascenseur pour une maison explicite
+    # (même invariant que le rendu _amenity_phrases). Un property_type null
+    # garde le comportement actuel (conservateur).
+    is_house = listing.get("property_type") == "maison"
+    if (
+        not is_house
+        and isinstance(floor, int) and floor >= 3
+        and listing.get("has_elevator") is False
+    ):
         questions.append(
             f"Le bien est au {floor}e étage sans ascenseur : comment se passe l'accès "
             "au quotidien (déménagement, accessibilité) et est-ce un frein à la revente ?"

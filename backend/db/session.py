@@ -47,6 +47,12 @@ _ADD_COLUMNS = {
     "bedrooms": "ALTER TABLE comparables ADD COLUMN bedrooms INTEGER",
     "first_seen_at": "ALTER TABLE comparables ADD COLUMN first_seen_at DATETIME",
     "last_seen_at": "ALTER TABLE comparables ADD COLUMN last_seen_at DATETIME",
+    # Re-link "sans photo" meme agence (increment 2a) — identifiants techniques
+    # internes. lineage_id est indexe via le CREATE INDEX idempotent ci-dessous
+    # (un ALTER ADD COLUMN ne pose pas l'index sur une base prod existante).
+    "reference": "ALTER TABLE comparables ADD COLUMN reference VARCHAR",
+    "customer_id": "ALTER TABLE comparables ADD COLUMN customer_id VARCHAR",
+    "lineage_id": "ALTER TABLE comparables ADD COLUMN lineage_id VARCHAR",
 }
 
 
@@ -55,6 +61,15 @@ def _migrate_comparables(conn) -> None:
     for column, ddl in _ADD_COLUMNS.items():
         if column not in existing:
             conn.execute(text(ddl))
+    # Index sur lineage_id pour une base prod EXISTANTE (table deja creee, colonne
+    # ajoutee par ALTER ci-dessus) : create_all ne le pose que sur une base neuve.
+    # IF NOT EXISTS garantit l'idempotence (re-run sans erreur), apres les ALTER.
+    conn.execute(
+        text(
+            "CREATE INDEX IF NOT EXISTS ix_comparables_lineage_id "
+            "ON comparables (lineage_id)"
+        )
+    )
 
 
 def init_db():

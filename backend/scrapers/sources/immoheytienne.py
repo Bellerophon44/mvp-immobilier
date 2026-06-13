@@ -24,6 +24,19 @@ BASE_URL = "https://immoheytienne.fr/fr/properties"
 MAX_PAGES = 15
 
 _SURFACE_RE = re.compile(r"(\d+(?:[.,]\d+)?)\s*m", re.IGNORECASE)
+# Best-effort (increment 2a) : reference de mandat dans le texte de la carte.
+# Defensif : si rien -> None, jamais d'exception ni de perte d'annonce (§2.3).
+_REFERENCE_RE = re.compile(
+    r"r[ée]f(?:[ée]rence)?\.?\s*[:n°#]*\s*([A-Za-z0-9._\-]{2,})", re.IGNORECASE
+)
+
+
+def _extract_reference(card_text: str) -> Optional[str]:
+    try:
+        match = _REFERENCE_RE.search(card_text or "")
+        return match.group(1) if match else None
+    except Exception:
+        return None
 
 
 def _extract_id(href: str) -> Optional[str]:
@@ -71,6 +84,7 @@ def _parse_card(card) -> Optional[PropertyListing]:
             price_total=price,
             dpe=extract_dpe(card_text),
             construction_year=extract_construction_year(card_text),
+            reference=_extract_reference(card_text),
         )
     except Exception:
         return None

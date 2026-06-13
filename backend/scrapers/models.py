@@ -24,6 +24,12 @@ class PropertyListing:
     has_cellar: Optional[bool] = None      # cave
     parking: Optional[int] = None          # nombre de places de parking
     bedrooms: Optional[int] = None         # nombre de chambres
+    # Re-link "sans photo" meme agence (increment 2a) — identifiants techniques
+    # INTERNES, nullable (best-effort selon la source). reference = mandat
+    # (bienici + HTML agences best-effort) ; customer_id = compte annonceur
+    # bienici (None hors bienici).
+    reference: Optional[str] = None
+    customer_id: Optional[str] = None
 
     def to_dict(self) -> dict:
         return asdict(self)
