@@ -2,7 +2,6 @@ name: Backend tests
 
 # Harnais de regression de l'atelier : pytest sur chaque PR touchant le backend.
 # Encode la memoire "ne plus reproduire" sous forme executable (cf .claude/lessons.md).
-# Declenche aussi sur modification de ce fichier (paths ci-dessous).
 on:
   pull_request:
     paths:
