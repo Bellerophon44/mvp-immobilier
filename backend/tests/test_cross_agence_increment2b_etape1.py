@@ -1146,3 +1146,490 @@ def test_ac32_no_new_module_memory_state_introduced():
         f"le module probe maintient un etat mutable au niveau module "
         f"(cache/compteur ?) sans reset : {probe_suspect} (AC32)"
     )
+
+
+# ===========================================================================
+# DURCISSEMENT PHASE B (challenge adversarial) — tests ajoutes par le TESTEUR.
+# Couvrent les trous de couverture de la phase A : robustesse fine de
+# _extract_photo_urls (elements mixtes, cles inattendues, strip, dedup+cap en
+# interaction), anti-fuite sur lignee MULTI-membres au DICT producteur, faux
+# candidats probe non couverts par un AC dedie (gap "disparu" 7j strict, B avant
+# A par les DEUX orientations, ventilation >=3 sources / plusieurs paires,
+# involved_pct calculable a la main), etiquetage render_report (anti-fuite), et
+# justesse a plus grande echelle (~80 comparables, pas la perf).
+# ===========================================================================
+
+# --- _extract_photo_urls : robustesse fine -------------------------------
+def test_hardening_b_extract_mixed_str_and_dict_elements():
+    # Elements str ET dict dans la MEME liste -> toutes les URLs lues, ordre
+    # preserve, cle d'URL choisie par priorite url/src/href.
+    fn = _photo_helper()
+    out = fn({"photos": ["http://a", {"url": "http://b"}, {"src": "http://c"}]})
+    assert out == json.dumps(["http://a", "http://b", "http://c"]), (
+        f"elements mixtes str+dict : attendu [a,b,c], recu {out!r}"
+    )
+
+
+def test_hardening_b_extract_dict_unexpected_key_ignored_gracefully():
+    # Un dict SANS aucune cle d'URL connue (ni url/src/href) est ignore
+    # gracieusement, sans casser la lecture des elements valides voisins.
+    fn = _photo_helper()
+    out = fn({"photos": [{"foo": "x"}, "http://b", {"thumbnail": "http://nope"}]})
+    assert out == json.dumps(["http://b"]), (
+        f"dict a cle inattendue doit etre ignore (pas d'exception, pas d'URL "
+        f"fantome), recu {out!r}"
+    )
+
+
+def test_hardening_b_extract_href_key_supported():
+    # La cle 'href' (3e candidate) est bien lue quand 'url'/'src' absentes.
+    fn = _photo_helper()
+    out = fn({"photos": [{"href": "http://h"}]})
+    assert out == json.dumps(["http://h"]), (
+        f"cle 'href' doit etre supportee, recu {out!r}"
+    )
+
+
+def test_hardening_b_extract_strip_and_empty_after_strip():
+    # URL avec espaces -> strip ; URL faite QUE d'espaces -> vide apres strip
+    # -> ignoree (jamais une chaine vide dans la sortie).
+    fn = _photo_helper()
+    out = fn({"photos": ["  http://a  ", "   ", "\t\n"]})
+    assert out == json.dumps(["http://a"]), (
+        f"strip attendu + vides ignores, recu {out!r}"
+    )
+
+
+def test_hardening_b_extract_photos_is_dict_not_list():
+    # photos non-liste (dict) -> None sans exception (isinstance list guard).
+    fn = _photo_helper()
+    assert fn({"photos": {"url": "http://a"}}) is None, (
+        "photos=dict (pas une liste) doit donner None"
+    )
+
+
+def test_hardening_b_extract_dedup_then_cap_interaction():
+    # Dedup AVANT cap : [u1,u1,u2,u3,u4] dedupe -> [u1,u2,u3,u4] puis cap 3
+    # -> [u1,u2,u3] (le doublon ne consomme pas un "slot" du cap).
+    fn = _photo_helper()
+    u = [f"http://cdn/{i}.jpg" for i in range(4)]
+    out = fn({"photos": [u[0], u[0], u[1], u[2], u[3]]})
+    assert out == json.dumps([u[0], u[1], u[2]]), (
+        f"dedup puis cap a 3 : attendu [u0,u1,u2], recu {out!r}"
+    )
+
+
+def test_hardening_b_extract_dict_url_priority_over_src():
+    # Quand un dict porte plusieurs cles candidates, 'url' prime sur 'src'/'href'
+    # (ordre de _PHOTO_URL_KEYS). Verrouille le contrat de priorite.
+    fn = _photo_helper()
+    out = fn({"photos": [{"src": "http://src", "url": "http://url",
+                          "href": "http://href"}]})
+    assert out == json.dumps(["http://url"]), (
+        f"priorite cle d'URL : 'url' doit primer, recu {out!r}"
+    )
+
+
+def test_hardening_b_extract_output_is_json_string_not_list():
+    # Le contrat de sortie EXACT : une CHAINE json.dumps, jamais une list Python
+    # (homogene au type String de la colonne).
+    fn = _photo_helper()
+    out = fn({"photos": ["http://a"]})
+    assert isinstance(out, str), f"sortie doit etre une str JSON, recu {type(out)}"
+    assert json.loads(out) == ["http://a"], "la str doit decoder en liste d'URLs"
+
+
+# --- Anti-fuite sur lignee 2a MULTI-membres ------------------------------
+def test_hardening_b_no_leak_on_multimember_lineage_history(client, admin_token,
+                                                             frozen_now):
+    # Anti-fuite renforce : une lignee 2a a PLUSIEURS membres, chacun portant un
+    # photo_urls sentinelle distinct. /history (DICT producteur ET corps HTTP)
+    # ne doit contenir NI la cle photo_urls NI aucune sentinelle, meme en
+    # parcourant tous les snapshots des membres de la lignee.
+    from ingestion.save import save_comparables
+    import app.main as main_mod
+
+    _require_photo_urls_column()
+    now = datetime(2026, 6, 13, 4, 0, 0)
+    s1 = "http://SENTINEL/member1.jpg"
+    s2 = "http://SENTINEL/member2.jpg"
+
+    # Membre 1 (ancien) avec reference/customer_id pour rattacher le 2e.
+    frozen_now["now"] = now - timedelta(days=40)
+    save_comparables([_make_ad(
+        "hb-lin-1", source="bienici", reference="RLIN", customer_id="CLIN",
+        price_total=250000.0, photo_urls=json.dumps([s1]),
+    )])
+    # Membre 2 (re-list) meme reference -> meme lignee, prix change -> snapshot.
+    frozen_now["now"] = now
+    save_comparables([_make_ad(
+        "hb-lin-2", source="bienici", reference="RLIN", customer_id="CLIN",
+        price_total=240000.0, photo_urls=json.dumps([s2]),
+    )])
+
+    lin1 = getattr(_row("hb-lin-1"), "lineage_id", None)
+    lin2 = getattr(_row("hb-lin-2"), "lineage_id", None)
+    assert lin1 is not None and lin1 == lin2, (
+        f"precondition : les 2 membres doivent partager la lignee (recu "
+        f"{lin1!r}/{lin2!r})"
+    )
+
+    import os
+    os.environ["ADMIN_TOKEN"] = ADMIN_TOKEN
+    for lid in ("hb-lin-1", "hb-lin-2"):
+        built = main_mod.comparable_history(lid, x_admin_token=ADMIN_TOKEN)
+        assert isinstance(built, dict)
+        assert "photo_urls" not in built, (
+            f"/history dict ({lid}) ne doit pas contenir la cle photo_urls"
+        )
+        assert set(built.keys()) <= HISTORY_ALLOWED_KEYS
+        dumped = json.dumps(built, default=str)
+        assert s1 not in dumped and s2 not in dumped, (
+            f"une sentinelle photo_urls fuite dans le dict /history de {lid}"
+        )
+
+        resp = _history(client, admin_token, lid)
+        assert resp.status_code == 200
+        body_text = json.dumps(resp.json())
+        assert "photo_urls" not in resp.json()
+        assert s1 not in body_text and s2 not in body_text, (
+            f"une sentinelle photo_urls fuite dans le corps HTTP /history de {lid}"
+        )
+
+
+# --- Probe : faux candidats non couverts par un AC dedie -----------------
+def test_hardening_b_probe_gap_exactly_7_days_not_yet_disappeared():
+    # Gap "disparu" : `.days > 7` STRICT. A vu il y a EXACTEMENT 7 jours n'est
+    # PAS encore disparu -> aucune paire (meme si B parfaitement candidat).
+    from db.session import init_db
+
+    init_db()
+    _require_photo_urls_column()
+    now = datetime(2026, 6, 13, 4, 0, 0)
+    # gap_days=7 -> (now - A.last).days == 7, pas > 7 -> A pas disparu.
+    _build_probe_pair(now, prefix="hb-gap7", gap_days=7, window_days=3,
+                      surface_a=100.0, surface_b=100.0)
+
+    stats = _probe_module().compute_probe(now=now)
+    assert stats["total_pairs"] == 0, (
+        f"A vu il y a EXACTEMENT 7 j n'est pas encore 'disparu' (.days > 7 "
+        f"strict) -> 0 paire, recu {stats['total_pairs']}"
+    )
+    assert stats["disappeared"] == 0, (
+        f"aucun comparable ne doit etre compte 'disparu' a 7 j pile, recu "
+        f"{stats['disappeared']}"
+    )
+
+
+def test_hardening_b_probe_gap_8_days_disappeared():
+    # Borne complementaire : a 8 jours, A EST disparu -> la paire est comptee.
+    from db.session import init_db
+
+    init_db()
+    _require_photo_urls_column()
+    now = datetime(2026, 6, 13, 4, 0, 0)
+    _build_probe_pair(now, prefix="hb-gap8", gap_days=8, window_days=3,
+                      surface_a=100.0, surface_b=100.0)
+
+    stats = _probe_module().compute_probe(now=now)
+    assert stats["total_pairs"] == 1, (
+        f"A vu il y a 8 j EST disparu (.days=8 > 7) -> 1 paire, recu "
+        f"{stats['total_pairs']}"
+    )
+    assert stats["disappeared"] == 1
+
+
+def test_hardening_b_probe_b_before_a_both_orientations_excluded():
+    # B apparu AVANT A, teste via les DEUX orientations du couple (la boucle
+    # combinations() essaie x->y puis y->x). Aucune orientation ne doit creer
+    # de paire (A.first et B.first poses pour qu'aucun ne soit "apparu apres"
+    # un membre disparu dans la fenetre).
+    from db.session import init_db, engine
+
+    init_db()
+    _require_photo_urls_column()
+    now = datetime(2026, 6, 13, 4, 0, 0)
+    # A disparu (last il y a 30 j). B "apparu avant" A.last (b_after=False).
+    # En plus, B est lui aussi pose disparu pour exercer l'orientation y->x :
+    # mais comme A.first_seen <= B.last_seen serait requis pour y->x, on
+    # s'assure que A n'est pas "apparu apres" B non plus.
+    _build_probe_pair(now, prefix="hb-before", gap_days=30, window_days=0,
+                      b_after=False)
+    # Rends B disparu lui aussi (last ancien) pour forcer l'essai de y->x.
+    with engine.begin() as conn:
+        conn.execute(
+            text("UPDATE comparables SET last_seen_at=:l WHERE id='hb-before-B'"),
+            {"l": now - timedelta(days=25)},
+        )
+
+    stats = _probe_module().compute_probe(now=now)
+    assert stats["total_pairs"] == 0, (
+        f"B non strictement apparu apres A (les 2 orientations) -> 0 paire, "
+        f"recu {stats['total_pairs']}"
+    )
+
+
+def test_hardening_b_probe_ventilation_three_sources_multiple_pairs():
+    # Ventilation par couple de sources, >=3 sources et plusieurs paires, cle
+    # triee lexico. On pose 3 paires candidates distinctes sur 3 couples :
+    #   benedic<->bienici, bienici<->idemmo, benedic<->idemmo.
+    from db.session import init_db
+
+    init_db()
+    _require_photo_urls_column()
+    now = datetime(2026, 6, 13, 4, 0, 0)
+
+    # Trois villes distinctes pour ISOLER les paires (pas de matching croise
+    # inattendu entre les 6 lignes) : chaque ville canonique a son couple.
+    _build_probe_pair(now, prefix="hb-v1", source_a="benedic", source_b="bienici",
+                      gap_days=30, window_days=10, city_b="Metz")
+    _build_probe_pair(now, prefix="hb-v2", source_a="idemmo", source_b="bienici",
+                      gap_days=30, window_days=10, city_b="Woippy")
+    # 3e couple sur une 3e ville ; A=benedic, B=idemmo.
+    _build_probe_pair(now, prefix="hb-v3", source_a="benedic", source_b="idemmo",
+                      gap_days=30, window_days=10, city_b="Marly")
+    # Mais _build_probe_pair pose A avec city="Metz" par defaut. Pour isoler, on
+    # realigne city de A sur celle de B (sinon A et B de villes differentes ->
+    # exclus par AC28). On corrige via une ecriture directe.
+    from db.session import engine
+    with engine.begin() as conn:
+        conn.execute(text("UPDATE comparables SET city='Woippy' WHERE id='hb-v2-A'"))
+        conn.execute(text("UPDATE comparables SET city='Marly' WHERE id='hb-v3-A'"))
+
+    stats = _probe_module().compute_probe(now=now)
+    couples = stats["pairs_by_source_couple"]
+    assert stats["total_pairs"] == 3, (
+        f"3 paires candidates attendues (3 couples isoles), recu "
+        f"{stats['total_pairs']} ; ventilation={couples!r}"
+    )
+    assert couples.get("benedic<->bienici") == 1, couples
+    assert couples.get("bienici<->idemmo") == 1, couples
+    assert couples.get("benedic<->idemmo") == 1, couples
+    # Cle triee lexico : jamais "bienici<->benedic" ni "idemmo<->bienici".
+    for key in couples:
+        lo, hi = key.split("<->")
+        assert lo <= hi, f"cle de couple non triee lexico : {key!r}"
+
+
+def test_hardening_b_probe_involved_pct_hand_computable():
+    # involved_pct = (membres impliques dans >=1 paire) / total comparables.
+    # Corpus controle : 2 membres impliques (la paire) + 2 membres "bruit" non
+    # candidats (meme source, pas disparus) -> 2/4 = 50,0 %.
+    from db.session import init_db
+
+    init_db()
+    _require_photo_urls_column()
+    now = datetime(2026, 6, 13, 4, 0, 0)
+    _build_probe_pair(now, prefix="hb-pct", source_a="benedic", source_b="bienici",
+                      gap_days=30, window_days=10)
+    # 2 lignes de bruit : vivantes (non disparues), source unique, sans partenaire.
+    _insert_probe_row("hb-pct-noise1", "benedic",
+                      last_seen_at=now - timedelta(days=1),
+                      first_seen_at=now - timedelta(days=3),
+                      city="Augny", postal_code="57685")
+    _insert_probe_row("hb-pct-noise2", "idemmo",
+                      last_seen_at=now - timedelta(days=1),
+                      first_seen_at=now - timedelta(days=3),
+                      city="Marly", postal_code="57155")
+
+    stats = _probe_module().compute_probe(now=now)
+    assert stats["total_comparables"] == 4, (
+        f"corpus de 4 attendu, recu {stats['total_comparables']}"
+    )
+    assert stats["total_pairs"] == 1, stats
+    assert stats["involved_pct"] == 50.0, (
+        f"2 membres impliques / 4 total = 50,0 %, recu {stats['involved_pct']}"
+    )
+
+
+def test_hardening_b_probe_involved_pct_no_double_count_shared_member():
+    # Un meme membre B implique dans DEUX paires ne doit etre compte qu'une fois
+    # dans involved_pct (set d'ids). A1 et A2 (deux disparus) -> meme B.
+    # involved = {A1, A2, B} = 3 sur 3 -> 100,0 %.
+    from db.session import init_db
+
+    init_db()
+    _require_photo_urls_column()
+    now = datetime(2026, 6, 13, 4, 0, 0)
+    b_first = now - timedelta(days=5)
+    # Deux A disparus, sources differentes de B (bienici), apparus avant B.
+    _insert_probe_row("hb-share-A1", "benedic",
+                      last_seen_at=now - timedelta(days=30),
+                      first_seen_at=now - timedelta(days=40))
+    _insert_probe_row("hb-share-A2", "idemmo",
+                      last_seen_at=now - timedelta(days=20),
+                      first_seen_at=now - timedelta(days=35))
+    _insert_probe_row("hb-share-B", "bienici",
+                      last_seen_at=b_first, first_seen_at=b_first)
+
+    stats = _probe_module().compute_probe(now=now)
+    assert stats["total_pairs"] == 2, (
+        f"A1->B et A2->B = 2 paires, recu {stats['total_pairs']} ; "
+        f"{stats['pairs_by_source_couple']!r}"
+    )
+    assert stats["involved_pct"] == 100.0, (
+        f"B partage par 2 paires ne doit etre compte qu'une fois : "
+        f"{{A1,A2,B}}/3 = 100,0 %, recu {stats['involved_pct']}"
+    )
+
+
+def test_hardening_b_probe_read_only_exhaustive_snapshot():
+    # READ-ONLY par snapshot EXHAUSTIF (toutes colonnes lisibles) avant/apres,
+    # sur un corpus melant paire candidate + bruit + snapshot existant.
+    from db.session import init_db, engine
+
+    init_db()
+    _require_photo_urls_column()
+    now = datetime(2026, 6, 13, 4, 0, 0)
+    _build_probe_pair(now, prefix="hb-ro", gap_days=30, window_days=10)
+    _insert_probe_row("hb-ro-noise", "idemmo",
+                      last_seen_at=now - timedelta(days=2),
+                      first_seen_at=now - timedelta(days=9),
+                      city="Marly", postal_code="57155")
+    with engine.begin() as conn:
+        conn.execute(
+            text("INSERT INTO listing_price_snapshots "
+                 "(listing_id, price_total, price_m2, observed_at) "
+                 "VALUES ('hb-ro-A', 250000.0, 3125.0, :o)"),
+            {"o": now},
+        )
+
+    def _full_state():
+        with engine.begin() as conn:
+            comps = conn.execute(
+                text("SELECT * FROM comparables ORDER BY id")
+            ).fetchall()
+            snaps = conn.execute(
+                text("SELECT * FROM listing_price_snapshots ORDER BY id")
+            ).fetchall()
+        return ([tuple(str(x) for x in r) for r in comps],
+                [tuple(str(x) for x in r) for r in snaps])
+
+    before = _full_state()
+    _probe_module().compute_probe(now=now)
+    after = _full_state()
+    assert before == after, (
+        "snapshot exhaustif divergent : la probe a mute la base (doit etre "
+        "strictement READ-ONLY)"
+    )
+
+
+def test_hardening_b_probe_correctness_at_scale_synthetic():
+    # JUSTESSE (pas perf) a plus grande echelle : corpus synthetique
+    # multi-sources d'environ 80 comparables avec un nombre de paires
+    # candidates connu a la main. On NE teste PAS la perf O(n^2) (hors
+    # perimetre etape 1), seulement que compute_probe reste CORRECT.
+    from db.session import init_db
+
+    init_db()
+    _require_photo_urls_column()
+    now = datetime(2026, 6, 13, 4, 0, 0)
+
+    # 30 paires candidates VALIDES, chacune sur une ville distincte (isolation
+    # stricte : pas de matching croise entre paires). 1 couple chacune.
+    expected_pairs = 30
+    for i in range(expected_pairs):
+        city = f"VilleScale{i}"
+        cp = f"57{i:03d}"
+        a_last = now - timedelta(days=30)
+        a_first = a_last - timedelta(days=5)
+        b_first = a_last + timedelta(days=10)
+        _insert_probe_row(f"hb-scale-A{i}", "benedic",
+                          last_seen_at=a_last, first_seen_at=a_first,
+                          city=city, postal_code=cp)
+        _insert_probe_row(f"hb-scale-B{i}", "bienici",
+                          last_seen_at=b_first, first_seen_at=b_first,
+                          city=city, postal_code=cp)
+
+    # 20 lignes de BRUIT non candidates (vivantes, isolees) -> total 80.
+    for i in range(20):
+        _insert_probe_row(f"hb-scale-N{i}", "idemmo",
+                          last_seen_at=now - timedelta(days=1),
+                          first_seen_at=now - timedelta(days=3),
+                          city=f"NoiseCity{i}", postal_code=f"57{900 + i}")
+
+    stats = _probe_module().compute_probe(now=now)
+    assert stats["total_comparables"] == 80, (
+        f"corpus de 80 attendu, recu {stats['total_comparables']}"
+    )
+    assert stats["total_pairs"] == expected_pairs, (
+        f"justesse a l'echelle : {expected_pairs} paires attendues, recu "
+        f"{stats['total_pairs']}"
+    )
+    assert stats["pairs_by_source_couple"].get("benedic<->bienici") == expected_pairs, (
+        f"toutes les paires sur le couple benedic<->bienici, recu "
+        f"{stats['pairs_by_source_couple']!r}"
+    )
+    # involved = 60 membres de paires / 80 = 75,0 %.
+    assert stats["involved_pct"] == 75.0, (
+        f"60 impliques / 80 = 75,0 %, recu {stats['involved_pct']}"
+    )
+
+
+def test_hardening_b_render_report_contains_limit_substrings_and_no_leak():
+    # render_report : sous-chaines de limites exigees (SPEC §3.5) presentes ET
+    # aucun id/reference/URL/photo_urls fuite, meme avec un corpus portant des
+    # sentinelles. Complete AC31 (parcours explicite des 4 termes + ref/cp).
+    from db.session import init_db, engine
+
+    init_db()
+    _require_photo_urls_column()
+    now = datetime(2026, 6, 13, 4, 0, 0)
+    _build_probe_pair(now, prefix="hb-rep-TEMOIN", gap_days=30, window_days=10)
+    with engine.begin() as conn:
+        conn.execute(
+            text("UPDATE comparables SET photo_urls=:p, reference='REF-TEMOIN', "
+                 "customer_id='CUST-TEMOIN' WHERE id='hb-rep-TEMOIN-A'"),
+            {"p": json.dumps([_SENTINEL_PHOTO_URL])},
+        )
+
+    probe = _probe_module()
+    report = probe.render_report(probe.compute_probe(now=now))
+    low = report.lower()
+    for needle in ("borne haute", "candidats potentiels"):
+        pass
+    assert ("borne haute" in low) or ("candidats potentiels" in low)
+    assert "syndication" in low
+    assert "intrant de decision" in low
+    # Anti-fuite exhaustive.
+    assert _SENTINEL_PHOTO_URL not in report
+    assert "REF-TEMOIN" not in report
+    assert "CUST-TEMOIN" not in report
+    assert "hb-rep-TEMOIN-A" not in report
+    assert "hb-rep-TEMOIN-B" not in report
+    assert "photo_urls" not in report, (
+        "le rapport ne doit pas meme nommer la colonne photo_urls"
+    )
+
+
+def test_hardening_b_admin_import_actually_persists_photo_urls(client, admin_token):
+    # COMBLE UN TROU AC12 : AC12 ne verifie QUE l'absence de 422 + le contrat de
+    # reponse. Or Pydantic IGNORE par defaut les champs extra (ComparableIn.
+    # model_config vide) : un body avec photo_urls ne fait pas 422 MEME si le
+    # champ n'existe pas dans ComparableIn -> dans ce cas model_dump() ne le
+    # transmet pas a save_comparables et la colonne reste NULL, sans qu'aucun AC
+    # ne le detecte. Ce test verifie la PERSISTANCE REELLE bout-en-bout via
+    # l'endpoint (pas l'appel direct a save_comparables d'AC9) : c'est la seule
+    # garantie que ComparableIn DECLARE bien le champ photo_urls.
+    sentinel = json.dumps(["http://cdn/persist-via-import.jpg"])
+    resp = client.post(
+        "/admin/comparables",
+        json={"items": [{
+            "id": "hb-import-persist", "source": "bienici", "city": "Metz",
+            "property_type": "appartement", "surface_m2": 80,
+            "price_total": 250000, "postal_code": "57000",
+            "photo_urls": sentinel,
+        }]},
+        headers={"X-Admin-Token": admin_token},
+    )
+    assert resp.status_code == 200, (
+        f"import attendu 200, recu {resp.status_code}"
+    )
+    row = _row("hb-import-persist")
+    assert row is not None, "comparable importe non ecrit"
+    assert getattr(row, "photo_urls", "__MISSING__") == sentinel, (
+        "photo_urls fourni a POST /admin/comparables NON persiste : ComparableIn "
+        "ne declare pas le champ (Pydantic ignore l'extra silencieusement) -> "
+        "model_dump() ne le transmet pas a save_comparables. AC12 seul ne le "
+        "detecte pas (extra ignore != champ declare)."
+    )
