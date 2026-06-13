@@ -352,6 +352,14 @@ et agrège des `PropertyListing`.
 `scrapers/sources/bienici.py` — **API JSON pas HTML**, donc immunisé aux
 protections anti-bot des frontaux.
 
+- **Collecte sur toute la couronne** (juin 2026) : le scraper **itère sur les
+  communes de `app.market_stats._METRO_CITIES`** (Metz + couronne : Montigny,
+  Woippy, Marly, Le Ban-Saint-Martin, Longeville, Saint-Julien, Scy-Chazelles,
+  Plappeville, Lessy, Augny) — source unique de vérité importée, pas dupliquée —
+  au lieu de la seule commune de Metz codée en dur. Une commune dont la zone ne
+  se résout pas est sautée (log) sans interrompre les autres ; un `seen` global
+  partagé dédoublonne intra-run les annonces vues via deux communes limitrophes.
+  La `city` stockée reste celle de l'annonce, canonicalisée (`canonical_city`).
 - Découverte dynamique de l'identifiant de zone via
   `https://res.bienici.com/suggest.json?q=<ville>` → renvoie `zoneIds`
   (ex. Metz = `["-450381"]`). C'est l'ID interne Bien'ici, **pas** l'INSEE.
