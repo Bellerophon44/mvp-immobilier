@@ -692,7 +692,7 @@ Niveau **au-dessus de la ville** dans la cascade `market_stats` : `_METRO_CITIES
 Longeville, Saint-Julien, Scy-Chazelles, Plappeville, Lessy, Augny). La cascade
 devient `quartier → secteur → ville → métropole` (× bande DPE). `_fetch_comparables`
 accepte un ensemble de communes (`cities`). Règles : la **ville reste préférée dès
-`MIN_COMPARABLES` (3)** — on n'élargit à la métropole que si la commune est trop
+`MIN_COMPARABLES` (5)** — on n'élargit à la métropole que si la commune est trop
 creuse (pas de dilution d'un pool communal exploitable) ; la métropole n'est
 mobilisée que si le bien est **dans** le périmètre (sinon pas d'élargissement à des
 communes étrangères, ex. Thionville → None). Scope `"metropole"` exposé au front
