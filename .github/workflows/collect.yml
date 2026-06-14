@@ -1,8 +1,19 @@
 name: Collect comparables (Metz)
 
 # Trigger manuel + hebdomadaire (lundi 04:00 UTC = 05:00 Paris hiver / 06:00 été).
+# La cible (prod/staging) est parametrable au dispatch manuel ; le cron vise
+# toujours la prod (pipeline reel). Staging doit pouvoir etre peuple a la demande
+# pour tester avec les memes capacites que la prod (base isolee dediee).
 on:
   workflow_dispatch:
+    inputs:
+      target:
+        description: "Backend cible (la collecte ecrit dans SA base)"
+        type: choice
+        options:
+          - prod
+          - staging
+        default: prod
   schedule:
     - cron: "0 4 * * 1"
 
@@ -27,7 +38,11 @@ jobs:
 
       - name: Collect and push comparables
         working-directory: backend
+        # Cible resolue par expression : staging si demande explicitement au
+        # dispatch, prod sinon (et pour le cron, ou inputs.target est vide).
         env:
-          BACKEND_URL: https://backend-frosty-sound-441-docker.fly.dev
-          ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
-        run: python -m jobs.push_comparables
+          BACKEND_URL: ${{ github.event.inputs.target == 'staging' && 'https://coherence-staging.fly.dev' || 'https://backend-frosty-sound-441-docker.fly.dev' }}
+          ADMIN_TOKEN: ${{ github.event.inputs.target == 'staging' && secrets.ADMIN_TOKEN_STAGING || secrets.ADMIN_TOKEN }}
+        run: |
+          echo "Collecte vers : ${{ github.event.inputs.target || 'prod' }} (${BACKEND_URL})"
+          python -m jobs.push_comparables
