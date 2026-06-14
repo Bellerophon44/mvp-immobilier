@@ -26,6 +26,11 @@
 
 ## Entrées
 
+- **[2026-06-14] [bienici-couronne] Ne JAMAIS coder en dur l'environnement prod dans une feature : staging doit avoir les mêmes capacités que prod**
+  - Symptôme : après collecte de la couronne, un test utilisateur sur STAGING (maison à Marly) retombait sur le repli « Metz métropole » alors que la prod fonctionnait. Cause immédiate : `collect.yml` poussait les comparables vers une URL prod **codée en dur** → seule la base prod était peuplée ; staging (env isolé, base dédiée) restait vide, donc inutilisable pour tester la feature.
+  - Cause racine : un job de pipeline (collecte, probe) ciblait la prod en dur, ce qui prive staging de la capacité qu'il est censé fournir (tester comme en prod, sans toucher la prod). Anti-pattern : staging traité comme un demi-environnement.
+  - Garde-fou (règle, process) : tout workflow agissant sur un backend (collecte, probe, maintenance…) doit **paramétrer la cible** (`workflow_dispatch` input `target: prod|staging`, le cron/automatique visant la prod par défaut), avec URL + secret résolus par expression. Appliqué : `collect.yml` et `coverage-probe.yml` (input `target`, secret `ADMIN_TOKEN_STAGING` pour l'app `coherence-staging`). Principe : staging = mêmes capacités que prod (cf. `docs/specs/ENVIRONNEMENTS-ET-DOMAINE.md`).
+
 - **[2026-06-14] [bienici-couronne] Une colonne filtrée dans un lookup PAR-LIGNE à l'ingestion DOIT être indexée — sinon O(n×m) qui n'explose qu'à l'échelle**
   - Symptôme : après l'élargissement de la collecte bien'ici à la couronne (~17,7k → ~30k poussés), la collecte prod a échoué à l'ingestion (batch en read-timeout puis HTTP 500 sur les suivants, 4 batchs perdus, job rouge). Le scraping était nickel ; l'échec était purement côté écriture.
   - Cause racine : `ingestion/save._find_lineage_candidate` (re-link cross-agence inc.2a) lance `db.query(Comparable).filter(reference==…, source, property_type, city)` pour CHAQUE annonce neuve, sur une colonne `reference` NON indexée → balayage de table par insertion. Invisible à ~17,7k, explose au doublement du volume (worker Fly bloqué sur SQLite → 500 en cascade).

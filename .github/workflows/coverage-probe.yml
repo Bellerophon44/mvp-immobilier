@@ -2,10 +2,19 @@ name: Coverage probe (Metz couronne)
 
 # Probe de couverture READ-ONLY (docs/specs/comparables-coverage-ANALYSE.md
 # §7 Q3 / §8) : interroge l'endpoint admin /admin/comparables/coverage pour lire
-# le volume de comparables par (commune × type/source) sur la base prod. Aucune
-# ecriture. Declenchement MANUEL uniquement (pas de cron).
+# le volume de comparables par (commune × type/source). Aucune ecriture.
+# Declenchement MANUEL uniquement (pas de cron). Cible parametrable prod/staging
+# (meme capacite de mesure des deux cotes).
 on:
   workflow_dispatch:
+    inputs:
+      target:
+        description: "Backend a sonder"
+        type: choice
+        options:
+          - prod
+          - staging
+        default: prod
 
 jobs:
   probe:
@@ -20,8 +29,8 @@ jobs:
 
       - name: Fetch coverage and write summary
         env:
-          BACKEND_URL: https://backend-frosty-sound-441-docker.fly.dev
-          ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+          BACKEND_URL: ${{ github.event.inputs.target == 'staging' && 'https://coherence-staging.fly.dev' || 'https://backend-frosty-sound-441-docker.fly.dev' }}
+          ADMIN_TOKEN: ${{ github.event.inputs.target == 'staging' && secrets.ADMIN_TOKEN_STAGING || secrets.ADMIN_TOKEN }}
         run: |
           curl -fsS -H "X-Admin-Token: ${ADMIN_TOKEN}" \
             "${BACKEND_URL}/admin/comparables/coverage" > coverage.json
