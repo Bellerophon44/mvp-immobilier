@@ -26,6 +26,26 @@
 
 ## Entrées
 
+- **[2026-06-14] [bienici-couronne] Une colonne filtrée dans un lookup PAR-LIGNE à l'ingestion DOIT être indexée — sinon O(n×m) qui n'explose qu'à l'échelle**
+  - Symptôme : après l'élargissement de la collecte bien'ici à la couronne (~17,7k → ~30k poussés), la collecte prod a échoué à l'ingestion (batch en read-timeout puis HTTP 500 sur les suivants, 4 batchs perdus, job rouge). Le scraping était nickel ; l'échec était purement côté écriture.
+  - Cause racine : `ingestion/save._find_lineage_candidate` (re-link cross-agence inc.2a) lance `db.query(Comparable).filter(reference==…, source, property_type, city)` pour CHAQUE annonce neuve, sur une colonne `reference` NON indexée → balayage de table par insertion. Invisible à ~17,7k, explose au doublement du volume (worker Fly bloqué sur SQLite → 500 en cascade).
+  - Garde-fou : index `ix_comparables_reference` (`db/models.py` `index=True` + `CREATE INDEX IF NOT EXISTS` idempotent dans `db/session._migrate_comparables`, comme `ix_comparables_lineage_id`). Tests `backend/tests/test_ingestion_scale_index.py` (présence d'index après `init_db`, idempotence migration). Règle : toute colonne utilisée dans un `filter`/`get` exécuté par-ligne pendant l'ingestion doit avoir un index ; vérifier le coût d'une lecture par-ligne à l'échelle prod, pas seulement sur la suite de tests.
+
+- **[2026-06-14] [bienici-couronne] Défense en profondeur ingestion : ne pas perdre des communes entières de la queue sur un 500/timeout transitoire**
+  - Symptôme : un seul batch transitoirement en échec (timeout serveur sous charge) faisait perdre TOUTES les données de ce batch (communes de fin de collecte), même si la cause sous-jacente était passagère.
+  - Cause racine : `jobs/push_comparables` postait chaque batch en un seul essai ; sur exception, il loguait et continuait (ne stoppait pas tout, bien), mais sans réessai → perte définitive du batch.
+  - Garde-fou : `_post_batch_with_retry` (backoff exponentiel, `MAX_RETRIES`) + timeout 60→120. Tests `test_ingestion_scale_index.py` (retry récupère / abandonne après N, exit codes de `main`). Règle : un envoi réseau idempotent (upsert par id stable) dans un job de collecte doit réessayer avant d'abandonner un lot.
+
+- **[2026-06-14] [bienici-couronne] Branche longue + squash-merges : recaler sur la base AVANT la PR suivante**
+  - Symptôme : en ouvrant une nouvelle PR depuis la même branche après deux squash-merges (#88, #90), la PR ressortait `mergeable_state: dirty` (conflit) et un diff gonflé (14 fichiers / +3541) alors que le vrai changement faisait 5 fichiers.
+  - Cause racine : le squash-merge écrit un nouveau commit sur la base et n'amène PAS l'historique de la branche ; la base commune (merge-base) reste ancienne, donc le three-dot diff ré-affiche tout le travail déjà mergé, et des fichiers ajoutés des deux côtés deviennent des conflits add/add.
+  - Garde-fou (règle, process) : après un squash-merge, AVANT de continuer sur la même branche, la recaler sur la base (`git reset --hard origin/<base>` puis force-with-lease, ou rebase) pour repartir d'un merge-base propre. Sinon, brancher à neuf depuis la base. Vécu sur #92 (résolu par merge de `staging` dans la branche) puis évité sur #94 (reset préalable).
+
+- **[2026-06-14] [bienici-couronne] Budget GitHub Actions à 0 $ avec « stop usage » coupe SILENCIEUSEMENT la CI dès le quota gratuit épuisé**
+  - Symptôme : en milieu de session, plus aucun workflow (`test.yml`, `evals.yml`, `deploy`) ne se déclenchait sur les pushes/PR ; seul Vercel (externe) tournait. githubstatus.com vert. Aucune erreur visible côté PR.
+  - Cause racine : budget Actions plafonné à 0 $ avec arrêt automatique (Billing → Budgets and alerts) ; tant que le quota mensuel gratuit suffit ça passe, mais une fois épuisé (beaucoup de jobs ce jour-là) toute minute facturable est bloquée → workflows non planifiés. À NE PAS confondre avec un filtre de chemins ou une permission `actions:write` manquante (l'intégration ne PEUT PAS déclencher via l'API : `run_workflow`/`rerun` → 403 ; seul un `git push` ou un « Run workflow » UI humain déclenche).
+  - Garde-fou (règle ops) : si la CI ne se déclenche plus sans cause de code, vérifier Billing → Budgets and alerts (limite Actions > 0, sinon supprimer le budget) AVANT de soupçonner le code. Repli pour déclencher : push (auto) ou « Run workflow » manuel depuis l'UI Actions.
+
 - **[2026-06-13] [cross-agence-inc2b-etape1] Un AC « le body avec champ optionnel ne renvoie pas 422 » est un FAUX-VERT pour prouver qu'un champ est DÉCLARÉ dans un modèle Pydantic à `model_config` vide**
   - Symptôme : l'AC d'acceptation de `POST /admin/comparables` (accepte
     `photo_urls` sans 422 + contrat de réponse intact) restait vert MÊME si
