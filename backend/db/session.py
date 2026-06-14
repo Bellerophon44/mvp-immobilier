@@ -73,6 +73,15 @@ def _migrate_comparables(conn) -> None:
             "ON comparables (lineage_id)"
         )
     )
+    # Index sur reference (meme raison) : la recherche de lignee filtre par
+    # reference egale pour chaque annonce neuve. Sans index, balayage de table
+    # par insertion -> ingestion O(n*m) qui finit en timeout/500 a l'echelle.
+    conn.execute(
+        text(
+            "CREATE INDEX IF NOT EXISTS ix_comparables_reference "
+            "ON comparables (reference)"
+        )
+    )
 
 
 def init_db():

@@ -63,7 +63,11 @@ class Comparable(Base):
     # customer_id = compte annonceur bienici. lineage_id = lignee du bien physique
     # (survit au changement d'id), posee applicativement par ingestion/save.py
     # (repli `lineage_id or id` en lecture pour les lignes heritees).
-    reference = Column(String, nullable=True)
+    # reference est indexe : la recherche de lignee (_find_lineage_candidate,
+    # ingestion/save.py) filtre par reference egale pour CHAQUE annonce neuve.
+    # Sans index, c'est un balayage de table par insertion -> O(n*m) a l'echelle
+    # (timeouts/500 d'ingestion sur un gros run, juin 2026).
+    reference = Column(String, nullable=True, index=True)
     customer_id = Column(String, nullable=True)
     lineage_id = Column(String, nullable=True, index=True)
 
