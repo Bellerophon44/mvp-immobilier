@@ -36,8 +36,30 @@ graves s'enchaînent :
    precision » (CONTEXT §1.4)** et est, à mon sens, **plus grave** que le constat
    d'origine.
 
-Recommandation : ne pas lancer un `/feature` « rustine » par symptôme. **Trancher
-d'abord la question structurante du référentiel** (§4), puis dériver 2-3 chantiers.
+Recommandation : ne pas lancer un `/feature` « rustine » par symptôme, mais
+suivre la feuille de route du référentiel actée en §4.
+
+---
+
+## 0bis. Décisions actées (2026-06-16, fondateur)
+
+> Mises à jour après lecture de la première version de cette analyse. Elles
+> remplacent les arbitrages restés « à trancher » dans les sections d'origine.
+
+1. **Référentiel géographique : les trois approches A, B, C sont retenues comme
+   une feuille de route séquencée, pas comme des alternatives.** On les lance
+   **successivement, dans l'ordre A → B → C** (détail §4). Chacune est un
+   chantier d'atelier à part entière, qui améliore la crédibilité.
+2. **« Secteur prisé » : FERMÉ.** Cohérence ne qualifie pas la désirabilité d'un
+   quartier (ce serait reprendre l'argumentaire vendeur, anti-pattern
+   positionnement §5). Le caractère « recherché » se lit **uniquement** dans les
+   prix des comparables observés ; on ne l'affirme pas en mots. Le volet « prisé »
+   de C3 sort donc du périmètre (§5).
+3. **C2 (garde-fou d'incertitude) est ORTHOGONAL au référentiel.** Étendre le
+   référentiel (A/B/C) ne corrige PAS à lui seul le « confiant mais faux » : le
+   défaut est que l'app suit la sélection manuelle de quartier sans réserve, puis
+   en déduit des traits curatés. Le garde-fou doit accompagner A (sinon A déplace
+   le risque au prochain quartier inconnu).
 
 ---
 
@@ -149,8 +171,8 @@ quartier** (référentiel), pas la vision.
 
 3. **« Quartier prisé ».** Aucune donnée de **réputation/désirabilité** par
    quartier n'existe dans le code. La qualifier toucherait directement le
-   positionnement « factuel, neutre, jamais vendeur » (`CONTEXT §2.1`) — voir
-   risque en §5.
+   positionnement « factuel, neutre, jamais vendeur » (`CONTEXT §2.1`) →
+   **décision actée : hors périmètre** (§0bis-2, §5).
 
 ### C4 — « Proximité des écoles »
 
@@ -187,20 +209,23 @@ demander ce que l'annonce (ou l'extraction) fournit déjà ». Le problème est
 - **Bugs (corrigeables sans changer le périmètre produit)** :
   - C5 — invariant « ne pas re-demander ce qui est donné » + cohérence
     questions LLM ↔ champs extraits. **Le plus net, le plus rapide, fort ROI
-    crédibilité.** Candidat idéal pour un premier `/feature` + cas d'éval.
+    crédibilité.** Candidat idéal comme cas d'éval ; indépendant de A/B/C.
   - C2 — garde-fou d'incertitude sur le mode quartier (ne pas affirmer un profil
-    de quartier quand la correspondance n'est pas sûre). Dépend en partie de §4.
-- **Structurel (préalable)** :
-  - C1 — enrichir/unifier le référentiel géographique (§4).
+    de quartier quand la correspondance n'est pas sûre). **Orthogonal au
+    référentiel** (§0bis-3), à livrer avec/avant le chantier A.
+- **Structurel (préalable, feuille de route actée A → B → C)** :
+  - C1 — enrichir puis unifier le référentiel géographique (§4).
 - **Features (décision produit)** :
-  - C3 (volet « prisé ») et C4 (écoles) — nouvelles connaissances locales, à
-    arbitrer contre le positionnement (§5) et la roadmap `LOCAL-ANCHORING.md`.
+  - C3 volet « prisé » — **FERMÉ** (§0bis-2, §5) : hors périmètre.
+  - C4 (écoles) — capacité data, branchée naturellement sur le chantier C
+    (géocodage + POI) ; pas avant.
 
 ---
 
 ## 4. Élément structurant n°1 — le référentiel géographique
 
-C'est le point que le fondateur pressent. Détail du problème et des options.
+C'est le point structurant pressenti par le fondateur. Détail du problème et de
+la feuille de route actée (A → B → C).
 
 **Problème** : 4 listes codées en dur (§2-C1) qui doivent rester d'accord, au
 grain « 16 quartiers officiels ». Elles ignorent (a) les **micro-quartiers**
@@ -217,31 +242,39 @@ bienici-couronne) — *« une colonne filtrée dans un lookup par-ligne doit êt
 indexée »*. Toute extension du référentiel qui ajouterait des lookups par-ligne à
 l'ingestion devra respecter cette leçon.
 
-**Options (à arbitrer en GATE 1, non tranché ici)** :
+**Feuille de route actée (§0bis) — A → B → C, lancés successivement** :
 
-- **(A) Étendre les listes à la main.** Ajouter « Sainte-Thérèse », « Botanique »
-  (+ alias) aux 4 référentiels, avec profil/distances, et rattacher au bon
-  secteur. *Pour* : rapide, dans la veine actuelle, 100 % curaté/vérifiable.
-  *Contre* : ne règle pas la duplication ni l'inter-communal ; chaque micro-quartier
-  est un nouveau quadruplet à maintenir. Ne scale pas (cf. système « édition
-  locale », `METZ-LOCAL.md §5`).
-- **(B) Unifier en une source unique** (un seul gazetteer quartiers→{aliases,
-  centroïde, secteur, commune, code postal, profil}) dont dérivent les 4 usages.
-  *Pour* : supprime la désynchronisation, prépare l'inter-communal et l'extension
-  multi-villes. *Contre* : refactor transverse (back + front), à cadrer.
-- **(C) Géocodage systématique** (couche C déjà présente, `geocode_address`) pour
-  rattacher l'adresse à un quartier/commune réels plutôt qu'à un libellé.
-  *Pour* : robuste aux libellés inconnus, gère l'inter-communal nativement.
-  *Contre* : exige une **adresse** (souvent absente d'un texte collé), réseau,
-  et un mapping coordonnées→quartier qu'on n'a pas encore (les `_POI` sont des
-  points, pas des polygones). Distances « à vol d'oiseau » (limite déjà documentée
-  `CLAUDE.md §11`).
+Les trois approches ne sont PAS exclusives : ce sont trois **paliers** de
+maturité du référentiel, chacun un chantier d'atelier, exécutés dans l'ordre.
 
-Mon avis d'analyste : **(B)** comme cible (dette structurelle qui revient à chaque
-retour pilote sur la géo), avec un **premier pas pragmatique (A)** pour débloquer
-Sainte-Thérèse/Botanique **si** on en fait un cas d'éval — mais **seulement** une
-fois C2 (garde-fou d'incertitude) en place, sinon on ne fait que déplacer le
-risque de « confiant mais faux » vers le prochain quartier manquant.
+- **Chantier A — Étendre les listes à la main (premier, débloque le cas pilote).**
+  Ajouter « Sainte-Thérèse », « Botanique » (+ alias) aux 4 référentiels, avec
+  profil/distances, et rattacher au bon secteur. *Apport* : rapide, dans la veine
+  actuelle, 100 % curaté/vérifiable ; lève le constat #100 immédiatement.
+  *Limite assumée* : ne règle ni la duplication ni l'inter-communal ; chaque
+  micro-quartier reste un quadruplet à maintenir.
+  **Pré-requis bloquant : livrer le garde-fou C2 dans le même lot (ou avant).**
+  Sans lui, A se contente de déplacer le « confiant mais faux » au prochain
+  quartier absent (décision §0bis-3).
+- **Chantier B — Unifier en une source unique.** Un seul gazetteer
+  quartiers→{aliases, centroïde, secteur, commune, code postal, profil} dont
+  dérivent les 4 usages (`_KNOWN_LOCALITIES`, `_PROFILES`/`_DIST_KM`,
+  `_SECTORS_RAW`, `METZ_DISTRICTS`). *Apport* : supprime la désynchronisation,
+  prépare l'inter-communal (Metz/Montigny) et l'extension multi-villes (système
+  « édition locale », `METZ-LOCAL.md §5`). *Coût* : refactor transverse (back +
+  front), à cadrer en spec. Reprend l'acquis de A comme données d'amorçage.
+- **Chantier C — Géocodage systématique.** S'appuyer sur la couche C déjà
+  présente (`geocode_address`) pour rattacher l'adresse à un quartier/commune
+  **réels** plutôt qu'à un libellé. *Apport* : robuste aux libellés inconnus, gère
+  l'inter-communal nativement, ouvre la porte aux POI (écoles, C4). *Pré-requis* :
+  un mapping coordonnées→quartier qu'on n'a pas encore (les `_POI` sont des
+  points, pas des polygones) — à produire pendant B. *Limites connues* : exige une
+  **adresse** (souvent absente d'un texte collé → repli sur B), réseau, distances
+  « à vol d'oiseau » (`CLAUDE.md §11`).
+
+Ordre justifié : **A** rend la crédibilité tout de suite ; **B** paie la dette
+structurelle (la cause qui revient à chaque retour pilote géo) et industrialise
+A ; **C** ajoute la précision adresse/POI une fois la source unique en place.
 
 ---
 
@@ -264,30 +297,36 @@ se définit par : *factuel, neutre, jamais vendeur, pas de fake precision*
   suit pas »*. Donc : **n'affirmer que ce qui est sourçable**, sinon rester sur
   « à vérifier » assumé.
 
-Décision produit pour le fondateur (GATE 1) : **veut-on que Cohérence qualifie la
-désirabilité d'un secteur**, et si oui sur **quelle donnée objective** ? Sans
-réponse, C3-« prisé » et C4 restent hors atelier.
+**Décision actée (§0bis-2) : NON.** Cohérence ne qualifie pas la désirabilité
+d'un secteur. Le caractère « recherché » d'un quartier n'est exprimé que par les
+**prix des comparables observés** (déjà le rôle du pilier prix), jamais par une
+mention « prisé ». Le volet « prisé » de C3 est **hors périmètre**. C4 (écoles),
+en revanche, est une donnée **factuelle** sourçable : retenu, branché sur le
+chantier C (§4).
 
 ---
 
 ## 6. Recommandation de triage et de découpage
 
-Découpage proposé en issues filles de #100 (chacune `retour-pilote` ; catégorie
-+ gravité posées par le triage ; `pret-atelier` réservé au fondateur) :
+Découpage retenu en chantiers (chacun une issue fille de #100 ; `retour-pilote` +
+catégorie/gravité posées par le triage ; `pret-atelier` réservé au fondateur).
+Ordre d'exécution acté : **C5 (indépendant) → A → B → C.**
 
-1. **#100-a — Questions : ne pas re-demander une info donnée par l'annonce (charges)**
+1. **#100-a — Questions : ne pas re-demander une info donnée par l'annonce (charges)** [= C5]
    `qualite/extraction-llm`, `qualite/wording` · `gravite/bloquant-credibilite` ·
-   **bug, prêt techniquement** (cf. §2-C5). *Meilleur premier chantier.*
-2. **#100-b — Mode quartier : garde-fou d'incertitude (ne pas affirmer un profil de quartier non sûr)**
-   `qualite/ancrage-local` · `gravite/bloquant-credibilite` · bug, dépend de §4.
-3. **#100-c — Référentiel géographique : intégrer Sainte-Thérèse/Botanique + inter-communal Metz/Montigny**
-   `qualite/ancrage-local`, `qualite/comparables` · `gravite/majeur` · structurel (§4).
-4. **#100-d — Reconnaissance « secteur prisé »** — `qualite/ancrage-local` ·
-   `gravite/majeur` · **feature, bloquée GATE 1 produit** (§5).
-5. **#100-e — Proximité écoles (POI)** — `qualite/ancrage-local` ·
-   `gravite/mineur` · feature data (§5).
+   **bug, prêt techniquement** (§2-C5). Indépendant du référentiel → peut partir
+   en premier.
+2. **#100-b — Chantier A : référentiel — intégrer Sainte-Thérèse/Botanique (+ alias) + garde-fou d'incertitude C2**
+   `qualite/ancrage-local`, `qualite/comparables` · `gravite/bloquant-credibilite` ·
+   bug structurel, palier 1 (§4). **C2 est inclus dans ce lot** (§0bis-3).
+3. **#100-c — Chantier B : unifier le référentiel en une source unique** (gazetteer
+   quartier→{alias, secteur, commune, code postal, centroïde, profil})
+   `qualite/ancrage-local`, `qualite/comparables` · `gravite/majeur` · palier 2 (§4).
+4. **#100-d — Chantier C : géocodage→quartier + inter-communal + POI écoles (C4)**
+   `qualite/ancrage-local` · `gravite/majeur` · palier 3 (§4). C4 branché ici.
 
-L'issue #100 mère : retirer `triage` une fois les filles créées, garder
+Le volet « prisé » de C3 n'est **pas** une issue : décision actée hors périmètre
+(§0bis-2). L'issue #100 mère : retirer `triage` une fois les filles créées, garder
 `retour-pilote`, servir d'ombrelle.
 
 ---
@@ -306,9 +345,12 @@ CONTEXT §11.3). Cas pertinents :
   ignore et cite le montant. Oracle partiellement déterministe possible côté
   `_amenity_actions` (suite gratuite `backend/tests/`) + volet LLM en `evals/`
   (`xfail` tant que non fixé, preuve XFAIL avant merge).
-- **C1/C2** : annonce fictive nommant un quartier **hors référentiel** → assertion :
-  le contexte local n'affirme pas un profil d'un *autre* quartier ; reste neutre.
-- **C3/C4** : à n'écrire qu'**après** arbitrage produit (§5).
+- **A / C2** : annonce fictive nommant un quartier **hors référentiel** →
+  assertion : le contexte local n'affirme pas un profil d'un *autre* quartier ;
+  reste neutre (verrouille le garde-fou d'incertitude indépendamment du contenu
+  ajouté au référentiel).
+- **C4 (écoles)** : cas à écrire au chantier C, sur donnée POI factuelle.
+  « Prisé » : pas de cas (hors périmètre, §0bis-2).
 
 Leçon process candidate (`.claude/lessons.md`) si C5 part en atelier :
 *« ne jamais générer une question dont la réponse est explicitement extraite dans
@@ -316,17 +358,25 @@ Leçon process candidate (`.claude/lessons.md`) si C5 part en atelier :
 
 ---
 
-## 8. Questions structurantes (GATE 1, à trancher par le fondateur)
+## 8. État des arbitrages
 
-1. **Référentiel géo (§4)** : on vise (A) extension manuelle, (B) source unique
-   unifiée, ou (C) géocodage→quartier ? (reco : B cible, A en 1ᵉʳ pas conditionné
-   à C2).
-2. **Garde-fou d'incertitude (C2)** : accepte-t-on que le mode quartier puisse
-   dire « quartier non reconnu, analyse à l'échelle ville » plutôt que d'afficher
-   un profil voisin ? (reco : oui — c'est la cohérence du positionnement).
-3. **« Prisé » (§5)** : Cohérence qualifie-t-elle la désirabilité, et sur quelle
-   donnée objective ? (sinon C3-prisé reste hors atelier).
-4. **Écoles (C4)** : capacité voulue à court terme ? quelle source POI ?
-5. **Process** : crée-t-on les 5 issues filles, ou traite-t-on #100 en bloc ?
-6. **Priorité** : commence-t-on par **C5** (bug net, ROI immédiat) pendant que la
-   question géo (§4) mûrit ?
+**Tranché (§0bis, 2026-06-16) :**
+- Référentiel géo → feuille de route séquencée **A → B → C** (les trois retenus).
+- Garde-fou d'incertitude **C2** → retenu, inclus dans le chantier A.
+- « Prisé » → **hors périmètre** (factuel uniquement).
+- **C5** (questions) → bug indépendant, lancé en premier ; **C4** (écoles) →
+  branché sur le chantier C.
+
+**Reste à préciser à l'entrée de chaque atelier (GATE 1 par chantier) :**
+1. **Chantier A** : liste exacte des micro-quartiers à ajouter au-delà de
+   Sainte-Thérèse/Botanique ? rattachement secteur de Sainte-Thérèse
+   (Nouvelle-Ville ? Sablon ? secteur propre ?) — choix factuel à valider.
+2. **Garde-fou C2** : formulation exacte du repli (« quartier non reconnu →
+   analyse à l'échelle ville » vs message dédié) et seuil de « correspondance
+   sûre ».
+3. **Chantier B** : format de la source unique (fichier de données vs module),
+   plan de migration des 4 référentiels sans régression, leçon index
+   (`lessons.md` 2026-06-14) si lookup par-ligne.
+4. **Chantier C** : source POI écoles (Annuaire de l'Éducation / Overpass),
+   mapping coordonnées→quartier (polygones), comportement sans adresse.
+5. **Process** : crée-t-on les 4 issues filles maintenant ?
