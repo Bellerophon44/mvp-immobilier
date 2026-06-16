@@ -314,8 +314,10 @@ Ordre d'exécution acté : **C5 (indépendant) → A → B → C.**
 
 1. **#100-a — Questions : ne pas re-demander une info donnée par l'annonce (charges)** [= C5]
    `qualite/extraction-llm`, `qualite/wording` · `gravite/bloquant-credibilite` ·
-   **bug, prêt techniquement** (§2-C5). Indépendant du référentiel → peut partir
-   en premier.
+   **✅ LIVRÉ (2026-06-16)** : filtre déterministe `_filter_redundant_fee_question`
+   (`backend/app/llm_semantic.py`) + règle de prompt + tests
+   `backend/tests/test_issue_100_questions.py` (suite gratuite, 498 verts).
+   Suivi : cas d'éval LLM `issue_100` (suppose harnais multi-cas, cf. §7).
 2. **#100-b — Chantier A : référentiel — intégrer Sainte-Thérèse/Botanique (+ alias) + garde-fou d'incertitude C2**
    `qualite/ancrage-local`, `qualite/comparables` · `gravite/bloquant-credibilite` ·
    bug structurel, palier 1 (§4). **C2 est inclus dans ce lot** (§0bis-3).
@@ -339,12 +341,14 @@ devenir un **cas synthétique** (`backend/evals/cases/issue_<n>.txt` +
 `test_eval_issue_<n>.py`), **jamais l'extrait réel** (repo public, droit d'auteur,
 CONTEXT §11.3). Cas pertinents :
 
-- **C5** (le plus net) : annonce fictive en **copropriété** affichant des charges
-  explicites (« Charges : 300 €/mois ») → assertion : **aucune** question ne
-  demande le *montant* des charges (mot-clé), et pas de question qui à la fois
-  ignore et cite le montant. Oracle partiellement déterministe possible côté
-  `_amenity_actions` (suite gratuite `backend/tests/`) + volet LLM en `evals/`
-  (`xfail` tant que non fixé, preuve XFAIL avant merge).
+- **C5** — ✅ volet déterministe **livré** (suite gratuite
+  `tests/test_issue_100_questions.py`, oracle bloquant sans coût LLM). **Reste**
+  le cas d'éval LLM `evals/cases/issue_100.txt` + `test_eval_issue_100.py`
+  (annonce fictive en copropriété, charges explicites → aucune question ne
+  redemande le *montant*). **Pré-requis** : faire évoluer le harnais d'évals en
+  **multi-cas** — l'oracle `test_evals_harness.py::test_ac14_un_seul_point_appel_analyze_semantic`
+  impose aujourd'hui **exactement 1** site d'appel `analyze_semantic` dans
+  `evals/` (harnais écrit mono-cas, issue #80). À porter avec le cas #100.
 - **A / C2** : annonce fictive nommant un quartier **hors référentiel** →
   assertion : le contexte local n'affirme pas un profil d'un *autre* quartier ;
   reste neutre (verrouille le garde-fou d'incertitude indépendamment du contenu
