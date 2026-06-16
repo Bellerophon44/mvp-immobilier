@@ -1,0 +1,58 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8">
+<link rel="stylesheet" href="_tokens.css">
+<title>D2 — L'Étude — desktop</title>
+<style>
+  .label{background:var(--ink);color:var(--parchment);font-family:var(--font-mono);font-size:12px;letter-spacing:.04em;padding:7px 16px;}
+  header.bar{position:sticky;top:0;z-index:10;backdrop-filter:blur(8px);
+    background:color-mix(in oklab,var(--parchment),transparent 20%);border-bottom:1px solid var(--stone-line);}
+  header.bar .inner{max-width:1080px;margin:0 auto;padding:16px 40px;display:flex;align-items:center;justify-content:space-between;}
+  .wm{display:inline-flex;align-items:center;gap:12px;}
+  .wm .name{font-family:var(--font-serif);font-size:25px;line-height:1;letter-spacing:-.02em;color:var(--ink);}
+  .wm .ed{font-family:var(--font-mono);font-size:10px;letter-spacing:.07em;color:var(--stone);text-transform:uppercase;align-self:flex-end;padding-bottom:3px;}
+  nav{display:flex;align-items:center;gap:26px;}
+  nav a{font-family:var(--font-sans);font-size:14px;color:var(--ink-2);text-decoration:none;}
+  nav .btn{padding:9px 16px;border:1px solid var(--stone-line);border-radius:4px;background:var(--paper);font-weight:500;}
+  main{max-width:780px;margin:0 auto;padding:64px 40px 80px;text-align:center;}
+  .eyebrow.eb{color:var(--ink-3);margin-bottom:20px;}
+  h1.hero{font-family:var(--font-serif);font-size:62px;line-height:1.0;letter-spacing:-.025em;
+    color:var(--ink);margin:0 auto 22px;font-weight:400;max-width:720px;}
+  h1.hero em{color:var(--brick);font-style:italic;}
+  .sub{font-family:var(--font-sans);font-size:18px;line-height:1.55;color:var(--ink-2);margin:0 auto 34px;max-width:620px;}
+  .analyzer{max-width:620px;margin:0 auto;text-align:left;}
+  .proof{display:grid;grid-template-columns:repeat(3,1fr);max-width:620px;margin:36px auto 18px;
+    border-top:1px solid var(--stone-line);border-bottom:1px solid var(--stone-line);}
+  .proof .cell{padding:22px 8px;text-align:center;}
+  .proof .cell+.cell{border-left:1px solid var(--stone-line);}
+  .proof .num{font-family:var(--font-mono);font-weight:600;font-size:30px;color:var(--jaumont);line-height:1;letter-spacing:-.02em;}
+  .proof .lab{font-family:var(--font-sans);font-size:12px;color:var(--ink-3);margin-top:9px;line-height:1.3;}
+  .method{font-family:var(--font-serif);font-style:italic;font-size:19px;color:var(--ink-2);margin:6px auto 0;}
+</style></head>
+<body>
+  <div class="label">DIRECTION 2 · « L'ÉTUDE » — desktop, logo « clef de voûte » intégré · vision « grand / moderne / robuste »</div>
+  <header class="bar"><div class="inner">
+    <span class="wm">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 19 L5 12"/><path d="M19 19 L19 12"/><path d="M5 12 A 7 7 0 0 1 19 12"/><path d="M10.4 5.2 L13.6 5.2 L13.1 8.0 L10.9 8.0 Z" fill="var(--jaumont)" stroke="none"/></svg>
+      <span class="name">Cohérence</span><span class="ed">édition Metz</span>
+    </span>
+    <nav><a href="#">Notre méthode</a><a href="#">Quartiers couverts</a><a class="btn" href="#">Analyser une annonce</a></nav>
+  </div></header>
+
+  <main>
+    <div class="eyebrow eb">Édition Metz · Moselle</div>
+    <h1 class="hero">Le marché immobilier messin, lu <em>quartier par quartier</em>.</h1>
+    <p class="sub">Le livre foncier n'est pas public. Nous reconstituons le marché messin à partir des annonces réelles — du Sablon à Queuleu — et plaçons la vôtre dans ce contexte&nbsp;: score de cohérence, trois piliers, points à vérifier avant la visite.</p>
+
+    <div class="analyzer">
+      <div class="tabs"><span class="tab on">Coller le texte</span><span class="tab">Coller une URL</span></div>
+      <textarea>Collez ici le texte de l'annonce, ou une adresse leboncoin / SeLoger…</textarea>
+      <button class="cta">Analyser l'annonce →</button>
+    </div>
+
+    <div class="proof">
+      <div class="cell"><div class="num">17 000+</div><div class="lab">comparables messins en base</div></div>
+      <div class="cell"><div class="num">16</div><div class="lab">quartiers de Metz couverts</div></div>
+      <div class="cell"><div class="num">7 j</div><div class="lab">données rafraîchies chaque semaine</div></div>
+    </div>
+    <p class="method">Nous vérifions une cohérence. Nous n'estimons pas un prix.</p>
+  </main>
+</body></html>

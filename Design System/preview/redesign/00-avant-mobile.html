@@ -1,0 +1,72 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=390,initial-scale=1">
+<link rel="stylesheet" href="_tokens.css">
+<title>AVANT — mobile</title>
+<style>
+  .label{position:fixed;top:0;left:0;right:0;z-index:99;background:var(--ink);color:var(--parchment);
+    font-family:var(--font-mono);font-size:11px;letter-spacing:.04em;padding:6px 12px;}
+  .wrap{padding-top:28px;}
+  header.bar{position:sticky;top:28px;z-index:10;backdrop-filter:blur(8px);
+    background:color-mix(in oklab,var(--parchment),transparent 20%);border-bottom:1px solid var(--stone-line);}
+  header.bar .inner{padding:14px 24px;display:flex;align-items:center;justify-content:space-between;}
+  .wm{display:inline-flex;align-items:center;gap:10px;}
+  .wm .name{font-family:var(--font-serif);font-size:21px;line-height:1;letter-spacing:-.02em;color:var(--ink);}
+  .scope{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border:1px solid var(--stone-line);
+    border-radius:999px;background:var(--paper);font-family:var(--font-sans);font-size:11px;color:var(--ink-3);}
+  .photoband{position:relative;width:100%;height:270px;overflow:hidden;background:var(--stone-fill);
+    border-top:1px solid var(--stone-line);border-bottom:1px solid var(--stone-line);}
+  .photoband img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
+    filter:grayscale(1) sepia(.32) contrast(1.04) brightness(.99);}
+  .photoband .fade{position:absolute;left:0;right:0;bottom:0;height:56px;
+    background:linear-gradient(to bottom,rgba(245,241,234,0),var(--parchment));}
+  main{max-width:720px;margin:0 auto;padding:48px 24px 64px;}
+  h1.hero{font-family:var(--font-serif);font-size:56px;line-height:1.02;letter-spacing:-.02em;
+    color:var(--ink);margin:0 0 18px;font-weight:400;}
+  h1.hero em{color:var(--brick);font-style:italic;}
+  .sub{font-family:var(--font-sans);font-size:17px;line-height:1.55;color:var(--ink-2);margin:0 0 40px;}
+</style></head>
+<body>
+<div class="label">ÉTAT ACTUEL · iPhone 390 px — la photo occupe le 1ᵉ écran, le sceau et le H1 56 px débordent</div>
+<div class="wrap">
+<header class="bar"><div class="inner">
+  <span class="wm">
+    <svg width="22" height="22" viewBox="0 0 64 64"><path d="M32 6 L58 32 L32 58 L6 32 Z" fill="var(--brick)"/><path d="M32 20 L44 32 L32 44 L20 32 Z" fill="var(--parchment)"/></svg>
+    <span class="name">Cohérence</span>
+  </span>
+  <span class="scope"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--stone)" stroke-width="1.5"><path d="M12 21 s-7 -7.5 -7 -12 a7 7 0 0 1 14 0 c0 4.5 -7 12 -7 12 z"/><circle cx="12" cy="9" r="2.5"/></svg>Metz &amp; Moselle</span>
+</div></header>
+
+<div class="photoband">
+  <img src="../../../frontend/public/hero-metz.jpg" alt="">
+  <div class="grain"></div>
+  <div class="fade"></div>
+  <div class="scrim-credit">Illustration</div>
+</div>
+
+<main>
+  <!-- LorraineSeal 88 (3 alérions) -->
+  <svg width="88" height="88" viewBox="0 0 24 24" fill="none" stroke="var(--jaumont)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:block;margin-bottom:24px">
+    <circle cx="12" cy="12" r="9"/>
+    <g stroke-width="1.25">
+      <path d="M8.7 7.6 L8.7 9.8"/><path d="M8.7 9.8 L8.25 10.2 M8.7 9.8 L9.15 10.2"/>
+      <path d="M6.0 7.8 C 6.8 7.4 7.2 8.4 7.6 8.3 C 8.0 8.2 8.4 8.0 8.7 7.8"/>
+      <path d="M11.4 7.8 C 10.6 7.4 10.2 8.4 9.8 8.3 C 9.4 8.2 9.0 8.0 8.7 7.8"/>
+      <path d="M12.0 10.9 L12.0 13.1"/><path d="M12.0 13.1 L11.55 13.5 M12.0 13.1 L12.45 13.5"/>
+      <path d="M9.3 11.1 C 10.1 10.7 10.5 11.7 10.9 11.6 C 11.3 11.5 11.7 11.3 12.0 11.1"/>
+      <path d="M14.7 11.1 C 13.9 10.7 13.5 11.7 13.1 11.6 C 12.7 11.5 12.3 11.3 12.0 11.1"/>
+      <path d="M15.3 14.2 L15.3 16.4"/><path d="M15.3 16.4 L14.85 16.8 M15.3 16.4 L15.75 16.8"/>
+      <path d="M12.6 14.4 C 13.4 14.0 13.8 15.0 14.2 14.9 C 14.6 14.8 15.0 14.6 15.3 14.4"/>
+      <path d="M18.0 14.4 C 17.2 14.0 16.8 15.0 16.4 14.9 C 16.0 14.8 15.6 14.6 15.3 14.4"/>
+    </g>
+  </svg>
+  <div class="eyebrow" style="margin-bottom:16px">Analyse d'annonces immobilières · Metz &amp; Moselle</div>
+  <h1 class="hero">Ce prix et cette annonce sont-ils <em>cohérents</em> avec le marché messin, quartier par quartier&nbsp;?</h1>
+  <p class="sub">Le livre foncier n'est pas public : impossible de savoir à quel prix s'est vraiment vendu le voisin. Nous reconstituons le marché local à partir des annonces réelles — du Sablon à Queuleu, de Devant-les-Ponts à l'Outre-Seille.</p>
+  <div class="analyzer">
+    <div class="tabs"><span class="tab on">Coller le texte</span><span class="tab">Coller une URL</span></div>
+    <textarea>Collez ici le texte de l'annonce…</textarea>
+    <button class="cta">Analyser l'annonce →</button>
+  </div>
+</main>
+</div>
+</body></html>

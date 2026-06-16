@@ -1,0 +1,68 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=390,initial-scale=1">
+<link rel="stylesheet" href="_tokens.css">
+<title>D1 — Le Cadastre — mobile</title>
+<style>
+  .label{position:fixed;top:0;left:0;right:0;z-index:99;background:var(--ink);color:var(--parchment);
+    font-family:var(--font-mono);font-size:11px;letter-spacing:.04em;padding:6px 12px;}
+  .wrap{padding-top:28px;}
+  header.bar{position:sticky;top:28px;z-index:10;backdrop-filter:blur(8px);
+    background:color-mix(in oklab,var(--parchment),transparent 20%);border-bottom:1px solid var(--stone-line);}
+  header.bar .inner{padding:14px 20px;display:flex;align-items:center;justify-content:space-between;}
+  .wm{display:inline-flex;align-items:center;gap:9px;}
+  .wm .name{font-family:var(--font-serif);font-size:22px;line-height:1;letter-spacing:-.02em;color:var(--ink);}
+  .scope{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border:1px solid var(--stone-line);
+    border-radius:999px;background:var(--paper);font-family:var(--font-sans);font-size:11px;color:var(--ink-3);}
+  main{max-width:720px;margin:0 auto;padding:38px 20px 56px;}
+  .eyebrow.eb{margin-bottom:14px;color:var(--ink-3);}
+  h1.hero{font-family:var(--font-serif);font-size:40px;line-height:1.05;letter-spacing:-.02em;
+    color:var(--ink);margin:0 0 16px;font-weight:400;}
+  h1.hero em{color:var(--brick);font-style:italic;}
+  .rule{height:2px;width:64px;background:var(--brick);margin:0 0 20px;border-radius:2px;}
+  .sub{font-family:var(--font-sans);font-size:16px;line-height:1.55;color:var(--ink-2);margin:0 0 28px;}
+  .filet{margin:34px 0 26px;position:relative;height:118px;border-radius:8px;overflow:hidden;border:1px solid var(--stone-line);}
+  .filet img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:grayscale(1) sepia(.32) contrast(1.04) brightness(.82);}
+  .filet .cap{position:absolute;right:12px;bottom:8px;color:var(--parchment);font-family:var(--font-sans);font-size:10px;opacity:.85;text-shadow:0 1px 4px rgba(0,0,0,.5);}
+  .pillars{display:grid;grid-template-columns:1fr;gap:18px;padding-top:8px;}
+  .pillars .p{display:flex;gap:12px;}
+  .pillars .n{font-family:var(--font-mono);font-size:11px;color:var(--stone);letter-spacing:.06em;padding-top:3px;}
+  .pillars .t{font-family:var(--font-serif);font-size:19px;color:var(--ink);line-height:1.15;}
+  .pillars .d{font-family:var(--font-sans);font-size:13px;color:var(--ink-3);line-height:1.5;margin-top:3px;}
+</style></head>
+<body>
+<div class="label">DIRECTION 1 · « LE CADASTRE » (évolution sobre, faible risque) — sceau retiré, photo en filet, wording affirmé</div>
+<div class="wrap">
+<header class="bar"><div class="inner">
+  <span class="wm">
+    <svg width="22" height="22" viewBox="0 0 64 64"><path d="M32 6 L58 32 L32 58 L6 32 Z" fill="var(--brick)"/><path d="M32 20 L44 32 L32 44 L20 32 Z" fill="var(--parchment)"/></svg>
+    <span class="name">Cohérence</span>
+  </span>
+  <span class="scope">Édition Metz</span>
+</div></header>
+
+<main>
+  <div class="eyebrow eb">Édition Metz · Moselle</div>
+  <h1 class="hero">Le marché immobilier messin, lu <em>quartier par quartier</em>.</h1>
+  <div class="rule"></div>
+  <p class="sub">Collez une annonce. Nous la confrontons à plus de 17 000 comparables réels — du Sablon à Queuleu — et vous disons ce qui est cohérent, ce qui est à creuser, et les questions à poser avant la visite.</p>
+
+  <div class="analyzer">
+    <div class="tabs"><span class="tab on">Coller le texte</span><span class="tab">Coller une URL</span></div>
+    <textarea>Collez ici le texte de l'annonce…</textarea>
+    <button class="cta">Analyser l'annonce →</button>
+  </div>
+
+  <div class="filet">
+    <img src="../../../frontend/public/hero-metz.jpg" alt="">
+    <div class="grain"></div>
+    <div class="cap">Metz · Porte des Allemands</div>
+  </div>
+
+  <div class="pillars">
+    <div class="p"><div class="n">01</div><div><div class="t">Pilier prix</div><div class="d">Médiane du quartier et écart, calculés sur ≥ 3 comparables messins.</div></div></div>
+    <div class="p"><div class="n">02</div><div><div class="t">Pilier sémantique</div><div class="d">L'annonce est-elle claire ? Quels signaux manquent ?</div></div></div>
+    <div class="p"><div class="n">03</div><div><div class="t">Pilier global</div><div class="d">Score 0 – 100 et verdict en une phrase.</div></div></div>
+  </div>
+</main>
+</div>
+</body></html>

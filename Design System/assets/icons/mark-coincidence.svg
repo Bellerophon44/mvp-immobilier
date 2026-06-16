@@ -1,0 +1,15 @@
+<!-- Cohérence — Direction C : la coïncidence.
+     Deux chevrons (prix / marché) qui se rejoignent et s'alignent exactement :
+     l'idée littérale de « mise en cohérence ». Géométrique, moderne, abstrait,
+     aucune référence figurative. Le point de coïncidence peut s'encrer en brick
+     (accent d'action) ou rester monochrome.
+     Trait 2 px. Dégrade en favicon 16 px : deux chevrons qui pointent l'un vers
+     l'autre — la lecture « alignement » survit, c'est la forme la plus robuste
+     du lot à petite taille. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <!-- chevron supérieur, pointe vers le bas -->
+  <path d="M5 6.5 L12 11 L19 6.5" />
+  <!-- chevron inférieur, pointe vers le haut, aligné sur le même sommet -->
+  <path d="M5 17.5 L12 13 L19 17.5" />
+</svg>
