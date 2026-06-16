@@ -66,6 +66,10 @@ class GazetteerEntry:
     commune: str = "Metz"
     postal_code: Optional[str] = None
     centroid: Optional[Tuple[float, float]] = None
+    # Communes couvertes par le quartier (formes brutes, canonicalisees a la
+    # derivation). () = mono-commune (= (commune,)). >= 2 formes = inter-communal
+    # (chantier C1) : seul ce cas alimente intercommunal_districts().
+    communes: Tuple[str, ...] = ()
 
 
 # Ordre des entrees = ordre des formes derivees de quartiers dans
@@ -121,6 +125,8 @@ _ENTRIES: List[GazetteerEntry] = [
         },
         dist_km={"center": 2.0, "gare": 1.4},
         in_selector=True,
+        # Quartier inter-communal (Botanique a cheval Metz / Montigny), C1.
+        communes=("Metz", "Montigny-lès-Metz"),
     ),
     GazetteerEntry(
         canonical_key="Nouvelle-Ville",
@@ -435,6 +441,27 @@ def build_sector_maps():
                 district_to_sector[cq] = sector_display
         sector_districts[sector_display] = canon
     return district_to_sector, sector_districts
+
+
+def intercommunal_districts() -> Dict[str, Tuple[str, ...]]:
+    """{canonical_key: tuple(communes canonicalisees)} pour les SEULS quartiers
+    declares inter-communaux (>= 2 communes). Les quartiers mono-commune sont
+    ABSENTS de la table (pas d'elargissement par defaut).
+
+    `canonical_city` est importe paresseusement (comme `canonical_district` dans
+    `build_sector_maps`) pour rester robuste a l'ordre d'import (cf. note module)."""
+    from scrapers.base import canonical_city
+
+    table: Dict[str, Tuple[str, ...]] = {}
+    for e in GAZETTEER.values():
+        canon: List[str] = []
+        for c in e.communes:
+            cc = canonical_city(c)
+            if cc and cc not in canon:
+                canon.append(cc)
+        if len(canon) >= 2:
+            table[e.canonical_key] = tuple(canon)
+    return table
 
 
 def selector_labels() -> List[str]:
