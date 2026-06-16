@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from app.llm_semantic import analyze_semantic
 from app.market_stats import compute_price_market_pillar
