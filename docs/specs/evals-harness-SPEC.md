@@ -136,7 +136,8 @@ Valeurs de clé REFUSÉES par le conftest d'évals : non définie, chaîne vide,
 - **Coût borné : 1 appel LLM par cas et par run.** Mécanisme : chaque module
   de cas porte UNE fixture `scope="module"` qui appelle `analyze_semantic`
   une seule fois ; toutes les assertions du cas consomment son résultat.
-  `analyze_semantic` n'apparaît nulle part ailleurs dans `evals/`.
+  `analyze_semantic` n'apparaît nulle part ailleurs dans `evals/` (ni dans un
+  autre module hors sa propre fixture de cas, ni dans `conftest`/helpers).
 - **Reset du cache module** : `llm_semantic._CACHE.clear()` en fixture
   autouse `scope="session"` au démarrage (un rejeu dans la même session
   mesurerait le cache, pas le modèle — leçon photo-evidence). Pas de clear
@@ -470,9 +471,13 @@ statique précise (I — fichier/commande indiqués).
 - **AC13 (T)** — Le même fichier ne contient aucune des sous-chaînes
   (insensible à la casse) : `copropriété`, `copropriete`, `syndic`,
   `charges`, `http`, `www.`, `@`.
-- **AC14 (I)** — `analyze_semantic` n'est appelé qu'à UN seul endroit dans
-  `backend/evals/` : la fixture `scope="module"` du cas (1 appel LLM réel
-  par cas et par run ; toutes les assertions consomment son résultat).
+- **AC14 (I)** — `analyze_semantic` n'est appelé qu'à UN seul endroit **par
+  module de cas** : sa fixture `scope="module"` (1 appel LLM réel par cas et
+  par run ; toutes les assertions du cas consomment son résultat). Il
+  n'apparaît **nulle part ailleurs** dans `backend/evals/` (conftest, helpers).
+  *Généralisé multi-cas (issue #100) : l'oracle vérifie « exactement 1 site par
+  module + 0 hors module », au lieu de « 1 site global » (formulation mono-cas
+  d'origine). Le total de sites = le nombre de cas.*
 
 ### Cas #80 — assertions
 

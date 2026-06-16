@@ -316,8 +316,10 @@ Ordre d'exécution acté : **C5 (indépendant) → A → B → C.**
    `qualite/extraction-llm`, `qualite/wording` · `gravite/bloquant-credibilite` ·
    **✅ LIVRÉ (2026-06-16)** : filtre déterministe `_filter_redundant_fee_question`
    (`backend/app/llm_semantic.py`) + règle de prompt + tests
-   `backend/tests/test_issue_100_questions.py` (suite gratuite, 498 verts).
-   Suivi : cas d'éval LLM `issue_100` (suppose harnais multi-cas, cf. §7).
+   `backend/tests/test_issue_100_questions.py` (suite gratuite). **+ harnais
+   d'évals généralisé multi-cas** (oracle AC14 « 1 appel par module ») et **cas
+   d'éval LLM `evals/cases/issue_100.txt` + `test_eval_issue_100.py`**
+   (régression C5 bloquante). Suite gratuite 501 verts.
 2. **#100-b — Chantier A : référentiel — intégrer Sainte-Thérèse/Botanique (+ alias) + garde-fou d'incertitude C2**
    `qualite/ancrage-local`, `qualite/comparables` · `gravite/bloquant-credibilite` ·
    bug structurel, palier 1 (§4). **C2 est inclus dans ce lot** (§0bis-3).
@@ -341,14 +343,17 @@ devenir un **cas synthétique** (`backend/evals/cases/issue_<n>.txt` +
 `test_eval_issue_<n>.py`), **jamais l'extrait réel** (repo public, droit d'auteur,
 CONTEXT §11.3). Cas pertinents :
 
-- **C5** — ✅ volet déterministe **livré** (suite gratuite
-  `tests/test_issue_100_questions.py`, oracle bloquant sans coût LLM). **Reste**
-  le cas d'éval LLM `evals/cases/issue_100.txt` + `test_eval_issue_100.py`
-  (annonce fictive en copropriété, charges explicites → aucune question ne
-  redemande le *montant*). **Pré-requis** : faire évoluer le harnais d'évals en
-  **multi-cas** — l'oracle `test_evals_harness.py::test_ac14_un_seul_point_appel_analyze_semantic`
-  impose aujourd'hui **exactement 1** site d'appel `analyze_semantic` dans
-  `evals/` (harnais écrit mono-cas, issue #80). À porter avec le cas #100.
+- **C5** — ✅ **livré** de bout en bout (2026-06-16) :
+  - volet déterministe : `tests/test_issue_100_questions.py` (oracle bloquant,
+    sans coût LLM) ;
+  - **harnais d'évals généralisé multi-cas** : `test_ac14_...` vérifie désormais
+    « 1 appel `analyze_semantic` par module + 0 hors module » (au lieu de « 1
+    global » mono-cas), provenance généralisée à tous les modules, + oracles
+    `issue_100` (tokens, assertions bloquantes, régression C5) ;
+  - **cas d'éval LLM** `evals/cases/issue_100.txt` + `test_eval_issue_100.py`
+    (appartement fictif en copropriété, charges explicites → `condo_fees`
+    extrait + aucune question ne redemande le *montant*). Joué par `evals.yml`
+    sur PR touchant prompt/pipeline (vrai appel LLM).
 - **A / C2** : annonce fictive nommant un quartier **hors référentiel** →
   assertion : le contexte local n'affirme pas un profil d'un *autre* quartier ;
   reste neutre (verrouille le garde-fou d'incertitude indépendamment du contenu
