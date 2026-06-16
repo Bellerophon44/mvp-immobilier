@@ -706,6 +706,41 @@ mobilisée que si le bien est **dans** le périmètre (sinon pas d'élargissemen
 communes étrangères, ex. Thionville → None). Scope `"metropole"` exposé au front
 (badge), `refinable` gardé à Metz uniquement. Vérifié sur DB temporaire.
 
+### Référentiel géographique (issue #100) — A / B / C1 FAIT, C2 + C3 TODO
+Feuille de route actée le 2026-06-16 (analyse-chapeau
+`docs/specs/issue-100-ANALYSE.md` §4/§8). Les paliers A et B sont en production ;
+le palier C a été **sous-découpé** en trois sous-chantiers, dont seul **C1** est
+livré. **C2 et C3 restent à faire** (ne pas les oublier) :
+
+- **A — extension manuelle du référentiel** (Sainte-Thérèse/Botanique + alias +
+  garde-fou d'incertitude). ✅ EN PRODUCTION.
+- **B — gazetteer unique** (`app/geo_gazetteer.py`, source unique dérivant
+  `_KNOWN_LOCALITIES`, profils, secteurs, alias). ✅ EN PRODUCTION.
+- **C1 — inter-communal & commune réelle.** ✅ EN PRODUCTION (2026-06-16, PR #110
+  → `staging`, PR #111 → `main`). Un quartier à cheval (Botanique = Metz /
+  Montigny-lès-Metz) réunit les comparables de ses deux communes au niveau
+  quartier via une table curatée `intercommunal_districts()` ; `geocode_address`
+  expose en plus `city`/`citycode` de la BAN. Aucun changement de contrat
+  `/analyze`. Spec : `docs/specs/issue-100-C-SPEC.md`.
+- **⬜ C2 — quartier réel par coordonnées (TODO, reporté).** Rattacher l'adresse
+  géocodée à un quartier **réel** par point-in-polygon (polygones/centroïdes),
+  remplir les `centroid` du gazetteer (aujourd'hui `None`), alimenter
+  `_resolve_district` depuis le géocode. Prérequis : produire un mapping
+  coordonnées→quartier (polygones) qu'on n'a pas encore ; décision licence/source
+  (Overpass/OSM, contours.data.gouv) ; garde-fou anti-fake-precision aux
+  frontières. Borne explicite dans `docs/specs/issue-100-C-SPEC.md` §1 OUT.
+- **⬜ C3 — POI écoles (TODO, reporté).** Capacité absente (= constat C4 du retour
+  pilote) : 2e source de données (recommandé : **Annuaire de l'Éducation**,
+  data.education.gouv.fr) + snapshot, `facts[]` écoles, distance bien→école.
+  Donnée factuelle sourçable (pas de jugement « prisé », hors périmètre acté).
+  Prérequis : choix vendor/snapshot, cas d'éval dédié. Borne dans
+  `docs/specs/issue-100-C-SPEC.md` §1 OUT.
+
+> Avis ROI consigné (2026-06-16) : C2 et C3 ne sont **pas prioritaires** pour le
+> MVP (n'aident que les biens avec adresse saisie ; coût/risque > gain immédiat).
+> À relancer en atelier sur décision explicite du fondateur (GATE 1 par
+> sous-chantier ; questions ouvertes en `issue-100-ANALYSE.md` §8).
+
 ### Autres chantiers en attente
 - Mapper les formes composées rares à un secteur (`_SECTORS_RAW`).
 - Rééquilibrage `scoring.py` (sévérité pilier prix, cf. §11) ; migration

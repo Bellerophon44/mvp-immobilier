@@ -80,6 +80,14 @@
   financier du harnais) — sans secret, le
   workflow échoue explicitement, jamais de faux vert. Spec :
   `docs/specs/evals-harness-SPEC.md`.
+- **Issue #100 (retour pilote « quartier Botanique ») — référentiel géo, paliers
+  A / B / C1 ✅ EN PRODUCTION (2026-06-16).** C5 (questions non redondantes), A
+  (Sainte-Thérèse/Botanique + garde-fou d'incertitude), B (gazetteer unique
+  `app/geo_gazetteer.py`) puis **C1** (inter-communal & commune réelle, PR #110 →
+  `staging`, PR #111 → `main`) livrés. Chantier C sous-découpé : **C2 (quartier
+  réel par polygones) et C3 (POI écoles) restent en TODO, reportés** — détail et
+  prérequis dans `backend/CLAUDE.md` §11bis (backlog canonique) et
+  `docs/specs/issue-100-ANALYSE.md` §6/§8. Specs C : `docs/specs/issue-100-C-*.md`.
 
 ---
 
