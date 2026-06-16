@@ -10,6 +10,7 @@ export const METZ_DISTRICTS: string[] = [
   "Nouvelle Ville",
   "Les Îles",
   "Sablon",
+  "Sainte-Thérèse",
   "Queuleu",
   "Plantières",
   "Bellecroix",

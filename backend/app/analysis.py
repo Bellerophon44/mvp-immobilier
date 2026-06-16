@@ -6,6 +6,7 @@ from app.market_stats import compute_price_market_pillar
 from app.photo_evidence import assess_claims_with_photos
 from app.geocode import geocode_address
 from app.metz_local import (
+    _resolve_key,
     assess_claims,
     claim_distances_from_coords,
     local_context,
@@ -195,9 +196,25 @@ def run_full_analysis(
             dist_override=claim_distances_from_coords(geo["lat"], geo["lon"]),
         )
     else:
-        local_ctx = local_context(district, city)
+        # Garde-fou C2 (branche sans géocodage uniquement) : si le quartier
+        # retenu vient d'un override utilisateur que l'annonce ne corrobore PAS
+        # (clé d'extraction différente ou absente), on pose une réserve et on
+        # rétrograde les claims sinon cohérents. Règle binaire déterministe
+        # (override vs extraction), pas de détection géographique réelle.
+        corroborated: Optional[bool] = None
+        if district_override:
+            k_override = _resolve_key(district_override, city)
+            k_extracted = _resolve_key(
+                listing.get("district") or extract_district(raw_text), city
+            )
+            corroborated = (
+                k_extracted is not None and k_override == k_extracted
+            )
+        local_ctx = local_context(district, city, district_corroborated=corroborated)
         if local_ctx is not None:
-            local_ctx["claims"] = assess_claims(district, claims, city)
+            local_ctx["claims"] = assess_claims(
+                district, claims, city, district_corroborated=corroborated
+            )
             if addr:
                 local_ctx["address"] = addr
 
