@@ -90,6 +90,9 @@ def geocode_address(address: str, city_hint: str = "Metz") -> Optional[dict]:
                     "lon": float(lon),
                     "score": float(score),
                     "label": props.get("label") or query,
+                    "city": props.get("city") or None,
+                    "citycode": props.get("citycode") or None,
+                    "postcode": postcode or None,
                 }
             else:
                 logger.info(

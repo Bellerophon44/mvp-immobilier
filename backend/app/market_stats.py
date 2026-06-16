@@ -63,6 +63,12 @@ _METRO_CITIES = sorted({canonical_city(c) for c in _METRO_CITIES_RAW if canonica
 _SECTORS_RAW = gazetteer.sectors_raw()
 _DISTRICT_TO_SECTOR, _SECTOR_DISTRICTS = gazetteer.build_sector_maps()
 
+# Table curatee des quartiers inter-communaux (chantier C1) :
+# {canonical_key: tuple(communes canonicalisees)}. Derivee a l'import depuis la
+# source unique `geo_gazetteer`. SEUL alimentateur de `cities` au niveau quartier
+# de la cascade : un quartier absent de la table garde le filtre commune exact.
+_INTERCOMMUNAL = gazetteer.intercommunal_districts()
+
 
 # ============================
 # Fonctions statistiques simples
@@ -154,6 +160,9 @@ def compute_market_stats(
 
     sector = _DISTRICT_TO_SECTOR.get(district) if district else None
     sector_districts = _SECTOR_DISTRICTS.get(sector) if sector else None
+    # Quartier inter-communal : son pool quartier puise dans l'ENSEMBLE de ses
+    # communes (table curatee) au lieu de la seule commune du bien. None sinon.
+    district_cities = _INTERCOMMUNAL.get(district) if district else None
     # La métropole n'est mobilisée que si le bien est dans le périmètre Metz
     # Métropole (sinon on ne s'autorise pas à élargir à des communes étrangères).
     metro_cities = _METRO_CITIES if city in _METRO_CITIES else None
@@ -166,9 +175,9 @@ def compute_market_stats(
     # Le DERNIER candidat est le filet (accepté quel que soit le volume).
     candidates = []
     if district and band_letters:
-        candidates.append(("quartier", district, district, None, band, None))
+        candidates.append(("quartier", district, district, None, band, district_cities))
     if district:
-        candidates.append(("quartier", district, district, None, None, None))
+        candidates.append(("quartier", district, district, None, None, district_cities))
     if sector_districts and band_letters:
         candidates.append(("secteur", sector, None, sector_districts, band, None))
     if sector_districts:
