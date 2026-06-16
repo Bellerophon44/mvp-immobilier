@@ -41,6 +41,8 @@ EVALS_DIR = BACKEND / "evals"
 EVALS_CONFTEST = EVALS_DIR / "conftest.py"
 CASE_FILE = EVALS_DIR / "cases" / "issue_80.txt"
 EVAL_MODULE = EVALS_DIR / "test_eval_issue_80.py"
+CASE_FILE_100 = EVALS_DIR / "cases" / "issue_100.txt"
+EVAL_MODULE_100 = EVALS_DIR / "test_eval_issue_100.py"
 PYTEST_INI = BACKEND / "pytest.ini"
 ISOLATION_FILE = BACKEND / "tests" / "test_evals_isolation.py"
 DETERMINISTIC_FILE = BACKEND / "tests" / "test_issue_80_deterministic.py"
@@ -415,40 +417,150 @@ def test_ac13_annonce_synthetique_tokens_interdits():
     assert not presents, f"Tokens interdits presents dans issue_80.txt : {presents} (AC13)"
 
 
+def _eval_modules() -> list:
+    """Modules de cas d'eval (convention `test_eval_issue_<n>.py`, spec §4.3 /
+    README pilotes). Source unique pour les oracles qui s'appliquent a CHAQUE
+    cas, afin que le harnais reste correct quand on ajoute un cas."""
+    return sorted(EVALS_DIR.rglob("test_eval_issue_*.py"))
+
+
 def test_ac14_un_seul_point_appel_analyze_semantic():
-    """AC14 : analyze_semantic n'est appele qu'a UN endroit dans evals/ : la
-    fixture scope=\"module\" du cas (1 appel LLM par cas et par run)."""
+    """AC14 (generalise multi-cas) : dans CHAQUE module de cas, analyze_semantic
+    n'est appele qu'a UN endroit — une fixture scope=\"module\" (1 appel LLM par
+    cas et par run, spec §3.4). Et analyze_semantic n'apparait nulle part
+    AILLEURS dans evals/ (conftest, helpers...) : le total de sites = le nombre
+    de modules de cas, soit exactement 1 par module et 0 hors module."""
     assert EVALS_DIR.is_dir(), "backend/evals/ absent (AC14)"
-    appels = []
-    fixtures_module_appelantes = []
-    for path in EVALS_DIR.rglob("*.py"):
+    modules = _eval_modules()
+    assert modules, "aucun module de cas test_eval_issue_*.py dans evals/ (AC14)"
+    module_paths = {p.resolve() for p in modules}
+
+    for path in modules:
         src = path.read_text(encoding="utf-8")
         tree = ast.parse(src)
-        for node in ast.walk(tree):
-            if isinstance(node, ast.Call) and _dotted(node.func).endswith("analyze_semantic"):
-                appels.append(f"{path}:{node.lineno}")
-        for func in _functions(src):
-            kwargs = _fixture_kwargs(func)
-            if kwargs is not None and kwargs.get("scope") == "module" \
-                    and "analyze_semantic(" in _segment(src, func):
-                fixtures_module_appelantes.append(func.name)
-    assert len(appels) == 1, (
-        f"analyze_semantic doit avoir exactement 1 site d'appel dans evals/, "
-        f"trouve {len(appels)} : {appels} (AC14)"
-    )
-    assert fixtures_module_appelantes, (
-        "Le site d'appel unique doit etre une fixture scope=\"module\" (AC14)"
-    )
+        appels = [
+            node.lineno
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Call)
+            and _dotted(node.func).endswith("analyze_semantic")
+        ]
+        assert len(appels) == 1, (
+            f"{path.name} : analyze_semantic doit avoir exactement 1 site "
+            f"d'appel, trouve {len(appels)} (lignes {appels}) (AC14)"
+        )
+        fixtures_module_appelantes = [
+            func.name
+            for func in _functions(src)
+            if (_fixture_kwargs(func) or {}).get("scope") == "module"
+            and "analyze_semantic(" in _segment(src, func)
+        ]
+        assert fixtures_module_appelantes, (
+            f"{path.name} : le site d'appel unique doit etre une fixture "
+            "scope=\"module\" (AC14)"
+        )
+
+    # Aucun appel a analyze_semantic hors des modules de cas (ex. conftest,
+    # helpers partages) : sinon le cout « 1 appel par cas » serait fausse.
+    for path in EVALS_DIR.rglob("*.py"):
+        if path.resolve() in module_paths:
+            continue
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        hors = [
+            node.lineno
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Call)
+            and _dotted(node.func).endswith("analyze_semantic")
+        ]
+        assert not hors, (
+            f"{path.name} : analyze_semantic appele hors d'un module de cas "
+            f"(lignes {hors}) — interdit (AC14)"
+        )
 
 
 def test_provenance_docstring_cas_synthetique():
-    """§4.3 (support AC18) : le docstring du module d'eval reference l'issue
-    #80 et rappelle que le texte est synthetique (regle CONTEXT §11.3)."""
-    src = _read(EVAL_MODULE)
-    doc = ast.get_docstring(ast.parse(src)) or ""
-    assert "#80" in doc, "Le docstring doit referencer l'issue #80 (§4.3)"
-    assert "synth" in doc.casefold(), (
-        "Le docstring doit rappeler que l'annonce est synthetique (§4.3 / §11.3)"
+    """§4.3 (support AC18, generalise multi-cas) : le docstring de CHAQUE module
+    de cas reference son issue (#<n>) et rappelle que le texte est synthetique
+    (regle CONTEXT §11.3)."""
+    modules = _eval_modules()
+    assert modules, "aucun module de cas test_eval_issue_*.py (§4.3)"
+    for path in modules:
+        doc = ast.get_docstring(ast.parse(path.read_text(encoding="utf-8"))) or ""
+        assert re.search(r"#\d+", doc), (
+            f"{path.name} : le docstring doit referencer une issue #<n> (§4.3)"
+        )
+        assert "synth" in doc.casefold(), (
+            f"{path.name} : le docstring doit rappeler que l'annonce est "
+            "synthetique (§4.3 / §11.3)"
+        )
+
+
+# ===========================================================================
+# Cas synthetique issue #100 / C5 (memes invariants que #80, par cas)
+# ===========================================================================
+
+def _texte(path: Path) -> str:
+    # Normalisation des espaces insecables (equivalence visuelle pour "92 m²",
+    # "245 000 €", "220 €").
+    return _read(path).replace(" ", " ").replace(" ", " ")
+
+
+def test_issue_100_annonce_synthetique_tokens_requis():
+    """Cas #100 : cases/issue_100.txt, 400-1500 caracteres, declencheurs
+    presents (appartement en copropriete + charges chiffrees explicites : c'est
+    le contexte qui reproduit C5)."""
+    texte = _texte(CASE_FILE_100)
+    longueur = len(texte.strip())
+    assert 400 <= longueur <= 1500, f"Longueur {longueur} hors bornes [400, 1500]"
+    bas = texte.casefold()
+    requis = [
+        "appartement", "copropriété", "charges", "220", "92 m²", "dpe",
+        "245 000 €", "metz",
+    ]
+    manquants = [t for t in requis if t not in bas]
+    assert not manquants, f"Declencheurs absents de issue_100.txt : {manquants}"
+
+
+def test_issue_100_annonce_synthetique_tokens_interdits():
+    """Cas #100 : pas d'URL ni d'email (pas d'extrait re-publiable). NB : ici
+    « charges »/« copropriété » sont REQUIS (contrairement a #80), car le montant
+    explicite des charges est le declencheur de C5."""
+    bas = _texte(CASE_FILE_100).casefold()
+    interdits = ["http", "www.", "@"]
+    presents = [t for t in interdits if t in bas]
+    assert not presents, f"Tokens interdits presents dans issue_100.txt : {presents}"
+
+
+def test_issue_100_assertions_bloquantes_et_regression_c5():
+    """Cas #100 : le module d'eval porte des sanity d'extraction bloquantes
+    (sans xfail) ET la regression C5 (aucune question ne redemande le MONTANT
+    des charges). Echoue si la regression est marquee xfail (fix C5 livre)."""
+    src = _read(EVAL_MODULE_100)
+    bloquants = {
+        f.name: _segment(src, f)
+        for f in _functions(src)
+        if f.name.startswith("test_") and not _xfail_marks(f)
+    }
+    corpus = "\n".join(bloquants.values())
+    assert corpus, "Aucun test bloquant (sans xfail) dans test_eval_issue_100.py"
+    attendus = {
+        "property_type == \"appartement\"": r"property_type[^\n]*==\s*[\"']appartement[\"']",
+        "condo_fees is not None": r"condo_fees[^\n]*is\s+not\s+None",
+        "len(questions) >= 1": r"len\([^)\n]*questions[^)\n]*\)\s*>=\s*1",
+    }
+    manquantes = [k for k, p in attendus.items() if not re.search(p, corpus)]
+    assert not manquantes, f"Assertions bloquantes absentes (ou xfail) : {manquantes}"
+
+    # La regression C5 : un test bloquant confronte les questions a la fois a
+    # « charge » et a un marqueur de montant.
+    regression = [
+        corps for corps in bloquants.values()
+        if "charge" in corps.casefold()
+        and re.search(r"montant|combien|co[uû]t", corps.casefold())
+        and "questions" in corps
+    ]
+    assert regression, (
+        "Test de regression C5 absent : aucun test bloquant n'asserte qu'aucune "
+        "question ne redemande le montant des charges"
     )
 
 

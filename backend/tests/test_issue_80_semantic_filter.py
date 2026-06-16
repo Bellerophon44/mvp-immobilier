@@ -103,8 +103,13 @@ def _payload(listing_overrides=None, questions=None, levers=None,
 
 
 # Listes mockees de l'AC16 (chaines generiques inventees, spec §8).
+# NB (issue #100, fix C5) : l'exemple copro ci-dessous NE doit pas etre une
+# demande de MONTANT de charges — sinon le filtre C5
+# (_filter_redundant_fee_question) la retirerait quand condo_fees est renseigne
+# (AC21, test_b_condo_fees_zero), ce qui melerait les deux filtres. On garde donc
+# un exemple copro (reglement) qui isole le filtre maison teste ici.
 _QUESTIONS_AC16 = [
-    "Quel est le montant des charges de copropriété ?",
+    "Le règlement de copropriété est-il consultable ?",
     "Y a-t-il un syndic ?",
     "Quelle est l'exposition ?",
 ]
