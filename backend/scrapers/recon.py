@@ -51,10 +51,18 @@ TIMEOUT = 20
 # laveine.immo, idemmo et benedic sont deja des sources actives, donc absentes.
 # Ecartees apres recon : herbeth, agencevalentin (robots interdit + 403),
 # century21 et orpi (rendu JS-only, pas de prix dans le HTML serveur).
+#
+# Vague couronne (incrément 3, GATE 1 « recon avant code ») : agences LOCALES
+# INDEPENDANTES (site propre, pas un portail/agregateur — la re-agregation est un
+# anti-pattern produit) ciblees pour leur couverture couronne et MAISONS. Le recon
+# tourne en CI (egress conteneur bloque) ; ces verdicts decident lesquelles valent
+# un scraper. Pages choisies en rendu serveur presume (.htm/.html/.php).
 SITES = {
-    # Vide : toutes les candidates sont traitées (idemmo, benedic, immoheytienne
-    # actives ; herbeth/agencevalentin/century21/orpi écartées). Ajouter une URL
-    # ici pour ausculter une nouvelle agence au prochain run.
+    # Les Artisans de l'Immobilier (Metz + couronne : Longeville, Moulins, Peltre).
+    "artisans_immobilier_maisons": "https://www.artisans-immobilier.com/maison-a-vendre-.htm",
+    "artisans_immobilier_ventes": "https://www.artisans-immobilier.com/immobilier-a-vendre-.htm",
+    # SOREC (independante, Metz + Marly / environs).
+    "sorec_immobilier": "https://www.sorec-immobilier.com/annonces/transaction/vente.html",
 }
 
 DUMP_DIR = "recon_dumps"
