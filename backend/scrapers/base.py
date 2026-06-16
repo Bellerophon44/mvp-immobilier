@@ -323,14 +323,15 @@ def infer_property_type(text: str) -> str:
     return "appartement"
 
 
-# Quartiers de Metz et communes limitrophes couramment cités par les agences
-# du Grand Metz. Ordre : libellés longs avant libellés courts pour éviter les
-# faux positifs lors du matching.
+# Communes de la couronne du Grand Metz couramment citées par les agences.
+# Maintenue SEPAREMENT des quartiers (issue #100 chantier B, Q5 : le gazetteer
+# modélise les quartiers de Metz, pas les communes). Ordre : libellés longs avant
+# courts pour éviter les faux positifs lors du substring match.
 # Note : l'inter-communal « Botanique » (à cheval Metz / Montigny-lès-Metz) n'est
 # PAS ajouté ici. Sa réconciliation cross-commune exige une adresse géocodée
 # (filtre Comparable.city EXACT côté market_stats) : elle relève du chantier C
-# (géocodage), pas du référentiel curaté de ce chantier A.
-_KNOWN_LOCALITIES = [
+# (géocodage), pas du référentiel curaté.
+_KNOWN_COMMUNES_HEAD = [
     "le ban-saint-martin",
     "montigny-lès-metz",
     "montigny-les-metz",
@@ -339,32 +340,36 @@ _KNOWN_LOCALITIES = [
     "saint-julien-lès-metz",
     "saint-julien-les-metz",
     "scy-chazelles",
-    "devant-les-ponts",
-    "grange-aux-bois",
-    "sainte-thérèse",
-    "sainte-therese",
-    "nouvelle ville",
-    "plantières",
-    "plantieres",
-    "bellecroix",
-    "vallières",
-    "vallieres",
-    "la patrotte",
-    "outre-seille",
-    "technopôle",
-    "technopole",
-    "queuleu",
-    "sablon",
-    "magny",
-    "borny",
+]
+_KNOWN_COMMUNES_TAIL = [
     "woippy",
     "plappeville",
     "lessy",
     "marly",
     "augny",
-    "centre-ville",
-    "centre",
 ]
+
+
+def _build_known_localities() -> list:
+    """`_KNOWN_LOCALITIES` = communes (maintenues ici) + quartiers DERIVES de la
+    source unique `app.geo_gazetteer` (issue #100 chantier B), triés
+    long-avant-court pour le substring match d'`extract_district`.
+
+    Import local : `geo_gazetteer` importe `canonical_*` de ce module (définies
+    plus haut), un import au top-level créerait un cycle.
+
+    Trou de couverture documenté (lot ulterieur, hors B) : les quartiers
+    Ancienne-Ville et Les Îles sont dans `_PROFILES`, dans les secteurs et dans
+    `METZ_DISTRICTS` (sélecteur front), mais PAS dans les `aliases_text` du
+    gazetteer : ils ne sont donc pas reconnus par l'extraction texte ici. Étendre
+    cette couverture changerait le comportement (plus un refactor pur)."""
+    from app import geo_gazetteer
+
+    districts = geo_gazetteer.known_localities_districts()
+    return _KNOWN_COMMUNES_HEAD + districts + _KNOWN_COMMUNES_TAIL
+
+
+_KNOWN_LOCALITIES = _build_known_localities()
 
 
 def extract_district(text: str) -> Optional[str]:
