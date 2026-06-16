@@ -22,7 +22,38 @@ maturité de la donnée. L'affinage par quartier retombe souvent sur « trop peu
 comparables » (cf. `frontend/app/page.tsx`). → On promet **« quartier »**, jamais
 **« rue par rue »**, tant que la donnée n'est pas plus dense.
 
-## Livré dans ce lot
+## Refonte visuelle « D2 — L'Étude » — livré en prod (16 juin 2026)
+
+Évolution du look & feel décidée avec le fondateur (mémo complet :
+[`/docs/strategy/REBRAND-2026.md`](../strategy/REBRAND-2026.md)). Objectif : garder
+l'autorité notariale et l'ancrage messin, mais signaler « app robuste et moderne »
+(pas « projet de garage ») et réparer le mobile. Livré sur `main` :
+
+- **Mobile réparé** : la photo plein cadre (Porte des Allemands) qui occupait le
+  premier écran *avant* le titre est retirée ; elle devient une **bande signature
+  encadrée, en bas de page** (`SignatureBand` dans `frontend/app/page.tsx`). Le H1
+  est responsive (`clamp(34px, 8vw, 56px)`) au lieu de `56px` fixe.
+- **Wording affirmé** : H1 « Le marché immobilier messin, lu *quartier par
+  quartier*. » + sous-titre attaquant l'asymétrie du livre foncier (du Sablon à
+  Queuleu…).
+- **Preuve chiffrée above-the-fold** en or Jaumont (`ProofBand`) : *17 000+
+  comparables · 16 quartiers · collecte hebdomadaire*, + la ligne de méthode
+  « Nous vérifions une cohérence. Nous n'estimons pas un prix. ». **Que des chiffres
+  de méthode/donnée, jamais de traction** (pas de logos clients, pas de note, pas
+  de « milliers d'acheteurs »). → l'**or Jaumont** monte en grade : couleur de la
+  *donnée*, plus seulement du cachet.
+- **Logo** : l'**alérion lorrain unique** (`AlerionMark` — aiglon ailes déployées,
+  sans bec ni pattes, encré or Jaumont) remplace le cachet aux **trois** alérions
+  (`LorraineSeal`), illisible et non lu par le grand public. En letterhead de la
+  home + en-tête du rapport PDF.
+- **Signaux « garage » retirés** : crédit « Illustration » supprimé ; « MVP · …
+  uniquement » → **« Édition Metz · Moselle »** dans le footer.
+
+⚠️ **À fiabiliser avant qu'ils ne se périment** : « 17 000+ » et « collecte
+hebdomadaire » (idéalement branchés sur un endpoint de comptage). « 16 quartiers »
+= `frontend/lib/districts.ts`, vérifié.
+
+## Livré dans ce lot (premier lot d'ancrage)
 
 - **Wording home** (`frontend/app/page.tsx`) : eyebrow « Metz & Moselle » ;
   H1 « …cohérents avec le marché messin, quartier par quartier ? » ; sous-titre
@@ -40,18 +71,26 @@ comparables » (cf. `frontend/app/page.tsx`). → On promet **« quartier »**, 
   confondent) → l'UI 20 px garde le losange. Affiner l'alérion 20 px = passe
   graphiste humaine (option (c) écartée pour l'instant).
 
-## Roadmap (non livré, ordonné par ROI)
+## Roadmap
 
-1. **Photo héro N&B** — déjà autorisée par la charte (placeholder aujourd'hui).
-   Voir brief ci-dessous. *Plus fort impact visuel restant.*
-2. **Alérion-cachet** — confier à un graphiste le remplacement du losange par un
-   alérion lorrain gravé. Brief dans `METZ-LOCAL.md` §7.
-3. **Bloc « pourquoi local > national »** en home (les sites nationaux raisonnent
-   à l'échelle ville ; un T3 à Queuleu ≠ un T3 au Sablon).
-4. **Page « méthode locale »** prouvant la profondeur de donnée (renforce la
-   crédibilité — la preuve > la décoration).
-5. **Nommer l'édition** explicitement (« Cohérence — édition Metz ») quand une 2ᵉ
-   ville approche.
+### Livré
+- ✅ **Bloc « pourquoi local > national »** en home (`LocalEdgeSection`).
+- ✅ **Page « méthode locale »** (`/methode`).
+- ✅ **Édition nommée** : « édition Metz » assumé (eyebrow, footer, mark).
+- ✅ **Mark alérion lisible** : `AlerionMark` (alérion *unique*) en prod, à la
+  place du cachet aux trois alérions.
+- ✅ **Preuve chiffrée + wording affirmé + mobile réparé** (refonte D2, ci-dessus).
+
+### À faire (ordonné par ROI)
+1. **Fiabiliser les chiffres de preuve** (« 17 000+ », « collecte hebdo ») —
+   idéalement via un endpoint de comptage, pour qu'ils ne se périment pas.
+   *Plus fort impact crédibilité restant.*
+2. **Vraie photo héro N&B** libre de droits (la `SignatureBand` utilise toujours
+   `hero-metz.jpg`, traité N&B/grain en CSS). Voir brief ci-dessous.
+3. **Décision logo « clef de voûte »** : 6 variantes explorées
+   (`Design System/preview/brand-keystone-clear.html` ; vote designer = v2, arc
+   brisé gothique + clef Jaumont). L'alérion unique reste le mark de test en
+   attendant l'arbitrage.
 
 ## Brief photo — héro marketing (à transmettre à un photographe)
 

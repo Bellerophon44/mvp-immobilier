@@ -107,6 +107,16 @@ Contraintes impératives (registre de la marque) :
 - Livrable : un `<path>` propre intégrable dans le composant `Seal`, + le SVG
   source dans `Design System/assets/icons/`.
 
+> **Mise à jour (juin 2026) — réalisé.** L'évolution a été tranchée et livrée en
+> prod : la marque primaire n'est plus le cachet, mais un **alérion lorrain
+> unique** au trait (`AlerionMark`, source `mark-alerion-single.svg`), encré or
+> Jaumont — décision fondateur (« l'alérion donne un sentiment de direction +
+> rappel local »). Le cachet aux *trois* alérions (`LorraineSeal`) est retiré de
+> l'UI. En parallèle, une piste **« clef de voûte »** (la pierre qui tient l'arc =
+> cohérence + robustesse, ancrage messin sans cathédrale) a été explorée en 6
+> variantes (`Design System/preview/brand-keystone-clear.html`, vote v2 arc brisé
+> gothique) et reste ouverte comme alternative au logo de test.
+
 ---
 
 *Faits notoires (pierre de Jaumont, alérions de Lorraine, armes de Metz parti

@@ -1,5 +1,15 @@
 # Rebrand 2026 — concilier autorité notariale locale et crédibilité « tech robuste »
 
+> **État (16 juin 2026) — DÉCIDÉ & LIVRÉ EN PROD.** Le fondateur a tranché :
+> **Direction 2 « L'Étude »**, wording **H1 (A) + sous-titre (C)**, **logo =
+> alérion lorrain unique** (option B) conservé pour le test, piste **« clef de
+> voûte »** développée en parallèle (6 variantes, vote v2). Tout est en prod via la
+> promotion `staging → main` (#103 puis #104). Suivi des décisions d'ancrage et
+> reste-à-faire : [`/docs/brand/LOCAL-ANCHORING.md`](../brand/LOCAL-ANCHORING.md).
+> Restent ouverts : fiabiliser les chiffres de preuve, brancher une vraie photo
+> N&B, arbitrer le logo « clef de voûte ». Le mémo ci-dessous est conservé tel quel
+> comme trace du raisonnement.
+
 > Mémo stratégique pour le fondateur (Mathieu). Draft à valider — je ne tranche
 > rien à ta place, je propose et je vote. Périmètre : surface d'entrée (home,
 > logo, hero, wording, motion). Ne touche pas au produit (score 40/30/30,
