@@ -98,6 +98,15 @@ _PROFILES: Dict[str, Dict[str, str]] = {
         "gare": "~1,2 km",
         "caractere": "Quartier résidentiel familial au sud, proche gare.",
     },
+    # Micro-quartier sud de Metz, contigu au Sablon (distances curatées par
+    # analogie au Sablon, légèrement plus au sud). « Botanique » (inter-communal
+    # Metz/Montigny) reste hors périmètre -> chantier C (géocodage).
+    "Sainte-Therese": {
+        "name": "Sainte-Thérèse",
+        "center": "~2 km au sud",
+        "gare": "~1,4 km",
+        "caractere": "Petit quartier résidentiel sud, contigu au Sablon.",
+    },
     "Queuleu": {
         "name": "Queuleu",
         "center": "~3 km au sud-est",
@@ -172,6 +181,7 @@ _DIST_KM: Dict[str, Dict[str, float]] = {
     "Les-Iles": {"center": 1.0, "gare": 1.8},
     "Outre-Seille": {"center": 0.8, "gare": 1.3},
     "Sablon": {"center": 1.8, "gare": 1.2},
+    "Sainte-Therese": {"center": 2.0, "gare": 1.4},
     "Queuleu": {"center": 3.0, "gare": 2.5},
     "Plantieres": {"center": 2.5, "gare": 2.5},
     "Bellecroix": {"center": 2.5, "gare": 2.8},
@@ -192,6 +202,11 @@ _ALIASES: Dict[str, str] = {
     "Queuleu-Plantieres": "Queuleu",
     "Iles": "Les-Iles",
     "Ile": "Les-Iles",
+    # Libellé composé piégé par le séparateur « / » : canonical_district ne split
+    # que sur « - », donc « Sainte-Thérèse / Botanique » produit la clé littérale
+    # ci-dessous, qui ne matche aucun profil. On la remappe sur Sainte-Thérèse
+    # (« Botanique » inter-communal -> chantier C).
+    "Sainte-Therese-/-Botanique": "Sainte-Therese",
 }
 
 
@@ -208,10 +223,24 @@ def _resolve_key(district: Optional[str], city: Optional[str] = "Metz") -> Optio
     return _ALIASES.get(key)
 
 
-def local_context(district: Optional[str], city: Optional[str] = "Metz") -> Optional[Dict[str, Any]]:
+# Réserve C2 (garde-fou « confiant mais faux ») : quartier forcé par
+# l'utilisateur mais non confirmé par l'annonce. Wording stable (substring
+# « non confirmé » verrouillé par les tests).
+_DISTRICT_CAVEAT = "Quartier indiqué par vous, non confirmé par l'annonce."
+
+
+def local_context(
+    district: Optional[str],
+    city: Optional[str] = "Metz",
+    district_corroborated: Optional[bool] = None,
+) -> Optional[Dict[str, Any]]:
     """Bloc "Contexte local" non-scoré pour un quartier de Metz, ou None si le
     quartier n'est pas renseigné / reconnu (on n'affiche alors rien plutôt que
-    d'inventer)."""
+    d'inventer).
+
+    `district_corroborated` (garde-fou C2) : None/True -> comportement inchangé ;
+    False -> on ajoute la réserve `district_caveat` (override non confirmé par
+    l'annonce)."""
     key = _resolve_key(district, city)
     if not key:
         return None
@@ -221,12 +250,15 @@ def local_context(district: Optional[str], city: Optional[str] = "Metz") -> Opti
         {"label": "Gare Metz-Ville · Centre Pompidou-Metz", "value": p["gare"]},
         {"label": "Axe A31 · Luxembourg", "value": _A31_LUXEMBOURG},
     ]
-    return {
+    ctx: Dict[str, Any] = {
         "district": p["name"],
         "summary": p["caractere"],
         "facts": facts,
         "precision": "quartier",
     }
+    if district_corroborated is False:
+        ctx["district_caveat"] = _DISTRICT_CAVEAT
+    return ctx
 
 
 # Statuts de cohérence d'une allégation locale (couche B).
@@ -298,11 +330,17 @@ def assess_claims(
     claims: List[Dict[str, Any]],
     city: Optional[str] = "Metz",
     dist_override: Optional[Dict[str, float]] = None,
+    district_corroborated: Optional[bool] = None,
 ) -> List[Dict[str, str]]:
     """Confronte les allégations locales de l'annonce (couche B) aux distances de
     référence : `dist_override` (distances exactes issues du géocodage, couche C)
     si fourni, sinon le profil curaté du quartier. Retourne [] si l'on n'a ni
-    quartier reconnu ni distances, ou s'il n'y a aucune allégation."""
+    quartier reconnu ni distances, ou s'il n'y a aucune allégation.
+
+    `district_corroborated` (garde-fou C2) : None/True -> comportement inchangé ;
+    False -> tout claim qui serait sinon `coherent` est rétrogradé `a_verifier`
+    (on n'affirme pas une cohérence locale sur un quartier que l'annonce ne
+    confirme pas)."""
     key = _resolve_key(district, city)
     if (not key and not dist_override) or not claims:
         return []
@@ -318,6 +356,12 @@ def assess_claims(
         if not text:
             continue
         status, note = _assess_one(ctype, name, dist)
+        if district_corroborated is False and status == COHERENT:
+            status = A_VERIFIER
+            note = (
+                "Quartier non confirmé par l'annonce : cohérence à vérifier "
+                "(le profil affiché correspond au quartier que vous avez indiqué)."
+            )
         out.append({"text": text, "type": ctype, "status": status, "note": note})
     return out
 

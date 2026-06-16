@@ -412,3 +412,24 @@
     module à cache global doit réinitialiser ce cache en `autouse`. Verrouillé par
     `tests/test_photo_evidence_hardening.py` (tests de cache hit/miss dédiés :
     discrimination de la clé sur claims ET images, marqueur `_CACHE == {}` en entrée).
+
+- **[2026-06-16] [issue-100-A] Un oracle qui asserte une clé brute force une implémentation contre-conventionnelle**
+  - Symptôme : AC10 (convergence des référentiels) testait `CANON in _SECTORS_RAW`
+    puis `_SECTORS_RAW[CANON]` avec `CANON="Sainte-Therese"` (forme canonique sans
+    accent). Cela a forcé le développeur à poser la **clé** de secteur en forme
+    canonique, alors que toutes les autres clés de `_SECTORS_RAW` sont des libellés
+    humains accentués (« Centre Ville », « Plantières-Queuleu ») servant de
+    `scope_name` exposé au front. La spec §3.3 prescrivait pourtant la clé accentuée
+    `"Sainte-Thérèse"` avec dérivation canonique au chargement (`_build_sector_maps`).
+  - Cause racine : l'oracle a verrouillé la convergence canonique en assertant
+    l'**identité de la clé source** d'un dict dont les clés ont un rôle d'affichage,
+    au lieu d'asserter la **valeur canonicalisée dérivée** par la fonction de
+    chargement. Risque fonctionnel ici nul (secteur ne contenant que le quartier →
+    libellé inatteignable en affichage), mais incohérence de convention.
+  - Garde-fou (règle) : pour verrouiller la convergence canonique d'un nouveau
+    référentiel, l'oracle asserte la **forme dérivée** (sortie de la fonction de
+    normalisation, p.ex. `_DISTRICT_TO_SECTOR[CANON]` / `canonical_district`), JAMAIS
+    l'identité d'une clé source dont les clés portent un rôle d'affichage. Parenté
+    avec la leçon 2026-06-13 (oracle qui force une implémentation au lieu d'oracler
+    une propriété). Si harmonisation souhaitée : assouplir AC10
+    (`backend/tests/test_issue_100_A.py`) au niveau du tester, pas du développeur.

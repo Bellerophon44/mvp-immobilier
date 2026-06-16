@@ -326,6 +326,10 @@ def infer_property_type(text: str) -> str:
 # Quartiers de Metz et communes limitrophes couramment cités par les agences
 # du Grand Metz. Ordre : libellés longs avant libellés courts pour éviter les
 # faux positifs lors du matching.
+# Note : l'inter-communal « Botanique » (à cheval Metz / Montigny-lès-Metz) n'est
+# PAS ajouté ici. Sa réconciliation cross-commune exige une adresse géocodée
+# (filtre Comparable.city EXACT côté market_stats) : elle relève du chantier C
+# (géocodage), pas du référentiel curaté de ce chantier A.
 _KNOWN_LOCALITIES = [
     "le ban-saint-martin",
     "montigny-lès-metz",
@@ -337,6 +341,8 @@ _KNOWN_LOCALITIES = [
     "scy-chazelles",
     "devant-les-ponts",
     "grange-aux-bois",
+    "sainte-thérèse",
+    "sainte-therese",
     "nouvelle ville",
     "plantières",
     "plantieres",

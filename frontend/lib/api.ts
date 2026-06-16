@@ -36,6 +36,10 @@ export interface LocalContext {
   // "adresse" = distances exactes (géocodage, couche C) ; "quartier" = repli sur
   // le profil de quartier (distances approximatives).
   precision?: "quartier" | "adresse";
+  // Réserve C2 : présent quand le quartier vient d'un choix utilisateur que
+  // l'annonce ne confirme pas. Optionnel -> rétro-compatible avec les anciennes
+  // réponses.
+  district_caveat?: string;
 }
 
 export interface ApiResult {
