@@ -42,6 +42,12 @@ _SECTORS_RAW = {
     "Devant-les-Ponts": ["Devant-les-Ponts"],
     "Patrotte-Metz-Nord": ["Patrotte-Metz-Nord", "La Patrotte"],
     "Sablon": ["Sablon"],
+    # Secteur PROPRE : ne contient QUE Sainte-Thérèse (aucun voisin, pas de
+    # rattachement à Sablon ni à Centre Ville). La cascade secteur n'emprunte donc
+    # à aucun quartier voisin pour ce micro-quartier (arbitrage GATE 1, spec §2.1).
+    # La clé secteur est la forme canonique (AC10 référence _SECTORS_RAW par la
+    # clé pivot) ; le libellé contenu reste accentué (canonicalisé au chargement).
+    "Sainte-Therese": ["Sainte-Thérèse"],
     "Plantières-Queuleu": ["Plantières - Queuleu", "Queuleu", "Plantières"],
     "Magny": ["Magny"],
     "Borny": ["Borny", "Technopôle", "Grange-aux-Bois"],

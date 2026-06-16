@@ -418,6 +418,21 @@ function LocalContextCard({
           Adresse indiquée : {context.address}
         </div>
       )}
+      {context.district_caveat && (
+        <div style={{
+          fontFamily: "var(--font-sans)",
+          fontSize: 13,
+          color: "var(--brick)",
+          background: "var(--paper)",
+          border: "1px solid var(--brick)",
+          borderRadius: 4,
+          padding: "8px 12px",
+          marginBottom: 12,
+          lineHeight: 1.45,
+        }}>
+          {context.district_caveat}
+        </div>
+      )}
       <div style={{
         fontFamily: "var(--font-serif)",
         fontStyle: "italic",
