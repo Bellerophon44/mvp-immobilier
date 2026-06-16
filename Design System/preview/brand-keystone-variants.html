@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cohérence — Clef de voûte : 6 exécutions</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --parchment: #F5F1EA;
+    --paper:     #FBF8F2;
+    --ink:       #1A1814;
+    --stone:     #8B8275;
+    --stone-line:#D9D2C5;
+    --brick:     #B5462F;
+    --jaumont:   #C9A14A;
+    --font-serif: "Instrument Serif", Georgia, serif;
+    --font-sans:  "Geist", ui-sans-serif, system-ui, sans-serif;
+    --font-mono:  "Geist Mono", ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--parchment); color: var(--ink); font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 60px 36px 140px; }
+
+  header.page { border-bottom: 1px solid var(--stone-line); padding-bottom: 30px; margin-bottom: 16px; }
+  .eyebrow { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--jaumont); margin: 0 0 14px; }
+  h1 { font-family: var(--font-serif); font-weight: 400; font-size: 46px; line-height: 1.04; margin: 0 0 12px; letter-spacing: -0.015em; }
+  .lede { color: #46423b; font-size: 15px; line-height: 1.6; max-width: 820px; margin: 0; }
+  .lede code { font-family: var(--font-mono); font-size: 12.5px; background: #ece5da; padding: 1px 5px; border-radius: 3px; }
+  .lede b { color: var(--ink); font-weight: 600; }
+
+  /* legend strip */
+  .legend { display: flex; gap: 28px; flex-wrap: wrap; margin: 28px 0 56px; padding: 16px 20px; background: var(--paper); border: 1px solid var(--stone-line); border-radius: 6px; font-size: 12.5px; color: #46423b; }
+  .legend .dot { display: inline-flex; align-items: center; gap: 8px; }
+  .legend .swatch { width: 13px; height: 13px; border-radius: 3px; display: inline-block; }
+
+  .variant { margin-bottom: 40px; border: 1px solid var(--stone-line); border-radius: 10px; overflow: hidden; background: var(--paper); }
+  .v-head { display: flex; align-items: baseline; gap: 14px; padding: 22px 28px 16px; flex-wrap: wrap; }
+  .v-no { font-family: var(--font-mono); font-size: 12px; color: #fff; background: var(--ink); padding: 3px 9px; border-radius: 3px; letter-spacing: 0.06em; }
+  .v-name { font-family: var(--font-serif); font-size: 25px; line-height: 1; }
+  .v-concept { padding: 0 28px 20px; color: #46423b; font-size: 13.5px; line-height: 1.6; max-width: 940px; }
+  .v-concept em { color: var(--ink); font-style: normal; font-weight: 600; }
+
+  .panels { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--stone-line); border-top: 1px solid var(--stone-line); }
+  .panel { padding: 30px 28px 26px; }
+  .panel.parch { background: var(--parchment); }
+  .panel.ink   { background: var(--ink); }
+  .panel-lbl { font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.13em; color: var(--stone); margin-bottom: 22px; }
+  .panel.ink .panel-lbl { color: #8f877a; }
+
+  .sizes { display: flex; align-items: flex-end; gap: 30px; flex-wrap: wrap; }
+  .size { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .size .cap { font-family: var(--font-mono); font-size: 10px; color: var(--stone); }
+  .panel.ink .size .cap { color: #8f877a; }
+  .glyph { display: grid; place-items: center; }
+
+  .panel.parch .mk { color: var(--ink); }
+  .panel.ink   .mk { color: var(--parchment); }
+
+  /* fake header lockups */
+  .hdr-demo { margin-top: 30px; padding-top: 24px; border-top: 1px dashed rgba(139,130,117,0.35); }
+  .panel.ink .hdr-demo { border-top-color: rgba(143,135,122,0.3); }
+  .fakehdr { display: flex; align-items: center; justify-content: space-between; padding: 13px 18px; border-radius: 8px; }
+  .fakehdr.parch { background: var(--paper); border: 1px solid var(--stone-line); }
+  .fakehdr.ink   { background: #100f0d; border: 1px solid #2a2722; }
+  .brandlock { display: inline-flex; align-items: center; gap: 11px; text-decoration: none; }
+  .brandlock .mk { width: 26px; height: 26px; }
+  .brandlock .word { font-family: var(--font-serif); font-size: 25px; line-height: 1; letter-spacing: -0.01em; }
+  .brandlock .ed { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--jaumont); align-self: center; margin-left: 2px; }
+  .fakehdr.parch .word { color: var(--ink); }
+  .fakehdr.ink   .word { color: var(--parchment); }
+  .fakehdr.parch .brandlock .mk { color: var(--ink); }
+  .fakehdr.ink   .brandlock .mk { color: var(--parchment); }
+  .cta { font-size: 12.5px; padding: 8px 14px; border-radius: 4px; background: var(--brick); color: #fff; font-family: var(--font-sans); }
+  .navfake { display: flex; gap: 20px; font-size: 12.5px; color: var(--stone); }
+  .fakehdr.ink .navfake { color: #9a9184; }
+
+  .crit { padding: 18px 28px 24px; font-size: 13px; line-height: 1.6; color: #46423b; }
+  .crit .tag { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; padding: 2px 7px; border-radius: 3px; margin-right: 8px; }
+  .tag.ok   { background: #e2ece4; color: #2E6E4F; }
+  .tag.warn { background: #f3e6cf; color: #946b1f; }
+  .tag.risk { background: #f1ddd7; color: #8a2d1b; }
+  .crit b { color: var(--ink); }
+
+  .verdict { margin-top: 64px; background: var(--paper); border: 1px solid var(--stone-line); border-radius: 10px; padding: 36px 38px; }
+  .verdict h2 { font-family: var(--font-serif); font-size: 30px; margin: 0 0 8px; }
+  .verdict .pick { display: inline-flex; align-items:center; gap:10px; font-family: var(--font-mono); font-size: 12px; color: #fff; background: var(--brick); padding: 5px 12px; border-radius: 4px; letter-spacing: 0.04em; margin: 6px 0 20px; }
+  .verdict .pick .mk { width: 20px; height: 20px; color: #fff; }
+  .verdict p { font-size: 14.5px; line-height: 1.66; color: #46423b; max-width: 920px; margin: 0 0 14px; }
+  .verdict b { color: var(--ink); }
+  .verdict .vs { display:flex; gap:24px; align-items:center; margin: 22px 0 8px; padding: 18px 22px; background: var(--parchment); border:1px solid var(--stone-line); border-radius: 8px; }
+  .verdict .vs .col { display:flex; flex-direction:column; align-items:center; gap:8px; }
+  .verdict .vs .col .cap { font-family: var(--font-mono); font-size: 10px; color: var(--stone); text-align:center; }
+  .verdict .vs .glyph { width:48px; height:48px; color: var(--ink); }
+  .verdict .vs .arrow { font-family: var(--font-serif); font-size: 28px; color: var(--stone); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="page">
+    <p class="eyebrow">Cohérence · édition Metz · exploration de mark</p>
+    <h1>La clef de voûte — six exécutions</h1>
+    <p class="lede">Le fondateur retient le <b>concept</b> de la clef de voûte (« la pierre qui tient l'ensemble » = cohérence + robustesse + pierre messine) mais pas son exécution actuelle, qui lit « banque », s'efface à petite taille et reste trop générique. Voici <b>six tracés</b> qui attaquent ces trois faiblesses, chacun décliné à <b>16 / 20 / 28 / 64 / 120 px</b> sur parchemin <em>et</em> sur encre, puis posé dans un en-tête réel. Tokens : <code>--ink #1A1814</code>, <code>--jaumont #C9A14A</code>, <code>--brick #B5462F</code>. Trait calibré pour un mark (plus épais qu'une icône inline).</p>
+  </header>
+
+  <div class="legend">
+    <span class="dot"><span class="swatch" style="background:var(--ink)"></span> encre — le trait porteur</span>
+    <span class="dot"><span class="swatch" style="background:var(--jaumont)"></span> or Jaumont — la clef / la pierre (seul accent local)</span>
+    <span class="dot"><span class="swatch" style="background:var(--brick)"></span> brick — accent d'action, jamais dans le mark</span>
+  </div>
+
+  <div id="variants"></div>
+
+  <!-- VERDICT -->
+  <section class="verdict">
+    <h2>Vote motivé</h2>
+    <span class="pick"><span class="glyph mk" id="pick-mk"></span> RETENU — v2, l'arc brisé gothique + clef Jaumont</span>
+
+    <div class="vs">
+      <div class="col">
+        <div class="glyph" id="vs-old"></div>
+        <span class="cap">version actuelle<br>plein cintre</span>
+      </div>
+      <span class="arrow">→</span>
+      <div class="col">
+        <div class="glyph" id="vs-new"></div>
+        <span class="cap">v2<br>arc brisé</span>
+      </div>
+    </div>
+
+    <p>La version actuelle échoue sur un point précis : le <b>plein cintre</b> est l'arc roman / le porche d'agence, exactement la silhouette « assurance-banque-porte de ville » qu'on cherche à fuir. Le passage à l'<b>arc brisé (ogive)</b> change tout pour un coût géométrique nul : l'ogive est <b>gothique</b>, donc <b>messine</b> (Metz est une ville gothique), et elle ancre le local par la <em>forme</em> sans jamais dessiner la cathédrale. La pointe haute donne aussi une silhouette plus mémorable et moins ronde qu'un demi-cercle bancaire.</p>
+    <p>Sur la lisibilité : la clef de voûte <b>pleine, encrée Jaumont</b>, est une masse colorée qui ne disparaît pas à 16 px (contrairement à un claveau au trait). C'est le même principe qui sauvait la version actuelle — on le garde, on l'améliore en lui donnant un sommet ogival qui « pointe » la clef au lieu de la noyer dans une courbe.</p>
+    <p>Pourquoi pas les autres : <b>v1 (clef seule)</b> est le plus fort comme signe abstrait et le plus robuste à 16 px — c'est mon second choix ferme — mais isolé, le trapèze perd l'idée d'arc et peut lire « blason / écusson » ou « pièce de puzzle ». <b>v3 (claveaux modulaires)</b> est le plus beau en grand mais <b>tombe à 16 px</b> : joints radiaux et double trait intrados/extrados se confondent en bouillie. <b>v4 (clef-C)</b> est malin mais le « C » se devine mal sous 28 px et frôle le logo générique. <b>v5 (réserve négative)</b> est le plus robuste de tous à petite taille mais c'est une <b>tache d'or pleine</b> — trop lourde, hors registre « gravé/trait » de la marque, et l'or en aplat large est précisément ce que la charte réserve au cachet, pas au mark. <b>v6 (claveaux asymétriques)</b> a le meilleur caractère « pierre taillée » mais l'asymétrie le rend instable en lockup et serré à 16 px.</p>
+    <p><b>Recommandation.</b> Tester <b>v2</b> contre l'alérion en condition réelle (favicon, header, 16 px). Si le fondateur veut le signe le plus abstrait et le plus sûr techniquement, <b>v1</b> est le repli sans risque. Verdict honnête sur la finition : v2 et v1 sont au niveau « bon pour test » ; les autres sont des explorations de concept, pas des livrables. <b>Aucune des six ne doit être gravée définitivement sans une passe graphiste humaine</b> sur l'épaisseur exacte de trait et l'optique de la clef à 16 px réels (cette page est un rendu écran, pas une rasterisation pixel).</p>
+  </section>
+</div>
+
+<script>
+  function svg(inner, opts){
+    opts = opts || {};
+    const sw = opts.sw || 2.25;
+    const extra = opts.raw ? '' : `fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="${opts.cap||'round'}" stroke-linejoin="round"`;
+    return `<svg viewBox="0 0 24 24" width="100%" height="100%" ${extra}>${inner}</svg>`;
+  }
+
+  const V = {
+    // v1 — la clef seule
+    v1: () => svg(
+      `<path d="M6.4 6.5 L17.6 6.5 L14.6 18 L9.4 18 Z"/>
+       <path d="M6.4 6.5 L4 9.2"/>
+       <path d="M17.6 6.5 L20 9.2"/>`, {sw:2.25}),
+
+    // v2 — arc brisé gothique + clef Jaumont
+    v2: () => svg(
+      `<path d="M5 19 L5 13"/>
+       <path d="M19 19 L19 13"/>
+       <path d="M5 13 A 9 9 0 0 1 12 5.2"/>
+       <path d="M19 13 A 9 9 0 0 0 12 5.2"/>
+       <path d="M10.5 5.4 L13.5 5.4 L12.9 9.4 L11.1 9.4 Z" fill="#C9A14A" stroke="#C9A14A"/>`, {sw:2.25}),
+
+    // v3 — claveaux modulaires
+    v3: () => svg(
+      `<path d="M4 14 A 8 8 0 0 1 20 14"/>
+       <path d="M4 14 L4 11.5 A 10.5 10.5 0 0 1 20 11.5 L20 14"/>
+       <path d="M7.55 7.1 L6.7 5.1"/>
+       <path d="M16.45 7.1 L17.3 5.1"/>
+       <path d="M10.5 6 L9.9 4 M13.5 6 L14.1 4"/>
+       <path d="M10.5 6.05 L13.5 6.05 L14.1 4 L9.9 4 Z" fill="#C9A14A" stroke="#C9A14A"/>`, {sw:1.9}),
+
+    // v4 — clef-monogramme C
+    v4: () => svg(
+      `<path d="M4.5 5.5 L19.5 5.5 L16.5 18.5 L7.5 18.5 Z"/>
+       <path d="M14.2 9.4 A 4 4 0 1 0 14.2 14.6" stroke-linecap="butt"/>`, {sw:2}),
+
+    // v5 — clef en négatif (réserve Jaumont)
+    v5: () => svg(
+      `<path fill="#C9A14A" fill-rule="evenodd" d="M4 6 L20 6 L20 18 L4 18 Z M10.4 8.4 L13.6 8.4 L12.9 15.6 L11.1 15.6 Z"/>`,
+      {raw:true}),
+
+    // v6 — trois claveaux asymétriques
+    v6: () => svg(
+      `<path d="M3.5 16.5 L5.8 7.8 L9.2 6.7 L8.2 15.2 Z"/>
+       <path d="M20.5 16.5 L18.2 8.6 L15.4 7.6 L16.2 14.8 Z"/>
+       <path d="M9.2 6.7 L14.6 6.7 L13.6 16 L10.2 16 Z" fill="#C9A14A" stroke="#C9A14A"/>`, {sw:1.9}),
+  };
+
+  // current version (plein cintre) for the side-by-side
+  const OLD = () => svg(
+    `<path d="M5 19 L5 12"/>
+     <path d="M19 19 L19 12"/>
+     <path d="M5 12 A 7 7 0 0 1 19 12"/>
+     <path d="M10.4 5.2 L13.6 5.2 L13.1 8 L10.9 8 Z" fill="#C9A14A" stroke="#C9A14A"/>`, {sw:2});
+
+  const META = {
+    v1: {
+      name: "La clef seule",
+      concept: "Le claveau trapézoïdal <em>isolé</em>, sans l'arc. La pierre de verrouillage réduite à son signe pur. Plus abstrait, plus gros dans le cadre, taillé pour survivre à 16 px là où une arche entière s'efface. Deux amorces de joints disent « pierre prise dans un appareil ».",
+      jaumont: false,
+      crit: `<span class="tag ok">16 px : solide</span> Une seule grande forme : rien à perdre à petite taille, c'est le plus robuste avec v5. <b>Réserve :</b> isolé, le trapèze peut lire « écusson / blason » ou « pièce de puzzle » plutôt que « clef de voûte » — il perd l'idée d'<em>arc</em>. Mon second choix ferme : le signe le plus sûr techniquement, le plus discutable sémantiquement.`
+    },
+    v2: {
+      name: "Arc brisé gothique + clef Jaumont",
+      concept: "Abandon du plein cintre (qui lit « banque / porche d'agence ») au profit de l'<em>arc brisé</em> — l'ogive gothique, donc messine. Deux montées qui se rejoignent en pointe, verrouillées par une clef pleine encrée Jaumont. Ancrage local par la géométrie, sans dessiner la cathédrale.",
+      jaumont: true,
+      crit: `<span class="tag ok">16 px : tient</span> La clef pleine Jaumont ne disparaît pas ; la pointe ogivale donne une silhouette mémorable. <b>Pourquoi ça bat l'actuel :</b> coût géométrique nul, mais l'ogive ancre le gothique messin et tue la lecture « banque » du demi-cercle roman. <b>Réserve :</b> très près du sommet, les deux arcs doivent rester nets — à valider en raster réel.`
+    },
+    v3: {
+      name: "Claveaux modulaires",
+      concept: "L'arc dessiné comme un <em>appareil de pierres distinctes</em> séparées par leurs joints — l'assemblage qui tient = la cohérence rendue littérale. Joints radiaux (architecturalement justes), clef centrale pleine Jaumont. Le plus « taillé », le moins lisse-corporate.",
+      jaumont: true,
+      crit: `<span class="tag risk">16 px : casse</span> Magnifique en grand (≥ 64 px), c'est le plus riche du lot. <b>Mais</b> à 16-20 px le double trait intrados/extrados et les joints radiaux courts se confondent en bouillie : il échoue sur la faiblesse n°2 qu'on devait corriger. Exploration de concept, pas un livrable de favicon.`
+    },
+    v4: {
+      name: "La clef-monogramme (clef + « C »)",
+      concept: "Fusion mark + monogramme. Le claveau est creusé d'une réserve en forme de <em>« C »</em> (Cohérence), coupes franches au burin. La pierre qui tient ET l'initiale, dans un seul signe.",
+      jaumont: false,
+      crit: `<span class="tag warn">16 px : fragile</span> Idée forte (double lecture pierre + initiale). <b>Mais</b> le « C » dans le trapèze se devine mal sous 28 px et, dès qu'on le lit, le mark glisse vers « monogramme générique » et perd la pierre. Trop d'ambition pour la surface ; séduisant à explorer, risqué à figer.`
+    },
+    v5: {
+      name: "La clef en négatif (réserve)",
+      concept: "Jeu plein / vide. Un bloc de pierre <em>plein</em>, encré Jaumont, dans lequel la clef est réservée (évidée) — la cohérence comme le vide qui structure le plein. Lecture inversée : la forme porteuse est l'or massif, la clef est l'absence.",
+      jaumont: true,
+      crit: `<span class="tag warn">16 px : le plus robuste… mais</span> Aucune trace fine à perdre : techniquement imbattable à petite taille. <b>Hors registre cependant :</b> un aplat d'or large contredit le langage « gravé / trait » de la marque, et la charte réserve l'or massif au <em>cachet</em>, pas au mark. Trop lourd, trop « app icon ». À écarter par cohérence de système.`
+    },
+    v6: {
+      name: "Trois claveaux asymétriques",
+      concept: "Non pas l'arc entier mais son <em>sommet</em> vu de près : la clef et ses deux claveaux d'épaule, de tailles <em>volontairement inégales</em> pour casser l'effet logo corporate trop lisse et signer la pierre taillée à la main.",
+      jaumont: true,
+      crit: `<span class="tag warn">16 px : serré</span> Le meilleur caractère « pierre » du lot, l'asymétrie est juste. <b>Mais</b> les trois pierres serrées s'empâtent à 16 px et l'asymétrie déséquilibre le lockup à côté du mot « Cohérence ». Beau en grand, instable en système. À garder en réserve éditoriale, pas en mark primaire.`
+    },
+  };
+
+  const SIZES = [16,20,28,64,120];
+  const ORDER = ['v1','v2','v3','v4','v5','v6'];
+
+  const root = document.getElementById('variants');
+  root.innerHTML = ORDER.map((k,i)=>{
+    const m = META[k];
+    const sizes = (cls)=> SIZES.map(s=>
+      `<div class="size"><div class="glyph mk${cls}" style="width:${s}px;height:${s}px;">${V[k]()}</div><span class="cap">${s} px</span></div>`
+    ).join('');
+    return `
+    <section class="variant">
+      <div class="v-head"><span class="v-no">v${i+1}</span><span class="v-name">${m.name}</span></div>
+      <p class="v-concept">${m.concept}</p>
+      <div class="panels">
+        <div class="panel parch">
+          <div class="panel-lbl">sur parchemin${m.jaumont?' · clef Jaumont':''}</div>
+          <div class="sizes">${sizes('')}</div>
+          <div class="hdr-demo">
+            <div class="fakehdr parch">
+              <a class="brandlock"><span class="glyph mk" style="">${V[k]()}</span><span class="word">Cohérence</span><span class="ed">édition Metz</span></a>
+              <span class="navfake">Méthode&nbsp;&nbsp;Comparables&nbsp;&nbsp;À&nbsp;propos</span>
+            </div>
+          </div>
+        </div>
+        <div class="panel ink">
+          <div class="panel-lbl">sur encre${m.jaumont?' · clef Jaumont':''}</div>
+          <div class="sizes">${sizes('')}</div>
+          <div class="hdr-demo">
+            <div class="fakehdr ink">
+              <a class="brandlock"><span class="glyph mk" style="">${V[k]()}</span><span class="word">Cohérence</span><span class="ed">édition Metz</span></a>
+              <span class="cta">Analyser l'annonce</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="crit">${m.crit}</div>
+    </section>`;
+  }).join('');
+
+  document.getElementById('pick-mk').innerHTML = V.v2();
+  document.getElementById('vs-old').innerHTML = OLD();
+  document.getElementById('vs-new').innerHTML = V.v2();
+</script>
+</body>
+</html>

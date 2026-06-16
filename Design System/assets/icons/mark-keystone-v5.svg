@@ -10,6 +10,4 @@
   <path fill="#C9A14A" fill-rule="evenodd" d="
     M4 6 L20 6 L20 18 L4 18 Z
     M10.4 8.4 L13.6 8.4 L12.9 15.6 L11.1 15.6 Z" />
-  <!-- joint horizontal supérieur : signale l'assise de pierre, en réserve fine -->
-  <path stroke="#F5F1EA" stroke-width="0" d="M4 6 L20 6" />
 </svg>
