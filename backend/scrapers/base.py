@@ -323,14 +323,15 @@ def infer_property_type(text: str) -> str:
     return "appartement"
 
 
-# Quartiers de Metz et communes limitrophes couramment cités par les agences
-# du Grand Metz. Ordre : libellés longs avant libellés courts pour éviter les
-# faux positifs lors du matching.
+# Communes de la couronne du Grand Metz couramment citées par les agences.
+# Maintenue SEPAREMENT des quartiers (issue #100 chantier B, Q5 : le gazetteer
+# modélise les quartiers de Metz, pas les communes). Ordre : libellés longs avant
+# courts pour éviter les faux positifs lors du substring match.
 # Note : l'inter-communal « Botanique » (à cheval Metz / Montigny-lès-Metz) n'est
 # PAS ajouté ici. Sa réconciliation cross-commune exige une adresse géocodée
 # (filtre Comparable.city EXACT côté market_stats) : elle relève du chantier C
-# (géocodage), pas du référentiel curaté de ce chantier A.
-_KNOWN_LOCALITIES = [
+# (géocodage), pas du référentiel curaté.
+_KNOWN_COMMUNES_HEAD = [
     "le ban-saint-martin",
     "montigny-lès-metz",
     "montigny-les-metz",
@@ -339,32 +340,54 @@ _KNOWN_LOCALITIES = [
     "saint-julien-lès-metz",
     "saint-julien-les-metz",
     "scy-chazelles",
-    "devant-les-ponts",
-    "grange-aux-bois",
-    "sainte-thérèse",
-    "sainte-therese",
-    "nouvelle ville",
-    "plantières",
-    "plantieres",
-    "bellecroix",
-    "vallières",
-    "vallieres",
-    "la patrotte",
-    "outre-seille",
-    "technopôle",
-    "technopole",
-    "queuleu",
-    "sablon",
-    "magny",
-    "borny",
+]
+_KNOWN_COMMUNES_TAIL = [
     "woippy",
     "plappeville",
     "lessy",
     "marly",
     "augny",
-    "centre-ville",
-    "centre",
 ]
+
+
+# Formes generiques de quartier placees en TOUTE FIN de `_KNOWN_LOCALITIES`
+# (apres les communes du tail), reproduisant l'ordre cure historique. 'centre'
+# est la forme la plus courte et la plus capturante par substring : elle doit
+# rester en dernier pour ne pas court-circuiter les libelles plus specifiques
+# (invariant long-avant-court a l'echelle de la liste). L'ordre relatif au sein
+# du tronc des districts reste celui du gazetteer (cf. known_localities_districts).
+_KNOWN_DISTRICTS_TAIL = ["centre-ville", "centre"]
+
+
+def _build_known_localities() -> list:
+    """`_KNOWN_LOCALITIES` = communes (maintenues ici) + quartiers DERIVES de la
+    source unique `app.geo_gazetteer` (issue #100 chantier B), assembles dans
+    l'ORDRE cure historique (golden GOLDEN_KNOWN_LOCALITIES) pour le substring
+    match d'`extract_district`.
+
+    Ordre reproduit a l'identique : HEAD communes -> tronc des districts (ordre
+    gazetteer, hors formes generiques de centre) -> TAIL communes -> formes
+    generiques de centre. `extract_district` renvoie le PREMIER match : cet ordre
+    exact decide la resolution sur un texte multi-localites (refactor pur, spec
+    §3.3.1). AUCUN tri ne le reproduit (ordre cure arbitraire).
+
+    Import local : `geo_gazetteer` importe `canonical_district` de ce module dans
+    une fonction (import paresseux), mais un import top-level inverse creerait un
+    cycle a la premiere importation de l'un ou l'autre module.
+
+    Trou de couverture documenté (lot ulterieur, hors B) : les quartiers
+    Ancienne-Ville et Les Îles sont dans `_PROFILES`, dans les secteurs et dans
+    `METZ_DISTRICTS` (sélecteur front), mais PAS dans les `aliases_text` du
+    gazetteer : ils ne sont donc pas reconnus par l'extraction texte ici. Étendre
+    cette couverture changerait le comportement (plus un refactor pur)."""
+    from app import geo_gazetteer
+
+    districts = geo_gazetteer.known_localities_districts()
+    trunk = [d for d in districts if d not in _KNOWN_DISTRICTS_TAIL]
+    return _KNOWN_COMMUNES_HEAD + trunk + _KNOWN_COMMUNES_TAIL + _KNOWN_DISTRICTS_TAIL
+
+
+_KNOWN_LOCALITIES = _build_known_localities()
 
 
 def extract_district(text: str) -> Optional[str]:
