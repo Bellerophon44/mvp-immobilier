@@ -1,0 +1,17 @@
+<!-- Cohérence — mark-keystone v2 : ARC BRISÉ (OGIVE) + clef Jaumont.
+     Concept : abandon du plein cintre (lecture "porte de ville / banque") au profit
+     de l'arc BRISÉ gothique — l'arc de Metz. Deux montées qui se rejoignent en pointe,
+     verrouillées par une clef de voûte pleine encrée Jaumont. Ancrage local par la
+     GÉOMÉTRIE (gothique mosellan) sans jamais dessiner la cathédrale.
+     La pointe ogivale + la clef pleine restent lisibles à petite taille. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round">
+  <!-- piédroits -->
+  <path d="M5 19 L5 13" />
+  <path d="M19 19 L19 13" />
+  <!-- arc brisé : deux arcs de cercle se rejoignant en ogive au sommet -->
+  <path d="M5 13 A 9 9 0 0 1 12 5.2" />
+  <path d="M19 13 A 9 9 0 0 0 12 5.2" />
+  <!-- clef de voûte pleine, à l'aplomb de la pointe (Jaumont) -->
+  <path d="M10.5 5.4 L13.5 5.4 L12.9 9.4 L11.1 9.4 Z" fill="#C9A14A" stroke="#C9A14A" />
+</svg>
