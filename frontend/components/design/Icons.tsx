@@ -163,3 +163,21 @@ export function LorraineSeal(p: IconProps) {
     </Icon>
   );
 }
+
+// Alérion lorrain unique — l'aiglon héraldique de Lorraine (sans bec ni pattes),
+// ailes déployées, réduit à l'essentiel : deux ailes en chevron montant + un corps
+// fuselé. UN seul (pas trois) pour rester lisible à petite taille. Mark de marque
+// retenu pour le test, encré en or Jaumont via currentColor. Trait 1,75 px (un mark
+// se calibre plus épais qu'une icône inline). SVG source :
+// Design System/assets/icons/mark-alerion-single.svg.
+export function AlerionMark(p: IconProps) {
+  return (
+    <Icon {...p}>
+      <g strokeWidth="1.75">
+        <path d="M12 8.5 C 9.2 7.6 6.6 8 4.5 10 C 7 9.4 9.4 9.7 11.2 11.2" />
+        <path d="M12 8.5 C 14.8 7.6 17.4 8 19.5 10 C 17 9.4 14.6 9.7 12.8 11.2" />
+        <path d="M12 8.2 L12 15.5" />
+      </g>
+    </Icon>
+  );
+}

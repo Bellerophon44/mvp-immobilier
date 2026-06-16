@@ -11,7 +11,7 @@ import Wordmark from "../components/design/Wordmark";
 import ScopeBadge from "../components/design/ScopeBadge";
 import Footer from "../components/design/Footer";
 import FeedbackForm from "../components/design/FeedbackForm";
-import { Copy, Printer, MapPin, Seal, LorraineSeal } from "../components/design/Icons";
+import { Copy, Printer, MapPin, Seal, AlerionMark } from "../components/design/Icons";
 import { METZ_DISTRICTS } from "../lib/districts";
 
 type AppState = "idle" | "analyzing" | "result";
@@ -768,9 +768,10 @@ export default function HomePage() {
         {appState === "idle" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 40 }}>
             <div>
-              {/* Cachet « édition Metz » aux trois alérions, en letterhead, sur
-                  parchemin — lisible, et le titre n'est plus superposé à la photo. */}
-              <LorraineSeal size={88} style={{ color: "var(--jaumont)", marginBottom: 24, display: "block" }} />
+              {/* Marque « édition Metz » : l'alérion lorrain unique (aiglon de
+                  Lorraine, sans bec ni pattes), en letterhead sur parchemin, encré
+                  en or Jaumont. Lisible — contrairement au cachet aux trois alérions. */}
+              <AlerionMark size={72} style={{ color: "var(--jaumont)", marginBottom: 24, display: "block" }} />
               <div className="t-eyebrow" style={{ marginBottom: 16 }}>
                 Édition Metz · Moselle
               </div>
@@ -835,7 +836,7 @@ export default function HomePage() {
           <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
             {/* En-tête « scellé » visible uniquement à l'impression / PDF. */}
             <div className="print-only" style={{ marginBottom: 8 }}>
-              <LorraineSeal size={56} style={{ color: "var(--jaumont)", display: "block", marginBottom: 12 }} />
+              <AlerionMark size={48} style={{ color: "var(--jaumont)", display: "block", marginBottom: 12 }} />
               <div style={{ fontFamily: "var(--font-serif)", fontSize: 28, color: "var(--ink)", lineHeight: 1.1 }}>
                 Cohérence <span style={{ color: "var(--ink-3)" }}>— édition Metz</span>
               </div>
