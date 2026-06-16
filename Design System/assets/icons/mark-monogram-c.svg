@@ -1,0 +1,11 @@
+<!-- Cohérence — Direction A : monogramme « C » gravé.
+     Un C ouvert à coupes franches (terminaisons plates, comme taillées au
+     burin), qui évoque l'arc d'un anneau de sceau sans être un cachet illisible.
+     Monochrome via currentColor. Trait 2 px sur viewBox 24 pour tenir à 16 px
+     (le 1,5 px du set d'icônes inline est trop fin pour un mark autoporté petit ;
+     un logo se calibre plus épais qu'une icône de corps de texte).
+     Dégrade en favicon 16 px : la forme reste un C net, aucune fioriture à perdre. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="2" stroke-linecap="butt" stroke-linejoin="round">
+  <path d="M18.5 6.2 A 8 8 0 1 0 18.5 17.8" />
+</svg>

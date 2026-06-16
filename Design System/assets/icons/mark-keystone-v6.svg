@@ -1,0 +1,16 @@
+<!-- Cohérence — mark-keystone v6 : TROIS CLAVEAUX ASYMÉTRIQUES (l'épaulement).
+     Concept : non pas l'arc entier, mais le SOMMET de l'arc — la clef et ses deux
+     claveaux d'épaule — vu de près. Trois pierres trapézoïdales rayonnantes, de
+     TAILLES VOLONTAIREMENT INÉGALES (la clef centrale plus haute) pour casser
+     l'effet logo corporate trop lisse et signer la pierre taillée à la main.
+     La clef centrale est pleine (Jaumont) ; les épaules sont au trait.
+     Compact, dense, occupe bien le cadre à 16 px. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+  <!-- claveau d'épaule gauche (incliné, joints rayonnants) -->
+  <path d="M3.5 16.5 L5.8 7.8 L9.2 6.7 L8.2 15.2 Z" />
+  <!-- claveau d'épaule droit (plus court, asymétrie assumée) -->
+  <path d="M20.5 16.5 L18.2 8.6 L15.4 7.6 L16.2 14.8 Z" />
+  <!-- clef centrale, plus haute, pleine (Jaumont) -->
+  <path d="M9.2 6.7 L14.6 6.7 L13.6 16 L10.2 16 Z" fill="#C9A14A" stroke="#C9A14A" />
+</svg>
