@@ -328,6 +328,20 @@ Ordre d'exécution acté : **C5 (indépendant) → A → B → C.**
    `qualite/ancrage-local`, `qualite/comparables` · `gravite/majeur` · palier 2 (§4).
 4. **#100-d — Chantier C : géocodage→quartier + inter-communal + POI écoles (C4)**
    `qualite/ancrage-local` · `gravite/majeur` · palier 3 (§4). C4 branché ici.
+   **Sous-découpé en C1/C2/C3 à l'entrée de l'atelier (GATE 1, 2026-06-16)** car
+   l'analyse a montré que le cas pilote sans adresse était déjà clos par A/B :
+   - **C1 — inter-communal & commune réelle.** ✅ **LIVRÉ EN PRODUCTION
+     (2026-06-16)** : PR #110 → `staging`, PR #111 → `main`. Table curatée
+     `intercommunal_districts()` (`app/geo_gazetteer.py`) + activation `cities` au
+     niveau quartier (`app/market_stats.py`) + `geocode_address` expose
+     `city`/`citycode` BAN (`app/geocode.py`). Contrat `/analyze` inchangé.
+     Spec : `docs/specs/issue-100-C-SPEC.md`. Tests `backend/tests/test_issue_100_C.py`.
+   - **⬜ C2 — quartier réel par coordonnées (TODO, reporté).** Point-in-polygon
+     coordonnées→quartier, remplissage des `centroid`, `_resolve_district` par le
+     géocode. Voir borne `issue-100-C-SPEC.md` §1 OUT.
+   - **⬜ C3 — POI écoles (TODO, reporté) [= constat C4 ci-dessus].** 2e source
+     (Annuaire de l'Éducation recommandé) + `facts[]` écoles + distance bien→école.
+     Voir borne `issue-100-C-SPEC.md` §1 OUT.
 
 Le volet « prisé » de C3 n'est **pas** une issue : décision actée hors périmètre
 (§0bis-2). L'issue #100 mère : retirer `triage` une fois les filles créées, garder
@@ -375,6 +389,13 @@ Leçon process candidate (`.claude/lessons.md`) si C5 part en atelier :
 - « Prisé » → **hors périmètre** (factuel uniquement).
 - **C5** (questions) → bug indépendant, lancé en premier ; **C4** (écoles) →
   branché sur le chantier C.
+
+**État de livraison (2026-06-16) — A, B, C1 EN PRODUCTION :**
+- C5, chantier A, chantier B : ✅ livrés.
+- Chantier C sous-découpé : **C1 ✅ livré** (PR #110/#111) ; **C2 ⬜ et C3 ⬜
+  reportés (TODO)** — à relancer en atelier sur décision explicite (avis ROI :
+  non prioritaires pour le MVP, n'aident que les biens avec adresse saisie).
+  TODO consigné aussi dans `backend/CLAUDE.md` §11bis (backlog canonique).
 
 **Reste à préciser à l'entrée de chaque atelier (GATE 1 par chantier) :**
 1. **Chantier A** : liste exacte des micro-quartiers à ajouter au-delà de
