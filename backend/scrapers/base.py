@@ -350,13 +350,30 @@ _KNOWN_COMMUNES_TAIL = [
 ]
 
 
+# Formes generiques de quartier placees en TOUTE FIN de `_KNOWN_LOCALITIES`
+# (apres les communes du tail), reproduisant l'ordre cure historique. 'centre'
+# est la forme la plus courte et la plus capturante par substring : elle doit
+# rester en dernier pour ne pas court-circuiter les libelles plus specifiques
+# (invariant long-avant-court a l'echelle de la liste). L'ordre relatif au sein
+# du tronc des districts reste celui du gazetteer (cf. known_localities_districts).
+_KNOWN_DISTRICTS_TAIL = ["centre-ville", "centre"]
+
+
 def _build_known_localities() -> list:
     """`_KNOWN_LOCALITIES` = communes (maintenues ici) + quartiers DERIVES de la
-    source unique `app.geo_gazetteer` (issue #100 chantier B), triés
-    long-avant-court pour le substring match d'`extract_district`.
+    source unique `app.geo_gazetteer` (issue #100 chantier B), assembles dans
+    l'ORDRE cure historique (golden GOLDEN_KNOWN_LOCALITIES) pour le substring
+    match d'`extract_district`.
 
-    Import local : `geo_gazetteer` importe `canonical_*` de ce module (définies
-    plus haut), un import au top-level créerait un cycle.
+    Ordre reproduit a l'identique : HEAD communes -> tronc des districts (ordre
+    gazetteer, hors formes generiques de centre) -> TAIL communes -> formes
+    generiques de centre. `extract_district` renvoie le PREMIER match : cet ordre
+    exact decide la resolution sur un texte multi-localites (refactor pur, spec
+    §3.3.1). AUCUN tri ne le reproduit (ordre cure arbitraire).
+
+    Import local : `geo_gazetteer` importe `canonical_district` de ce module dans
+    une fonction (import paresseux), mais un import top-level inverse creerait un
+    cycle a la premiere importation de l'un ou l'autre module.
 
     Trou de couverture documenté (lot ulterieur, hors B) : les quartiers
     Ancienne-Ville et Les Îles sont dans `_PROFILES`, dans les secteurs et dans
@@ -366,7 +383,8 @@ def _build_known_localities() -> list:
     from app import geo_gazetteer
 
     districts = geo_gazetteer.known_localities_districts()
-    return _KNOWN_COMMUNES_HEAD + districts + _KNOWN_COMMUNES_TAIL
+    trunk = [d for d in districts if d not in _KNOWN_DISTRICTS_TAIL]
+    return _KNOWN_COMMUNES_HEAD + trunk + _KNOWN_COMMUNES_TAIL + _KNOWN_DISTRICTS_TAIL
 
 
 _KNOWN_LOCALITIES = _build_known_localities()

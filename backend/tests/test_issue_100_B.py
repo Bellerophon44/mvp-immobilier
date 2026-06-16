@@ -401,6 +401,101 @@ def test_ac1_known_localities_ordre_long_avant_court():
                 )
 
 
+# --- Renfort phase B (testeur) : trou de couverture AC1 -------------------
+# AC1 tel qu'ecrit ne verrouille QUE (a) l'egalite d'ensemble et (b) l'ordre
+# long-avant-court pour les paires en relation de substring. Il NE verrouille PAS
+# l'ordre EXACT de la liste, alors que le golden 1 (GOLDEN_KNOWN_LOCALITIES) a
+# capture cet ordre exact AVANT migration et que la spec §3.3.1 exige « le meme
+# ordre effectif que l'actuel ». extract_district renvoie le PREMIER match : pour
+# un texte contenant DEUX localites disjointes (ni l'une substring de l'autre),
+# l'ordre relatif decide laquelle gagne. Le tri global `sort(key=len, reverse=True)`
+# de la derivation reorganise les formes de quartiers et change donc la sortie de
+# extract_district pour ces textes -> ce n'est plus un refactor pur.
+
+def test_b_regression_known_localities_ordre_exact_egal_golden():
+    """REGRESSION (testeur) — _KNOWN_LOCALITIES doit egaler le golden 1 dans
+    l'ORDRE EXACT (spec §3.3.1 : meme ordre effectif que l'actuel). Le golden a
+    ete capture depuis l'ancien code avant migration."""
+    assert list(base._KNOWN_LOCALITIES) == list(GOLDEN_KNOWN_LOCALITIES), (
+        "REGRESSION ordre _KNOWN_LOCALITIES : l'ordre derive differe de l'ancien "
+        "(golden 1). extract_district renvoie le premier match -> un texte multi-"
+        "localites peut resoudre vers un AUTRE quartier qu'avant B. "
+        f"\nGOLDEN={list(GOLDEN_KNOWN_LOCALITIES)}\nDERIVE={list(base._KNOWN_LOCALITIES)}"
+    )
+
+
+@pytest.mark.parametrize(
+    "text,old_result",
+    [
+        ("appartement à Vallières proche Technopôle, Metz", "Vallieres"),
+        ("maison la patrotte secteur bellecroix", "Bellecroix"),
+        ("bien outre-seille limite vallières", "Vallieres"),
+    ],
+)
+def test_b_regression_extract_district_multi_localite_inchange(text, old_result):
+    """REGRESSION (testeur) — pour un texte contenant deux localites, le premier
+    match (donc le quartier resolu) doit etre celui de l'ANCIEN comportement.
+
+    `old_result` = sortie de l'ancien extract_district (ancien _KNOWN_LOCALITIES,
+    fonction inchangee). Falsifiabilite : rouge si le refactor reordonne les formes
+    et fait basculer la resolution vers un autre quartier (cas reel : annonce
+    citant un quartier + un repere/quartier voisin)."""
+    resolved = base.extract_district(text)
+    assert resolved is not None and canonical_city(resolved) == canonical_city(old_result), (
+        f"REGRESSION extract_district({text!r}) : ancien resultat "
+        f"{old_result!r}, recu {resolved!r} (l'ordre de _KNOWN_LOCALITIES a "
+        "change le premier match -> refactor non pur)"
+    )
+
+
+def _old_extract_district(text, known=tuple(GOLDEN_KNOWN_LOCALITIES)):
+    """Reimplemente l'ANCIEN extract_district (corps inchange, AST-verifie
+    identique a 7d03053) en l'appliquant a l'ancienne liste plate (golden 1).
+    Sert d'oracle independant du code de prod pour le balayage exhaustif."""
+    if not text:
+        return None
+    lowered = text.lower()
+    for loc in known:
+        if loc in lowered:
+            return loc.title()
+    return None
+
+
+def test_b_regression_extract_district_balayage_exhaustif_paires():
+    """REGRESSION (testeur, balayage elargi) — pour TOUTES les paires ordonnees de
+    localites du golden, croisees dans plusieurs gabarits de texte multi-localites,
+    la resolution (premier match) du code actuel == l'oracle ancien (golden 1).
+
+    Falsifiabilite : un seul tri ou reordonnancement des formes derivees fait
+    diverger au moins un croisement. Couvre bien au-dela des 3 cas nommes : ~4200
+    textes. Aucun mismatch tolere (refactor PUR, spec §3.3.1)."""
+    import itertools
+
+    templates = (
+        "{} et {}",
+        "Bel appartement {} proche {}",
+        "{}/{}",
+        "secteur {} - {}",
+    )
+    mismatches = []
+    for a, c in itertools.permutations(GOLDEN_KNOWN_LOCALITIES, 2):
+        for tmpl in templates:
+            txt = tmpl.format(a.title(), c.title())
+            old = _old_extract_district(txt)
+            new = base.extract_district(txt)
+            if old != new:
+                mismatches.append((txt, old, new))
+    # Cas degeneres : localite seule, vide, inconnue.
+    for txt in list(GOLDEN_KNOWN_LOCALITIES) + ["", "Paris rue de Rivoli", "rien"]:
+        if _old_extract_district(txt) != base.extract_district(txt):
+            mismatches.append((txt, _old_extract_district(txt), base.extract_district(txt)))
+    assert not mismatches, (
+        "REGRESSION balayage extract_district : la resolution diverge de l'ancien "
+        f"comportement sur {len(mismatches)} cas (refactor non pur). "
+        f"Exemples : {mismatches[:5]}"
+    )
+
+
 # ===========================================================================
 # AC2 — Couplage _PROFILES <-> _DIST_KM par construction (GROUPE B, ROUGE)
 # ===========================================================================

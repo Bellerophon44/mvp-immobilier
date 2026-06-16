@@ -31,7 +31,11 @@ serait plus un refactor pur) -> correction renvoyee a un lot ulterieur, hors B.
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
-from scrapers.base import canonical_city, canonical_district
+# NB : `canonical_district` n'est PAS importe au top-level. `scrapers.base`
+# importe ce module dans son top-level (`_build_known_localities`) ; un import
+# top-level inverse creerait un cycle (`import app.geo_gazetteer` en tout premier
+# planterait sur un `scrapers.base` partiellement initialise). L'import est donc
+# paresseux dans `build_sector_maps`, seule fonction qui l'appelle.
 
 
 @dataclass(frozen=True)
@@ -385,15 +389,20 @@ def aliases() -> Dict[str, str]:
 
 
 def known_localities_districts() -> List[str]:
-    """Formes lower-case de quartiers pour `_KNOWN_LOCALITIES`, ordonnees
-    long-avant-court (consigne base.py : libelles longs avant courts pour le
-    substring match). L'ordre des entrees + l'ordre intra-entree des aliases_text
-    placent deja les formes longues avant les courtes ; on stabilise par un tri
-    par longueur decroissante (stable) pour garantir l'invariant AC1."""
+    """Formes lower-case de quartiers pour `_KNOWN_LOCALITIES`, dans l'ORDRE
+    cure historique (concatenation entree-par-entree, aliases_text dans leur
+    ordre de declaration). Cet ordre reproduit EXACTEMENT l'ancienne liste plate
+    (golden GOLDEN_KNOWN_LOCALITIES) ; il porte deja l'invariant long-avant-court
+    requis par le substring match d'`extract_district` (consigne base.py).
+
+    AUCUN tri global ici : `extract_district` renvoie le PREMIER match par
+    substring, donc l'ordre relatif de deux localites disjointes decide laquelle
+    gagne sur un texte multi-localites. Un tri (longueur ou alpha) reordonnerait
+    ces formes et changerait la resolution -> ce ne serait plus un refactor pur
+    (spec §3.3.1 « meme ordre effectif que l'actuel »)."""
     forms: List[str] = []
     for e in GAZETTEER.values():
         forms.extend(e.aliases_text)
-    forms.sort(key=len, reverse=True)
     return forms
 
 
@@ -413,6 +422,8 @@ def build_sector_maps():
       - `_SECTOR_DISTRICTS[sector_display] = [canonical_key, ...]`
     Iteration sur `_SECTORS` (ordre fige reproduisant `_SECTORS_RAW`), libelles
     bruts canonicalises via `canonical_district` au chargement (golden 4)."""
+    from scrapers.base import canonical_district
+
     district_to_sector: Dict[str, str] = {}
     sector_districts: Dict[str, List[str]] = {}
     for _sector_key, sector_display, raw_labels in _SECTORS:
