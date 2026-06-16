@@ -433,3 +433,44 @@
     avec la leçon 2026-06-13 (oracle qui force une implémentation au lieu d'oracler
     une propriété). Si harmonisation souhaitée : assouplir AC10
     (`backend/tests/test_issue_100_A.py`) au niveau du tester, pas du développeur.
+
+- **[2026-06-16] [issue-100-B] Un golden d'ORDRE capturé mais non asserté est un faux-vert (refactor d'un matcher « premier match »)**
+  - Symptôme : la migration des 4 référentiels vers le gazetteer unique a fait passer
+    tous les goldens ET la review, mais le challenge adversarial a trouvé une
+    régression réelle : `geo_gazetteer.known_localities_districts()` appliquait un tri
+    GLOBAL `forms.sort(key=len, reverse=True)` qui détruisait l'ordre curaté
+    historique de `scrapers.base._KNOWN_LOCALITIES`. Comme `extract_district` renvoie
+    le PREMIER match par substring, l'ordre détermine quel quartier gagne sur un texte
+    multi-localités : 78 textes (ex. « Vallières proche Technopôle » → ancien
+    `Vallieres`, nouveau `Technopôle`) changeaient de résolution → refactor NON pur.
+  - Cause racine : l'oracle d'origine (AC1) figeait bien le golden d'ordre exact mais
+    n'assertait QUE `set()` + l'invariant partiel long-avant-court (paires en relation
+    de substring). L'ordre relatif des formes DISJOINTES n'était pas verrouillé, et un
+    tri (longueur ou alpha) ne reproduit jamais un ordre curaté arbitraire.
+  - Garde-fou (tests de régression, `backend/tests/test_issue_100_B.py`) :
+    `test_b_regression_known_localities_ordre_exact_egal_golden` (`list(...) == golden`,
+    ordre exact), `test_b_regression_extract_district_multi_localite_inchange` et
+    `test_b_regression_extract_district_balayage_exhaustif_paires` (toutes les paires
+    ordonnées de localités, sortie identique à l'état pré-migration `7d03053`).
+    Règle : quand une liste ORDONNÉE pilote un « premier match » (type
+    `_KNOWN_LOCALITIES`/`extract_district`), l'oracle de non-régression asserte
+    l'ORDRE EXACT contre le golden, pas seulement l'ensemble + une propriété partielle,
+    et teste la fonction consommatrice sur des entrées multi-tokens. L'ordre curaté
+    fait partie du contrat comportemental : ne jamais le re-trier lors d'une
+    unification de référentiels.
+
+- **[2026-06-16] [issue-100-B] Dérivation exécutée au top-level d'un module source crée un import circulaire latent dépendant de l'ordre d'import**
+  - Symptôme : `scrapers.base` appelait `_build_known_localities()` à son top-level, qui
+    importe `app.geo_gazetteer`, lequel importait `scrapers.base` à SON top-level
+    (`from scrapers.base import canonical_district`). `python -c "import app.geo_gazetteer"`
+    en TOUT PREMIER plantait (`AttributeError: partially initialized module`). Le chemin
+    prod (`app.main`) et pytest ne déclenchaient pas le bug (ils chargeaient
+    `scrapers.base` d'abord) → fragilité invisible en suite verte.
+  - Cause racine : cycle d'import A↔B dont une branche s'exécute au top-level ; il ne
+    casse que selon l'ordre d'import, donc passe inaperçu tant qu'un consommateur
+    impose le bon ordre.
+  - Garde-fou (règle + vérif) : une dérivation à l'import qui dépend d'un module qui
+    dépend en retour du module courant doit être robuste à l'ordre — import paresseux
+    d'un côté (ici `canonical_district` importé dans `build_sector_maps`, pas au
+    top-level de `geo_gazetteer`). Vérifier que `python -c "import <A>"` ET
+    `python -c "import <B>"` réussissent CHACUN en premier import (process séparés).

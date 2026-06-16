@@ -14,6 +14,7 @@ from typing import Any, Dict, List, Optional
 import math
 
 from scrapers.base import canonical_city, canonical_district
+from app import geo_gazetteer as gazetteer
 
 
 # Attrait frontalier : commun à tout Metz (axe A31 plein nord vers le sillon
@@ -61,153 +62,22 @@ def _fmt_dist(km: float) -> str:
 # soit l'orthographe d'entrée. `name` = libellé affiché (accents conservés).
 # `center` = distance approx. au centre / cathédrale St-Étienne. `gare` = gare
 # Metz-Ville (le Centre Pompidou-Metz lui est accolé, d'où le regroupement).
-_PROFILES: Dict[str, Dict[str, str]] = {
-    "Centre-Ville": {
-        "name": "Centre-Ville",
-        "center": "cœur du centre (cathédrale à quelques pas)",
-        "gare": "~0,8 km (≈ 10 min à pied)",
-        "caractere": "Hypercentre historique et commerçant, le plus recherché.",
-    },
-    "Ancienne-Ville": {
-        "name": "Ancienne Ville",
-        "center": "dans le centre historique",
-        "gare": "~1 km",
-        "caractere": "Vieille ville pavée autour de la colline Sainte-Croix.",
-    },
-    "Nouvelle-Ville": {
-        "name": "Nouvelle Ville",
-        "center": "~1 km du centre",
-        "gare": "immédiate (~0,3 km)",
-        "caractere": "Quartier Impérial autour de la gare, architecture germanique.",
-    },
-    "Les-Iles": {
-        "name": "Les Îles",
-        "center": "~1 km du centre",
-        "gare": "~1,8 km",
-        "caractere": "Quartier sur la Moselle (plan d'eau, lac Symphonie), prisé.",
-    },
-    "Outre-Seille": {
-        "name": "Outre-Seille",
-        "center": "accolé au centre (~0,8 km)",
-        "gare": "~1,3 km",
-        "caractere": "Quartier historique vivant, jouxte l'hypercentre à l'est.",
-    },
-    "Sablon": {
-        "name": "Sablon",
-        "center": "~1,8 km au sud",
-        "gare": "~1,2 km",
-        "caractere": "Quartier résidentiel familial au sud, proche gare.",
-    },
-    # Micro-quartier sud de Metz, contigu au Sablon (distances curatées par
-    # analogie au Sablon, légèrement plus au sud). « Botanique » (inter-communal
-    # Metz/Montigny) reste hors périmètre -> chantier C (géocodage).
-    "Sainte-Therese": {
-        "name": "Sainte-Thérèse",
-        "center": "~2 km au sud",
-        "gare": "~1,4 km",
-        "caractere": "Petit quartier résidentiel sud, contigu au Sablon.",
-    },
-    "Queuleu": {
-        "name": "Queuleu",
-        "center": "~3 km au sud-est",
-        "gare": "~2,5 km",
-        "caractere": "Résidentiel pavillonnaire prisé et calme.",
-    },
-    "Plantieres": {
-        "name": "Plantières",
-        "center": "~2,5 km à l'est",
-        "gare": "~2,5 km",
-        "caractere": "Résidentiel, mixité de pavillons et d'immeubles.",
-    },
-    "Bellecroix": {
-        "name": "Bellecroix",
-        "center": "~2,5 km à l'est",
-        "gare": "~2,8 km",
-        "caractere": "Plateau à l'est (fort de Bellecroix), quelques vues dégagées.",
-    },
-    "Borny": {
-        "name": "Borny",
-        "center": "~4,5 km à l'est",
-        "gare": "~4,5 km",
-        "caractere": "Grand quartier est, secteur en rénovation urbaine.",
-    },
-    "Magny": {
-        "name": "Magny",
-        "center": "~5 km au sud",
-        "gare": "~4,5 km",
-        "caractere": "Secteur sud pavillonnaire, ambiance semi-résidentielle.",
-    },
-    "Vallieres": {
-        "name": "Vallières",
-        "center": "~4 km à l'est",
-        "gare": "~4 km",
-        "caractere": "Ancien village à l'est, dominante pavillonnaire.",
-    },
-    "Devant-Les-Ponts": {
-        "name": "Devant-les-Ponts",
-        "center": "~2 km au nord-ouest",
-        "gare": "~2,5 km",
-        "caractere": "Quartier nord-ouest résidentiel, proche de la Moselle.",
-    },
-    "La-Patrotte": {
-        "name": "La Patrotte",
-        "center": "~2,5 km au nord",
-        "gare": "~3 km",
-        "caractere": "Secteur nord populaire, en mutation.",
-    },
-    "Grange-Aux-Bois": {
-        "name": "Grange-aux-Bois",
-        "center": "~6 km à l'est",
-        "gare": "~6 km",
-        "caractere": "Quartier pavillonnaire récent à l'est, au calme.",
-    },
-    "Technopole": {
-        "name": "Technopôle",
-        "center": "~3,5 km au sud-est",
-        "gare": "~3 km",
-        "caractere": "Pôle tertiaire et universitaire, peu résidentiel.",
-    },
-}
+# DERIVE de la source unique `app.geo_gazetteer` (issue #100 chantier B) : valeurs
+# curatees identiques, plus de duplication. `_PROFILES` et `_DIST_KM` partagent le
+# meme jeu de cles par construction (deux champs de la meme entree gazetteer).
+_PROFILES: Dict[str, Dict[str, str]] = gazetteer.profiles()
 
 
 # Distances numériques approximatives (km) au niveau du quartier, pour le
 # contrôle de cohérence des allégations (couche B). center = centre / cathédrale
 # St-Étienne ; gare = gare Metz-Ville (Pompidou accolé). Volontairement grossières
 # (centroïde de quartier) : servent à juger le plausible, pas à mesurer.
-_DIST_KM: Dict[str, Dict[str, float]] = {
-    "Centre-Ville": {"center": 0.2, "gare": 0.8},
-    "Ancienne-Ville": {"center": 0.4, "gare": 1.0},
-    "Nouvelle-Ville": {"center": 1.0, "gare": 0.3},
-    "Les-Iles": {"center": 1.0, "gare": 1.8},
-    "Outre-Seille": {"center": 0.8, "gare": 1.3},
-    "Sablon": {"center": 1.8, "gare": 1.2},
-    "Sainte-Therese": {"center": 2.0, "gare": 1.4},
-    "Queuleu": {"center": 3.0, "gare": 2.5},
-    "Plantieres": {"center": 2.5, "gare": 2.5},
-    "Bellecroix": {"center": 2.5, "gare": 2.8},
-    "Borny": {"center": 4.5, "gare": 4.5},
-    "Magny": {"center": 5.0, "gare": 4.5},
-    "Vallieres": {"center": 4.0, "gare": 4.0},
-    "Devant-Les-Ponts": {"center": 2.0, "gare": 2.5},
-    "La-Patrotte": {"center": 2.5, "gare": 3.0},
-    "Grange-Aux-Bois": {"center": 6.0, "gare": 6.0},
-    "Technopole": {"center": 3.5, "gare": 3.0},
-}
+_DIST_KM: Dict[str, Dict[str, float]] = gazetteer.dist_km()
 
 
 # Variantes d'écriture / libellés composés -> clé canonique d'un profil existant.
-_ALIASES: Dict[str, str] = {
-    "Centre": "Centre-Ville",
-    "Plantieres-Queuleu": "Plantieres",
-    "Queuleu-Plantieres": "Queuleu",
-    "Iles": "Les-Iles",
-    "Ile": "Les-Iles",
-    # Libellé composé piégé par le séparateur « / » : canonical_district ne split
-    # que sur « - », donc « Sainte-Thérèse / Botanique » produit la clé littérale
-    # ci-dessous, qui ne matche aucun profil. On la remappe sur Sainte-Thérèse
-    # (« Botanique » inter-communal -> chantier C).
-    "Sainte-Therese-/-Botanique": "Sainte-Therese",
-}
+# Inclut le piège « / » (« Sainte-Thérèse / Botanique »). DERIVE du gazetteer.
+_ALIASES: Dict[str, str] = gazetteer.aliases()
 
 
 def _resolve_key(district: Optional[str], city: Optional[str] = "Metz") -> Optional[str]:
