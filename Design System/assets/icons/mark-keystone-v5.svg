@@ -1,0 +1,13 @@
+<!-- Cohérence — mark-keystone v5 : LA CLEF EN NÉGATIF (réserve dans la pierre).
+     Concept : jeu plein/vide. Un bloc de pierre PLEIN encré Jaumont, dans lequel la
+     clef de voûte est réservée (évidée) — la cohérence comme le vide qui structure
+     le plein. Lecture inversée des autres variantes : ici la forme porteuse est
+     l'or Jaumont massif, la clef est l'absence. Très fort à toute taille car la
+     masse colorée ne s'efface jamais (pas de trait fin à perdre).
+     fill-rule evenodd : le trapèze intérieur perce le bloc. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- bloc plein Jaumont avec clef évidée (réserve trapézoïdale) -->
+  <path fill="#C9A14A" fill-rule="evenodd" d="
+    M4 6 L20 6 L20 18 L4 18 Z
+    M10.4 8.4 L13.6 8.4 L12.9 15.6 L11.1 15.6 Z" />
+</svg>

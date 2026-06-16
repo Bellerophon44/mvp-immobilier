@@ -1,0 +1,17 @@
+<!-- Cohérence — Direction B : alérion lorrain unique, abstrait.
+     UN seul aiglon héraldique, ailes déployées, SANS bec ni pattes (fidèle à la
+     définition de l'alérion). Réduit à l'essentiel : deux ailes en chevron
+     montant + un corps fuselé central. Aucune des trois répétitions qui tuaient
+     les marks précédents. Pensé pour rester franc à 16 px.
+     Trait 1,75 px. Encrable en or Jaumont (--jaumont) pour le registre local,
+     ou en ink. Dégrade en favicon : le chevron d'ailes reste lisible ; si le
+     corps se referme, on tient le corps à 2 traits seulement. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+  <!-- aile gauche -->
+  <path d="M12 8.5 C 9.2 7.6 6.6 8 4.5 10 C 7 9.4 9.4 9.7 11.2 11.2" />
+  <!-- aile droite -->
+  <path d="M12 8.5 C 14.8 7.6 17.4 8 19.5 10 C 17 9.4 14.6 9.7 12.8 11.2" />
+  <!-- corps fuselé, pointe en queue -->
+  <path d="M12 8.2 L12 15.5" />
+</svg>
