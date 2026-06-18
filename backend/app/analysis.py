@@ -5,6 +5,7 @@ from app.llm_semantic import analyze_semantic
 from app.market_stats import compute_price_market_pillar
 from app.photo_evidence import assess_claims_with_photos
 from app.geocode import geocode_address
+import app.metz_local as metz_local
 from app.metz_local import (
     _resolve_key,
     assess_claims,
@@ -191,9 +192,20 @@ def run_full_analysis(
         local_ctx = local_context_from_coords(
             geo["lat"], geo["lon"], district, city, address=geo.get("label") or addr
         )
+        # Ecole mesuree la plus proche (tous degres) pour enrichir la note du
+        # claim `ecoles` (volet D.3). Best-effort : un echec n'empeche pas
+        # l'evaluation des autres claims.
+        nearest_school = None
+        try:
+            schools = metz_local.nearest_schools(geo["lat"], geo["lon"])
+            if schools:
+                nearest_school = min(schools, key=lambda s: s.get("distance_km", float("inf")))
+        except Exception:
+            logger.exception("nearest_schools indisponible pour la note ecoles")
         local_ctx["claims"] = assess_claims(
             district, claims, city,
             dist_override=claim_distances_from_coords(geo["lat"], geo["lon"]),
+            nearest_school=nearest_school,
         )
     else:
         # Garde-fou C2 (branche sans géocodage uniquement) : si le quartier

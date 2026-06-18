@@ -1,7 +1,15 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { analyzeListing, sendEvent, sendFeedback, ApiResult, LocalContext } from "../lib/api";
+import {
+  analyzeListing,
+  sendEvent,
+  sendFeedback,
+  fetchTravelTimes,
+  ApiResult,
+  LocalContext,
+  LocalFact,
+} from "../lib/api";
 import AnalyzerInput, { AnalyzerMode } from "../components/design/AnalyzerInput";
 import VerdictHeader from "../components/design/VerdictHeader";
 import PillarBar from "../components/design/PillarBar";
@@ -386,6 +394,42 @@ function LocalContextCard({
   mode?: "url" | "text";
 }) {
   const claims = context.claims || [];
+  // Surcharge locale des `value` de facts routables quand l'utilisateur demande
+  // un autre mode (POST /travel-times). Clé = poi_id -> fact recalculé.
+  const [overrides, setOverrides] = useState<Record<string, LocalFact>>({});
+  const [pendingMode, setPendingMode] = useState<string | null>(null);
+
+  const TRAVEL_MODES: { id: "WALK" | "BICYCLE" | "DRIVE" | "TRANSIT"; label: string }[] = [
+    { id: "WALK", label: "à pied" },
+    { id: "BICYCLE", label: "à vélo" },
+    { id: "DRIVE", label: "en voiture" },
+    { id: "TRANSIT", label: "en transports" },
+  ];
+
+  async function requestMode(modeId: "WALK" | "BICYCLE" | "DRIVE" | "TRANSIT") {
+    if (!context.address) return;
+    setPendingMode(modeId);
+    const resp = await fetchTravelTimes(context.address, modeId);
+    if (resp.status === "ok" && resp.results) {
+      const next: Record<string, LocalFact> = {};
+      for (const r of resp.results) {
+        next[r.poi_id] = {
+          label: r.label,
+          value: r.value,
+          mode: r.estimated ? undefined : (modeId as LocalFact["mode"]),
+          duration_s: r.duration_s,
+          distance_m: r.distance_m,
+          estimated: r.estimated,
+          poi_id: r.poi_id,
+        };
+      }
+      setOverrides(next);
+    }
+    setPendingMode(null);
+  }
+
+  const hasRoutable = context.facts.some((f) => f.poi_id);
+
   return (
     <div style={{
       background: "var(--paper)",
@@ -443,29 +487,60 @@ function LocalContextCard({
       }}>
         {context.summary}
       </div>
+      {/* Onglets de mode (volet C) : recalculent les temps des facts routables
+          via POST /travel-times. Affichés seulement si des POI routables existent
+          ET qu'une adresse est disponible (mode adresse). */}
+      {hasRoutable && context.address && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
+          {TRAVEL_MODES.map((m) => (
+            <button
+              key={m.id}
+              type="button"
+              onClick={() => requestMode(m.id)}
+              disabled={pendingMode !== null}
+              style={{
+                fontFamily: "var(--font-sans)",
+                fontSize: 12,
+                padding: "4px 10px",
+                borderRadius: 999,
+                border: "1px solid var(--stone-line)",
+                background: "var(--paper)",
+                color: "var(--ink-2)",
+                cursor: pendingMode !== null ? "default" : "pointer",
+                opacity: pendingMode !== null && pendingMode !== m.id ? 0.5 : 1,
+              }}
+            >
+              {pendingMode === m.id ? "…" : m.label}
+            </button>
+          ))}
+        </div>
+      )}
       <dl style={{ margin: 0, display: "flex", flexDirection: "column", gap: 10 }}>
-        {context.facts.map((f) => (
-          <div key={f.label} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            <dt style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 11,
-              letterSpacing: "0.04em",
-              color: "var(--stone)",
-              textTransform: "uppercase",
-            }}>
-              {f.label}
-            </dt>
-            <dd style={{
-              margin: 0,
-              fontFamily: "var(--font-sans)",
-              fontSize: 14,
-              color: "var(--ink-2)",
-              lineHeight: 1.5,
-            }}>
-              {f.value}
-            </dd>
-          </div>
-        ))}
+        {context.facts.map((f) => {
+          const shown = (f.poi_id && overrides[f.poi_id]) || f;
+          return (
+            <div key={f.label} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              <dt style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: 11,
+                letterSpacing: "0.04em",
+                color: "var(--stone)",
+                textTransform: "uppercase",
+              }}>
+                {f.label}
+              </dt>
+              <dd style={{
+                margin: 0,
+                fontFamily: "var(--font-sans)",
+                fontSize: 14,
+                color: "var(--ink-2)",
+                lineHeight: 1.5,
+              }}>
+                {shown.value}
+              </dd>
+            </div>
+          );
+        })}
       </dl>
 
       {/* Couche B : cohérence des allégations de l'annonce vs profil quartier */}
@@ -563,7 +638,7 @@ function LocalContextCard({
         lineHeight: 1.5,
       }}>
         {context.precision === "adresse"
-          ? "Distances à vol d'oiseau depuis l'adresse — non comptées dans le score (temps de trajet réel à venir)."
+          ? "Temps de trajet et distances depuis l'adresse — les valeurs « à vol d'oiseau » sont des distances en ligne droite (repli). Non comptés dans le score."
           : "Repères indicatifs au niveau du quartier — non comptés dans le score."}
       </div>
     </div>

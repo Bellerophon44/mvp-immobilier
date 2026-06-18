@@ -11,17 +11,25 @@ La couche B (contrôle de cohérence des allégations de l'annonce) et la couche
 """
 
 from typing import Any, Dict, List, Optional
+import logging
 import math
 
 from scrapers.base import canonical_city, canonical_district
 from app import geo_gazetteer as gazetteer
+from app.routing import compute_travel_times
+from app.schools import nearest_schools
+
+
+logger = logging.getLogger("metz_local")
 
 
 # Attrait frontalier : commun à tout Metz (axe A31 plein nord vers le sillon
 # lorrain et le Luxembourg). Phrasé qualitatif, sans temps faussement précis.
+# Note : pas de temps de trajet chiffre embarque dans ce libelle (anti fausse
+# precision, AC23/AC25 : un fact estimated ne doit jamais afficher « ~N min »).
 _A31_LUXEMBOURG = (
-    "Axe A31 vers le sillon lorrain ; Luxembourg accessible (~45 min hors "
-    "trafic), bassin d'emploi frontalier très recherché."
+    "Axe A31 vers le sillon lorrain ; Luxembourg et son bassin d'emploi "
+    "frontalier accessibles, secteur très recherché."
 )
 
 
@@ -48,6 +56,24 @@ def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     dlambda = math.radians(lon2 - lon1)
     a = math.sin(dphi / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dlambda / 2) ** 2
     return r * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+
+# Libelle francais du mode de trajet (volet C). Sert au `value` etiquete et au
+# champ `label_mode`. Jamais « a vol d'oiseau » (reserve au repli Haversine).
+_MODE_LABELS: Dict[str, str] = {
+    "WALK": "à pied",
+    "DRIVE": "en voiture",
+    "BICYCLE": "à vélo",
+    "TRANSIT": "en transports",
+}
+
+# Degre -> libelle lisible pour les facts ecoles (volet D).
+_DEGRE_LISIBLE: Dict[str, str] = {
+    "maternelle": "École maternelle",
+    "elementaire": "École élémentaire",
+    "college": "Collège",
+    "lycee": "Lycée",
+}
 
 
 def _fmt_dist(km: float) -> str:
@@ -118,7 +144,6 @@ def local_context(
     facts: List[Dict[str, str]] = [
         {"label": "Centre / Cathédrale St-Étienne", "value": p["center"]},
         {"label": "Gare Metz-Ville · Centre Pompidou-Metz", "value": p["gare"]},
-        {"label": "Axe A31 · Luxembourg", "value": _A31_LUXEMBOURG},
     ]
     ctx: Dict[str, Any] = {
         "district": p["name"],
@@ -153,15 +178,32 @@ def _assess_distance(km: float, near: float, far: float) -> str:
     return A_VERIFIER
 
 
-def _assess_one(ctype: str, name: str, dist: Dict[str, float]) -> tuple:
+def _assess_one(
+    ctype: str,
+    name: str,
+    dist: Dict[str, float],
+    nearest_school: Optional[Dict[str, Any]] = None,
+) -> tuple:
     """(status, note) pour une allégation, confrontée au profil du quartier.
 
     Règle de prudence : on ne contredit que ce que la géographie de quartier rend
     réellement douteux ; le reste (commerces, calme, écoles…) n'est pas vérifiable
     depuis le profil -> 'à vérifier' neutre, jamais 'cohérent' par complaisance.
+
+    `nearest_school` (mode adresse uniquement) : l'école mesurée la plus proche
+    ({degre, distance_km}) permet d'enrichir la note du claim `ecoles` d'un fait
+    factuel (distance à vol d'oiseau), sans jamais basculer en `coherent`.
     """
     center = dist.get("center")
     gare = dist.get("gare")
+
+    if ctype == "ecoles" and nearest_school is not None:
+        degre_label = _DEGRE_LISIBLE.get(nearest_school.get("degre"), "École")
+        dist_txt = _fmt_dist(nearest_school.get("distance_km", 0.0))
+        return A_VERIFIER, (
+            f"{degre_label} la plus proche à {dist_txt} à vol d'oiseau — "
+            "proximité à confirmer sur place."
+        )
 
     if ctype == "cathedrale":
         status = _assess_distance(center, 1.0, 2.5)
@@ -201,6 +243,7 @@ def assess_claims(
     city: Optional[str] = "Metz",
     dist_override: Optional[Dict[str, float]] = None,
     district_corroborated: Optional[bool] = None,
+    nearest_school: Optional[Dict[str, Any]] = None,
 ) -> List[Dict[str, str]]:
     """Confronte les allégations locales de l'annonce (couche B) aux distances de
     référence : `dist_override` (distances exactes issues du géocodage, couche C)
@@ -210,7 +253,10 @@ def assess_claims(
     `district_corroborated` (garde-fou C2) : None/True -> comportement inchangé ;
     False -> tout claim qui serait sinon `coherent` est rétrogradé `a_verifier`
     (on n'affirme pas une cohérence locale sur un quartier que l'annonce ne
-    confirme pas)."""
+    confirme pas).
+
+    `nearest_school` (mode adresse) : école mesurée la plus proche, pour enrichir
+    la note du claim `ecoles` d'une distance factuelle (volet D.3)."""
     key = _resolve_key(district, city)
     if (not key and not dist_override) or not claims:
         return []
@@ -225,7 +271,7 @@ def assess_claims(
             text, ctype = str(c).strip(), "autre"
         if not text:
             continue
-        status, note = _assess_one(ctype, name, dist)
+        status, note = _assess_one(ctype, name, dist, nearest_school=nearest_school)
         if district_corroborated is False and status == COHERENT:
             status = A_VERIFIER
             note = (
@@ -262,12 +308,26 @@ def local_context_from_coords(
     key = _resolve_key(district, city)
     profile = _PROFILES.get(key) if key else None
 
-    gare_pompidou = min(d["gare"], d["pompidou"])
-    facts: List[Dict[str, str]] = [
-        {"label": "Centre / Cathédrale St-Étienne", "value": _fmt_dist(d["cathedrale"])},
-        {"label": "Gare Metz-Ville · Centre Pompidou-Metz", "value": _fmt_dist(gare_pompidou)},
-        {"label": "Échangeur A31 le plus proche", "value": f"{_fmt_dist(d['a31'])} · {_A31_LUXEMBOURG}"},
+    # Volet C : temps de trajet reels par defaut (best-effort, 2 requetes).
+    # WALK sur {cathedrale, gare, pompidou}, DRIVE sur {a31}. Tout echec /
+    # indisponibilite retombe en Haversine PAR POI (repli independant).
+    routed = _default_travel_times(lat, lon)
+
+    # Mention A31 (attrait frontalier) placee EN PREFIXE du value du fact a31
+    # dans les deux cas (temps reel ou repli), pour conserver « Luxembourg » (AC3)
+    # tout en laissant le value se TERMINER par « a vol d'oiseau » en repli (AC23).
+    facts: List[Dict[str, Any]] = [
+        _poi_fact("cathedrale", "Centre / Cathédrale St-Étienne", d["cathedrale"], routed),
+        _poi_fact("gare", "Gare Metz-Ville", d["gare"], routed),
+        _poi_fact("pompidou", "Centre Pompidou-Metz", d["pompidou"], routed),
+        _poi_fact(
+            "a31", "Échangeur A31 le plus proche", d["a31"], routed,
+            value_prefix=_A31_LUXEMBOURG + " · ",
+        ),
     ]
+
+    facts.extend(_school_facts(lat, lon))
+
     ctx: Dict[str, Any] = {
         "district": profile["name"] if profile else "Metz",
         "summary": profile["caractere"] if profile else "Localisation précise (adresse géocodée).",
@@ -277,3 +337,80 @@ def local_context_from_coords(
     if address:
         ctx["address"] = address
     return ctx
+
+
+def _default_travel_times(lat: float, lon: float) -> Dict[str, Optional[dict]]:
+    """2 requetes Route Matrix par defaut (WALK + DRIVE). Best-effort : toute
+    exception / indisponibilite -> None pour les POI concernes (repli Haversine
+    en aval). Ne leve jamais (/analyze ne doit pas 500 a cause du routing)."""
+    origin = (lat, lon)
+    results: Dict[str, Optional[dict]] = {}
+    walk_pois = {p: _POI[p] for p in ("cathedrale", "gare", "pompidou")}
+    drive_pois = {"a31": _POI["a31"]}
+    try:
+        results.update(compute_travel_times(origin, walk_pois, "WALK") or {})
+    except Exception:
+        logger.exception("metz_local: routing WALK indisponible, repli vol d'oiseau")
+    try:
+        results.update(compute_travel_times(origin, drive_pois, "DRIVE") or {})
+    except Exception:
+        logger.exception("metz_local: routing DRIVE indisponible, repli vol d'oiseau")
+    return results
+
+
+def _poi_fact(
+    poi_id: str,
+    label: str,
+    km: float,
+    routed: Dict[str, Optional[dict]],
+    value_prefix: str = "",
+) -> Dict[str, Any]:
+    """Fact d'un POI : temps reel etiquete si le routing a repondu, sinon repli
+    Haversine « a vol d'oiseau ». Le value derive de duration_s (jamais d'une
+    distance Haversine convertie en minutes — anti fausse precision)."""
+    route = routed.get(poi_id) if isinstance(routed, dict) else None
+    if isinstance(route, dict) and route.get("duration_s") is not None:
+        mode = route.get("mode")
+        label_mode = _MODE_LABELS.get(mode, "")
+        minutes = round(route["duration_s"] / 60)
+        value = value_prefix + f"~{minutes} min {label_mode}".rstrip()
+        fact: Dict[str, Any] = {
+            "label": label,
+            "value": value,
+            "mode": mode,
+            "duration_s": int(route["duration_s"]),
+            "estimated": False,
+            "poi_id": poi_id,
+        }
+        if route.get("distance_m") is not None:
+            fact["distance_m"] = int(route["distance_m"])
+        if label_mode:
+            fact["label_mode"] = label_mode
+        return fact
+
+    value = value_prefix + f"{_fmt_dist(km)} à vol d'oiseau"
+    return {
+        "label": label,
+        "value": value,
+        "estimated": True,
+        "poi_id": poi_id,
+    }
+
+
+def _school_facts(lat: float, lon: float) -> List[Dict[str, Any]]:
+    """Facts ecoles (volet D, mode adresse) : un fact par ecole la plus proche
+    par degre, label degre lisible + distance a vol d'oiseau. Sans jugement, sans
+    minutes. Best-effort : un echec ne casse pas le contexte local."""
+    try:
+        schools = nearest_schools(lat, lon)
+    except Exception:
+        logger.exception("metz_local: nearest_schools indisponible")
+        return []
+    facts: List[Dict[str, Any]] = []
+    for s in schools:
+        degre_label = _DEGRE_LISIBLE.get(s.get("degre"), "École")
+        facts.append({
+            "label": f"{degre_label} {s.get('name')}",
+            "value": f"{_fmt_dist(s.get('distance_km', 0.0))} à vol d'oiseau",
+        })
+    return facts
