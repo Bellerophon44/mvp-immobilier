@@ -13,6 +13,7 @@ La couche B (contrôle de cohérence des allégations de l'annonce) et la couche
 from typing import Any, Dict, List, Optional
 import logging
 import math
+import unicodedata
 
 from scrapers.base import canonical_city, canonical_district
 from app import geo_gazetteer as gazetteer
@@ -74,6 +75,39 @@ _DEGRE_LISIBLE: Dict[str, str] = {
     "college": "Collège",
     "lycee": "Lycée",
 }
+
+# Descripteurs de degre redondants en tete de `name` dans le snapshot Annuaire
+# Education (ex. « Maternelle Debussy », « College Arsenal »). On les retire pour
+# composer un label propre `{degre lisible} {nom}` sans doublon du type
+# « Collège College Arsenal ». Compare sans accents/casse, le plus specifique
+# d'abord, et seulement les prefixes coherents avec le degre de l'ecole.
+_DEGRE_PREFIXES: Dict[str, tuple] = {
+    "maternelle": ("ecole maternelle", "maternelle", "ecole"),
+    "elementaire": ("ecole elementaire", "ecole primaire", "elementaire", "primaire", "ecole"),
+    "college": ("college",),
+    "lycee": ("lycee",),
+}
+
+
+def _strip_accents(raw: str) -> str:
+    """Minuscule sans accents (NFD + retrait des diacritiques) pour comparer un
+    prefixe quelle que soit l'orthographe du snapshot."""
+    stripped = unicodedata.normalize("NFD", raw)
+    return "".join(c for c in stripped if unicodedata.category(c) != "Mn").lower()
+
+
+def _clean_school_name(name: Optional[str], degre: Optional[str]) -> str:
+    """Retire le descripteur de degre redondant en tete du nom d'ecole, en
+    conservant l'orthographe d'origine du nom propre. 'College Arsenal'/'college'
+    -> 'Arsenal' ; 'Ecole elementaire Debussy'/'elementaire' -> 'Debussy'. Sans
+    prefixe reconnu, le nom est renvoye tel quel."""
+    raw = (name or "").strip()
+    norm = _strip_accents(raw)
+    for prefix in _DEGRE_PREFIXES.get(degre or "", ()):
+        if norm.startswith(prefix):
+            rest = raw[len(prefix):].lstrip(" -'")
+            return rest or raw
+    return raw
 
 
 def _fmt_dist(km: float) -> str:
@@ -408,9 +442,11 @@ def _school_facts(lat: float, lon: float) -> List[Dict[str, Any]]:
         return []
     facts: List[Dict[str, Any]] = []
     for s in schools:
-        degre_label = _DEGRE_LISIBLE.get(s.get("degre"), "École")
+        degre = s.get("degre")
+        degre_label = _DEGRE_LISIBLE.get(degre, "École")
+        proper = _clean_school_name(s.get("name"), degre)
         facts.append({
-            "label": f"{degre_label} {s.get('name')}",
+            "label": f"{degre_label} {proper}",
             "value": f"{_fmt_dist(s.get('distance_km', 0.0))} à vol d'oiseau",
         })
     return facts
