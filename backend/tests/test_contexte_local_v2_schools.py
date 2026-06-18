@@ -357,6 +357,56 @@ def test_ac38_school_facts_have_no_minutes(patch_schools):
 
 
 # ===========================================================================
+# Label ecole : pas de doublon de degre (« Collège College Arsenal »)
+# Le snapshot Annuaire Education prefixe deja le degre dans `name` ; le fact ne
+# doit pas le repeter. Regression du rendu observe en staging (2026-06-18).
+# ===========================================================================
+@pytest.mark.parametrize("name, degre, expected", [
+    ("Maternelle Debussy", "maternelle", "École maternelle Debussy"),
+    ("Ecole elementaire Debussy", "elementaire", "École élémentaire Debussy"),
+    ("College Arsenal", "college", "Collège Arsenal"),
+    ("Lycee Fabert", "lycee", "Lycée Fabert"),
+    # Nom propre sans descripteur de degre : inchange.
+    ("Jean Moulin", "elementaire", "École élémentaire Jean Moulin"),
+    # Casse / accents indifferents pour la detection du prefixe.
+    ("ÉCOLE MATERNELLE Les Hauts", "maternelle", "École maternelle Les Hauts"),
+])
+def test_school_label_no_degree_duplication(name, degre, expected):
+    from app.metz_local import _DEGRE_LISIBLE, _clean_school_name
+
+    label = f"{_DEGRE_LISIBLE.get(degre, 'École')} {_clean_school_name(name, degre)}"
+    assert label == expected, f"label attendu {expected!r}, recu {label!r}"
+    # Aucun mot de degre ne doit apparaitre deux fois (insensible a la casse).
+    lowered = label.lower()
+    for token in ("maternelle", "elementaire", "élémentaire", "college", "collège", "lycee", "lycée"):
+        assert lowered.count(token) <= 1, (
+            f"degre {token!r} duplique dans le label {label!r}"
+        )
+
+
+def test_school_facts_label_no_duplication_end_to_end(monkeypatch):
+    """Bout en bout : des ecoles dont le `name` contient deja le degre produisent
+    des labels sans doublon via local_context_from_coords."""
+    import app.metz_local as ml
+
+    def _fake_nearest(lat, lon, schools=None):
+        return [
+            {"name": "Maternelle Debussy", "degre": "maternelle", "commune": "Metz",
+             "distance_km": 0.57},
+            {"name": "College Arsenal", "degre": "college", "commune": "Metz",
+             "distance_km": 0.11},
+        ]
+
+    monkeypatch.setattr(ml, "nearest_schools", _fake_nearest, raising=False)
+    ctx = ml.local_context_from_coords(REF_LAT, REF_LON)
+    labels = [f["label"] for f in ctx["facts"][4:]]
+    assert "École maternelle Debussy" in labels, labels
+    assert "Collège Arsenal" in labels, labels
+    for label in labels:
+        assert "College College" not in label and "Maternelle Maternelle" not in label, label
+
+
+# ===========================================================================
 # AC39 — claim `ecoles` reste A_VERIFIER (jamais coherent), adresse ET quartier
 # ===========================================================================
 def test_ac39_ecoles_claim_stays_a_verifier_quartier():
