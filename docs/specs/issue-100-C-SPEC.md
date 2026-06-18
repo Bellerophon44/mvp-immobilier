@@ -1,5 +1,12 @@
 # SPEC — issue #100, chantier C, sous-palier C1 (inter-communal & commune reelle)
 
+> **MAJ statut (2026-06-18) :** C1 est EN PRODUCTION (PR #110/#111, 2026-06-16).
+> Le sous-palier **C3 (POI ecoles)**, marque OUT dans cette spec C1 (§1 OUT),
+> a depuis ete **livre en prod** (2026-06-18) dans le lot « Contexte local v2 »
+> — voir `docs/specs/contexte-local-v2-SPEC.md` et `backend/CLAUDE.md` §11bis.
+> Reste **C2** (quartier reel par polygones) en TODO. Le corps ci-dessous decrit
+> le perimetre C1 d'origine et reste valable comme spec de C1.
+
 > Statut : pre-GATE 2. Spec implementable issue de l'analyse approuvee
 > (`docs/specs/issue-100-C-ANALYSE.md`) + arbitrages GATE 1 (actes par le
 > fondateur, repris en §2, non negociables). Sources relues avant redaction :
