@@ -5,12 +5,20 @@ arbitrages GATE 1 (2026-06-07), code reel lu le 2026-06-07 (`app/url_fetch.py`,
 `app/llm_semantic.py`, `app/analysis.py`, `app/main.py`, `app/metz_local.py`,
 `frontend/lib/api.ts`, `tests/conftest.py`). Aucune ligne de solution n'est codee ici.
 
+> **Amendement 2026-06-18** : pour reduire les faux `non_trouve` (reperes pourtant
+> presents dans les photos mais hors des premieres images ou en arriere-plan), le
+> **cap d'images passe de 6 a 15** (`MAX_IMAGES = 15`) et le **detail passe de
+> `low` a `high`** (`IMAGE_DETAIL = "high"`, lisibilite des elements lointains).
+> Le reste du contrat (gating par type, repli `non_trouve`, bloc non-score,
+> cache, RGPD) est inchange. Les references `cap 6` / `detail:"low"` ci-dessous
+> sont a lire avec ces nouvelles valeurs.
+
 ## 1. Objectif et perimetre
 
 ### Objectif
 En mode URL uniquement, apres le fetch de l'annonce, extraire les URLs d'images de
 la page et, pour les seules allegations locales **visuellement verifiables**, faire
-**un seul** appel multimodal `gpt-4.1-mini` (images en `detail:"low"`) qui confirme
+**un seul** appel multimodal `gpt-4.1-mini` (images en `detail:"high"`) qui confirme
 ou n'a pas trouve chaque allegation eligible. Chaque claim de `local_context.claims`
 recoit un champ optionnel `photo_status`. Bloc **non-score** (le score 40/30/30 reste
 strictement intact).
@@ -19,7 +27,7 @@ strictement intact).
 - `app/url_fetch.py` : `extract_image_urls(html, base_url) -> list[str]` + exposition
   du HTML brut via **un seul** GET (pas de double fetch reseau).
 - `app/photo_evidence.py` (NOUVEAU) : `assess_claims_with_photos(claims, image_urls)`
-  (gating, cap 6, appel vision conditionnel, cache memoire, repli silencieux).
+  (gating, cap 15, appel vision conditionnel, cache memoire, repli silencieux).
 - `app/analysis.py` : parametre optionnel `image_urls` sur `run_full_analysis` ;
   fusion de `photo_status` dans chaque dict de `local_context["claims"]`.
 - `app/main.py` : en branche URL, extraire les images et les passer via `image_urls=`.
@@ -47,9 +55,9 @@ strictement intact).
    **jamais** eligibles et ne peuvent **jamais** recevoir `confirme`. Pour un claim de
    type `autre`, le prompt vision doit repondre `non_applicable` si le claim n'est PAS
    une vue / un repere visuel.
-2. **Cap images = 6** maximum, en `detail:"low"`. Selection : apres dedup, prioriser
+2. **Cap images = 15** maximum, en `detail:"high"`. Selection : apres dedup, prioriser
    `og:image` / `twitter:image` / JSON-LD `image` (photo principale, souvent exterieure),
-   puis les `<img>` de galerie, jusqu'a 6.
+   puis les `<img>` de galerie, jusqu'a 15.
 3. **Seuil `confirme` STRICT** : le modele ne repond `confirme` que si une image montre
    l'element SANS AMBIGUITE ; au moindre doute -> `non_trouve`. `temperature=0.2`.
    A verrouiller par test (§4).
@@ -106,8 +114,8 @@ operer sur le **HTML brut**, AVANT decomposition des `<script>`.
   - resout les URLs relatives via `urljoin(base_url, src)` ;
   - deduplique en preservant l'ordre de priorite ;
   - ne leve jamais (HTML malforme / absence de balise -> liste eventuellement vide) ;
-  - le cap a 6 peut etre applique ici ou dans `photo_evidence` ; la spec exige que la
-    liste finalement transmise a l'appel vision ne depasse JAMAIS 6 (§4 critere 8).
+  - le cap a 15 peut etre applique ici ou dans `photo_evidence` ; la spec exige que la
+    liste finalement transmise a l'appel vision ne depasse JAMAIS 15 (§4 critere 8).
 - Filtre SSRF (`_is_safe_url`) inchange ; les URLs d'images ne sont pas re-fetchees cote
   serveur (on transmet l'URL a OpenAI).
 
@@ -124,11 +132,11 @@ operer sur le **HTML brut**, AVANT decomposition des `<script>`.
 - **Gating** : ne retenir que les claims dont `type in {cathedrale, nature, autre}`.
 - **Court-circuit (aucun appel vision)** : si 0 claim eligible OU `image_urls` vide
   -> retour immediat sans appel LLM.
-- **Cap** : au plus 6 images transmises, `detail:"low"`.
+- **Cap** : au plus 15 images transmises, `detail:"high"`.
 - **Appel vision** : UN SEUL `client.chat.completions.create`, `model=MODEL_NAME`
   (`gpt-4.1-mini`), `temperature=0.2`, `response_format={"type":"json_object"}`, message
   `user` = une part `text` (claims eligibles + format JSON attendu) + N parts
-  `image_url` (`{"url": ..., "detail": "low"}`). Le client OpenAI et `MODEL_NAME` sont
+  `image_url` (`{"url": ..., "detail": "high"}`). Le client OpenAI et `MODEL_NAME` sont
   reutilises (import depuis `llm_semantic` ou reinstanciation depuis `OPENAI_API_KEY` ;
   pas de nouveau secret).
 - **System prompt (honnetete stricte, anti-complaisance)** : enonce que le modele ne
@@ -212,7 +220,7 @@ Numerotation contractuelle pour testeur et reviewer.
 4. **Appel vision conditionnel positif** : avec >=1 claim eligible ET >=1 image, exactement
    **un** appel `client.chat.completions.create` est emis (mock assert appele une fois),
    avec `response_format={"type":"json_object"}` et `temperature == 0.2`.
-5. **detail low** : les parts `image_url` transmises a l'appel portent `detail == "low"`.
+5. **detail high** : les parts `image_url` transmises a l'appel portent `detail == "high"`.
 6. **Repli silencieux** : si le mock OpenAI leve une exception (reseau/LLM), aucun raise
    ne remonte ; tous les claims eligibles recoivent `photo_status == "non_trouve"` ;
    l'analyse complete (`run_full_analysis`) aboutit sans erreur.
@@ -277,7 +285,7 @@ Numerotation contractuelle pour testeur et reviewer.
   jamais `confirme`, criteres 1) + seuil `confirme` strict (`temperature=0.2`, prompt
   anti-complaisance, criteres 4/14) ; verrou par test obligatoire (sinon la lecon est
   oubliee, `.claude/lessons.md`).
-- **RGPD (images tierces)** : `detail:"low"`, transit sans stockage, URLs non loggees,
+- **RGPD (images tierces)** : `detail:"high"`, transit sans stockage, URLs non loggees,
   micro-mention front (decision 4). Pas de revue juridique bloquante.
 - **Pas de secret en clair** : reutilisation de `OPENAI_API_KEY` ; aucun secret introduit.
 - **Pas de nouveau vendor** : OpenAI `chat.completions` multimodal deja en place.

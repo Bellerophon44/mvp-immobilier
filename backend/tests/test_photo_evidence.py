@@ -277,11 +277,11 @@ def test_vision_called_once_with_params(monkeypatch):
 
 
 # ===========================================================================
-# critere 5 — detail low sur chaque part image_url
+# critere 5 — detail high sur chaque part image_url (reperage arriere-plan)
 # ===========================================================================
 
-def test_image_parts_detail_low(monkeypatch):
-    from app.photo_evidence import assess_claims_with_photos
+def test_image_parts_detail_high(monkeypatch):
+    from app.photo_evidence import assess_claims_with_photos, IMAGE_DETAIL
 
     mock = _MockCreate(status="non_trouve")
     _install_vision_mock(monkeypatch, mock)
@@ -294,7 +294,7 @@ def test_image_parts_detail_low(monkeypatch):
     for part in parts:
         image_url = part.get("image_url")
         assert isinstance(image_url, dict)
-        assert image_url.get("detail") == "low"
+        assert image_url.get("detail") == IMAGE_DETAIL == "high"
 
 
 # ===========================================================================
@@ -369,34 +369,34 @@ def test_status_out_of_enum_falls_back_non_trouve(monkeypatch):
 
 
 # ===========================================================================
-# critere 8 — Cap 6 : >6 URLs -> au plus 6 parts image_url transmises
+# critere 8 — Cap MAX_IMAGES : au-dela, au plus MAX_IMAGES parts transmises
 # ===========================================================================
 
-def test_cap_six_images(monkeypatch):
-    from app.photo_evidence import assess_claims_with_photos
+def test_cap_images(monkeypatch):
+    from app.photo_evidence import assess_claims_with_photos, MAX_IMAGES
 
     mock = _MockCreate(status="non_trouve")
     _install_vision_mock(monkeypatch, mock)
 
-    urls = [f"https://cdn.x/{i}.jpg" for i in range(10)]
+    urls = [f"https://cdn.x/{i}.jpg" for i in range(MAX_IMAGES + 4)]
     assess_claims_with_photos([_claim("la Moselle", "nature")], urls)
 
     parts = _image_url_parts(mock.calls[0])
-    assert len(parts) <= 6
+    assert len(parts) <= MAX_IMAGES
 
 
-def test_exactly_six_images_all_transmitted(monkeypatch):
-    """Borne exacte : 6 URLs -> jusqu'a 6 parts (pas de troncature off-by-one)."""
-    from app.photo_evidence import assess_claims_with_photos
+def test_exactly_max_images_all_transmitted(monkeypatch):
+    """Borne exacte : MAX_IMAGES URLs -> autant de parts (pas d'off-by-one)."""
+    from app.photo_evidence import assess_claims_with_photos, MAX_IMAGES
 
     mock = _MockCreate(status="non_trouve")
     _install_vision_mock(monkeypatch, mock)
 
-    urls = [f"https://cdn.x/{i}.jpg" for i in range(6)]
+    urls = [f"https://cdn.x/{i}.jpg" for i in range(MAX_IMAGES)]
     assess_claims_with_photos([_claim("la Moselle", "nature")], urls)
 
     parts = _image_url_parts(mock.calls[0])
-    assert len(parts) == 6
+    assert len(parts) == MAX_IMAGES
 
 
 # ===========================================================================
