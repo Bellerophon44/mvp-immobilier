@@ -1,0 +1,29 @@
+[
+  {"name": "Maternelle Saint-Eucaire", "degre": "maternelle", "commune": "Metz", "lat": 49.1216, "lon": 6.1812},
+  {"name": "Maternelle Debussy", "degre": "maternelle", "commune": "Metz", "lat": 49.1102, "lon": 6.1740},
+  {"name": "Maternelle Les Hauts de Vallieres", "degre": "maternelle", "commune": "Metz", "lat": 49.1320, "lon": 6.2210},
+  {"name": "Maternelle de la Seille", "degre": "maternelle", "commune": "Montigny-lès-Metz", "lat": 49.0986, "lon": 6.1543},
+  {"name": "Maternelle Pierre Perrin", "degre": "maternelle", "commune": "Woippy", "lat": 49.1530, "lon": 6.1530},
+  {"name": "Maternelle Jean Mermoz", "degre": "maternelle", "commune": "Marly", "lat": 49.0628, "lon": 6.1620},
+
+  {"name": "Ecole elementaire Debussy", "degre": "elementaire", "commune": "Metz", "lat": 49.1099, "lon": 6.1735},
+  {"name": "Ecole elementaire Saint-Vincent", "degre": "elementaire", "commune": "Metz", "lat": 49.1241, "lon": 6.1739},
+  {"name": "Ecole elementaire Les Hauts de Vallieres", "degre": "elementaire", "commune": "Metz", "lat": 49.1318, "lon": 6.2205},
+  {"name": "Ecole elementaire Jean Burger", "degre": "elementaire", "commune": "Montigny-lès-Metz", "lat": 49.0991, "lon": 6.1531},
+  {"name": "Ecole elementaire du Ban-Saint-Martin", "degre": "elementaire", "commune": "Le Ban-Saint-Martin", "lat": 49.1213, "lon": 6.1530},
+  {"name": "Ecole elementaire Saint-Exupery", "degre": "elementaire", "commune": "Woippy", "lat": 49.1547, "lon": 6.1555},
+
+  {"name": "College Paul Verlaine", "degre": "college", "commune": "Metz", "lat": 49.1175, "lon": 6.1700},
+  {"name": "College Jean Rostand", "degre": "college", "commune": "Metz", "lat": 49.1052, "lon": 6.1707},
+  {"name": "College Arsenal", "degre": "college", "commune": "Metz", "lat": 49.1141, "lon": 6.1764},
+  {"name": "College Jules Lagneau", "degre": "college", "commune": "Metz", "lat": 49.1304, "lon": 6.1903},
+  {"name": "College Pierre et Marie Curie", "degre": "college", "commune": "Montigny-lès-Metz", "lat": 49.0967, "lon": 6.1540},
+  {"name": "College Jules Ferry", "degre": "college", "commune": "Woippy", "lat": 49.1561, "lon": 6.1517},
+  {"name": "College Jean Bauchez", "degre": "college", "commune": "Marly", "lat": 49.0617, "lon": 6.1648},
+
+  {"name": "Lycee Fabert", "degre": "lycee", "commune": "Metz", "lat": 49.1206, "lon": 6.1734},
+  {"name": "Lycee Georges de La Tour", "degre": "lycee", "commune": "Metz", "lat": 49.1099, "lon": 6.1689},
+  {"name": "Lycee Louis Vincent", "degre": "lycee", "commune": "Metz", "lat": 49.1148, "lon": 6.1880},
+  {"name": "Lycee Robert Schuman", "degre": "lycee", "commune": "Metz", "lat": 49.1056, "lon": 6.1828},
+  {"name": "Lycee Jean XXIII", "degre": "lycee", "commune": "Montigny-lès-Metz", "lat": 49.1010, "lon": 6.1560}
+]
