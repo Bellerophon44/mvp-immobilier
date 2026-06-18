@@ -25,12 +25,32 @@ export interface LocalClaim {
   photo_status?: "confirme" | "non_trouve" | "non_applicable";
 }
 
+// Fait du Contexte local (distance / temps de trajet vers un POI ou une école).
+// `label`/`value` sont toujours présents (rétro-compatible). Les champs de
+// routing (couche C) sont optionnels : absents en repli Haversine.
+export interface LocalFact {
+  label: string;
+  value: string;
+  // Mode de trajet réel quand un temps routé est disponible (volet C). Absent en
+  // repli Haversine : l'absence de `mode` (ou `estimated=true`) signifie distance
+  // à vol d'oiseau.
+  mode?: "WALK" | "DRIVE" | "BICYCLE" | "TRANSIT";
+  duration_s?: number;
+  distance_m?: number;
+  // true => `value` est une distance Haversine ("à vol d'oiseau"), pas un temps réel.
+  estimated?: boolean;
+  // Identifiant de POI permettant de redemander un autre mode via POST /travel-times.
+  // Présent sur les facts de POI routables (cathedrale/gare/pompidou/a31), absent
+  // sur les facts écoles (non routables au lot 1).
+  poi_id?: string;
+}
+
 // Bloc "Contexte local" non-scoré (couches A + B "Ancrage local"). Absent / null
 // si le quartier n'est pas reconnu côté backend.
 export interface LocalContext {
   district: string;
   summary: string;
-  facts: { label: string; value: string }[];
+  facts: LocalFact[];
   claims?: LocalClaim[];
   address?: string;
   // "adresse" = distances exactes (géocodage, couche C) ; "quartier" = repli sur
@@ -87,6 +107,59 @@ export async function analyzeListing(
   }
 
   return response.json();
+}
+
+// Temps de trajet à la demande (volet C, endpoint POST /travel-times). On ré-envoie
+// l'adresse texte (déjà côté client) ; aucune coordonnée ne circule (RGPD).
+export interface TravelTimesRequest {
+  address: string;
+  mode: "WALK" | "DRIVE" | "BICYCLE" | "TRANSIT";
+  city_hint?: string;
+}
+
+export interface TravelTimeResult {
+  poi_id: string;
+  label: string;
+  value: string;
+  label_mode?: string; // "à pied" | "en voiture" | "à vélo" | "en transports"
+  duration_s?: number;
+  distance_m?: number;
+  estimated?: boolean; // true => repli vol d'oiseau
+  mode?: string; // "vol_oiseau" en repli
+}
+
+export interface TravelTimesResponse {
+  status: "ok" | "indisponible";
+  mode?: string;
+  reason?: "adresse" | "routing";
+  results?: TravelTimeResult[];
+}
+
+// Recalcule les temps de trajet pour un mode donné. Best-effort côté UI : en cas
+// d'erreur réseau on renvoie un statut indisponible plutôt que de jeter.
+export async function fetchTravelTimes(
+  address: string,
+  mode: TravelTimesRequest["mode"],
+  cityHint?: string,
+): Promise<TravelTimesResponse> {
+  const body: TravelTimesRequest = { address, mode };
+  if (cityHint) body.city_hint = cityHint;
+  try {
+    const response = await fetch(
+      process.env.NEXT_PUBLIC_API_URL + "/travel-times",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      },
+    );
+    if (!response.ok) {
+      return { status: "indisponible", reason: "routing" };
+    }
+    return response.json();
+  } catch {
+    return { status: "indisponible", reason: "routing" };
+  }
 }
 
 export interface FeedbackPayload {

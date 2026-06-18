@@ -160,6 +160,30 @@ def _reset_llm_semantic_cache():
 
 
 @pytest.fixture(autouse=True)
+def _reset_routing_cache():
+    """Vide le cache memoire de app.routing AVANT chaque test (SPEC contexte-local-v2
+    §3 C.1 / §7 ; lecons 9.7 / 9.9 / photo-evidence — JAMAIS en fixture locale).
+
+    `app.routing._CACHE` (TTL 10 min, par process, jamais persiste — CGU Google) est
+    un etat partage de module. Plusieurs AC assertent un COMPTEUR d'appels du client
+    Google mocke (AC11 cache hit, AC14 deux requetes par mode) : sans reset autouse,
+    une entree laissee par un test precedent ferait un cache hit parasite et le mock
+    du test suivant ne serait jamais appele -> assertion sur call_count faussee (faux
+    rouge/vert dependant de l'ordre). Reset via le point d'entree public
+    `reset_routing_cache()` expose par le module (spec §3 C.1). Import protege (sur le
+    modele de `_reset_photo_cache`) : tant que `app.routing` n'existe pas (phase
+    tests-first), on n'echoue pas a la collecte ; les tests echoueront proprement sur
+    l'absence du module / de l'endpoint. Cache pleinement actif intra-test."""
+    try:
+        from app.routing import reset_routing_cache
+
+        reset_routing_cache()
+    except Exception:
+        pass
+    yield
+
+
+@pytest.fixture(autouse=True)
 def _reset_photo_cache():
     """Vide le cache memoire de photo_evidence entre chaque test. Le cache
     (spec photo-evidence §3.2) est un etat module global : deux tests utilisant le
