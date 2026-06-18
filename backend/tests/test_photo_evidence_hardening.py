@@ -214,33 +214,34 @@ def test_non_eligible_mixed_with_eligible_no_leak(monkeypatch, ctype):
 
 
 # ===========================================================================
-# Cap exact 6 (renfort critere 8 ; esprit lecon "bornes exactes")
+# Cap exact MAX_IMAGES (renfort critere 8 ; esprit lecon "bornes exactes")
 # ===========================================================================
 
-@pytest.mark.parametrize("n", [7, 8, 20])
-def test_cap_six_strict_upper(monkeypatch, n):
-    """Au-dela de 6 URLs, exactement 6 parts image_url sont transmises (pas 7)."""
-    from app.photo_evidence import assess_claims_with_photos
+@pytest.mark.parametrize("extra", [1, 2, 14])
+def test_cap_strict_upper(monkeypatch, extra):
+    """Au-dela de MAX_IMAGES URLs, exactement MAX_IMAGES parts sont transmises."""
+    from app.photo_evidence import assess_claims_with_photos, MAX_IMAGES
 
     mock = _MockCreate(status="non_trouve")
     _install_vision_mock(monkeypatch, mock)
 
-    urls = [f"https://cdn.x/{i}.jpg" for i in range(n)]
+    urls = [f"https://cdn.x/{i}.jpg" for i in range(MAX_IMAGES + extra)]
     assess_claims_with_photos([_claim("la Moselle", "nature")], urls)
 
     parts = _image_url_parts(mock.calls[0])
-    assert len(parts) == 6
+    assert len(parts) == MAX_IMAGES
 
 
-@pytest.mark.parametrize("n", [1, 5, 6])
-def test_cap_six_below_or_equal_all_transmitted(monkeypatch, n):
-    """Borne basse / exacte : <=6 URLs -> toutes transmises (pas de troncature
-    off-by-one qui en perdrait une a 6)."""
-    from app.photo_evidence import assess_claims_with_photos
+@pytest.mark.parametrize("offset", [0, -1, -14])
+def test_cap_below_or_equal_all_transmitted(monkeypatch, offset):
+    """Borne basse / exacte : <=MAX_IMAGES URLs -> toutes transmises (pas de
+    troncature off-by-one qui en perdrait une a la borne)."""
+    from app.photo_evidence import assess_claims_with_photos, MAX_IMAGES
 
     mock = _MockCreate(status="non_trouve")
     _install_vision_mock(monkeypatch, mock)
 
+    n = MAX_IMAGES + offset
     urls = [f"https://cdn.x/{i}.jpg" for i in range(n)]
     assess_claims_with_photos([_claim("la Moselle", "nature")], urls)
 
@@ -248,20 +249,20 @@ def test_cap_six_below_or_equal_all_transmitted(monkeypatch, n):
     assert len(parts) == n
 
 
-def test_cap_six_first_six_in_priority_order(monkeypatch):
-    """Le cap retient les 6 PREMIERES URLs (ordre de priorite preserve), pas un
-    sous-ensemble arbitraire : preuve que la troncature est un prefixe [:6]."""
-    from app.photo_evidence import assess_claims_with_photos
+def test_cap_first_images_in_priority_order(monkeypatch):
+    """Le cap retient les MAX_IMAGES PREMIERES URLs (ordre de priorite preserve),
+    pas un sous-ensemble arbitraire : preuve que la troncature est un prefixe."""
+    from app.photo_evidence import assess_claims_with_photos, MAX_IMAGES
 
     mock = _MockCreate(status="non_trouve")
     _install_vision_mock(monkeypatch, mock)
 
-    urls = [f"https://cdn.x/{i}.jpg" for i in range(10)]
+    urls = [f"https://cdn.x/{i}.jpg" for i in range(MAX_IMAGES + 5)]
     assess_claims_with_photos([_claim("la Moselle", "nature")], urls)
 
     parts = _image_url_parts(mock.calls[0])
     transmitted = [p["image_url"]["url"] for p in parts]
-    assert transmitted == urls[:6]
+    assert transmitted == urls[:MAX_IMAGES]
 
 
 # ===========================================================================

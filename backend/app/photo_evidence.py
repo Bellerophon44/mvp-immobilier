@@ -26,8 +26,13 @@ ELIGIBLE_TYPES = {"cathedrale", "nature", "autre"}
 # défaut ou par complaisance).
 VALID_STATUSES = {"confirme", "non_trouve", "non_applicable"}
 
-MAX_IMAGES = 6
+MAX_IMAGES = 15
 TEMPERATURE = 0.2
+
+# Resolution transmise au modele de vision. `high` est necessaire pour reperer
+# les elements en arriere-plan (fleche de la cathedrale au loin, la Moselle au
+# fond d'une photo) que `low` (512px) rend illisibles -> faux `non_trouve`.
+IMAGE_DETAIL = "high"
 
 _CACHE: Dict[str, Any] = {}
 CACHE_TTL_SECONDS = 7 * 24 * 60 * 60
@@ -96,7 +101,9 @@ def _build_user_parts(eligible: List[Dict[str, Any]], images: List[str]) -> list
     )
     parts: list = [{"type": "text", "text": "\n".join(lines)}]
     for url in images:
-        parts.append({"type": "image_url", "image_url": {"url": url, "detail": "low"}})
+        parts.append(
+            {"type": "image_url", "image_url": {"url": url, "detail": IMAGE_DETAIL}}
+        )
     return parts
 
 

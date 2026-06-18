@@ -51,12 +51,13 @@
    Pompidou) ; extraction des **allégations locales** de l'annonce + **contrôle de
    cohérence** géographique (couche B) ; **géocodage de l'adresse** (BAN) pour des
    distances exactes au bien, avec repli quartier (couche C). Section non-scorée.
-   - *Limite à optimiser* : distances **à vol d'oiseau**, pas un temps de trajet
-     réel (« 3 min à vol d'oiseau » ≠ « 7 min à pied » de la cathédrale ou « 12 min
-     en voiture » de l'A31). Brancher un routing isochrone plus tard.
+   - *Optimisation livrée (2026-06-18)* : **temps de trajet réels** (Google Routes
+     API) en mode adresse + onglets par mode (à pied / vélo / voiture / transports),
+     avec repli « à vol d'oiseau » si la clé est absente. Voir « Contexte local v2 »
+     en fin de section.
 3. **Prochaines étapes** : faire peser la cohérence (couche B) sur le pilier risques ;
-   routing temps de trajet ; secteur « Metz métropole » (communes limitrophes) ;
-   rééquilibrage scoring ; dette (lifespan, cache LLM/géocodage persistant, tests).
+   secteur « Metz métropole » (communes limitrophes, **livré**) ; rééquilibrage
+   scoring ; dette (lifespan, cache LLM/géocodage/routing persistant, tests).
 
 ### Livré depuis le snapshot (post-2026-06-04)
 - **Cross-agence — incrément 1 : ✅ EN PRODUCTION (2026-06-11).** Tracking
@@ -81,13 +82,21 @@
   workflow échoue explicitement, jamais de faux vert. Spec :
   `docs/specs/evals-harness-SPEC.md`.
 - **Issue #100 (retour pilote « quartier Botanique ») — référentiel géo, paliers
-  A / B / C1 ✅ EN PRODUCTION (2026-06-16).** C5 (questions non redondantes), A
+  A / B / C1 / C3 ✅ EN PRODUCTION.** C5 (questions non redondantes), A
   (Sainte-Thérèse/Botanique + garde-fou d'incertitude), B (gazetteer unique
   `app/geo_gazetteer.py`) puis **C1** (inter-communal & commune réelle, PR #110 →
-  `staging`, PR #111 → `main`) livrés. Chantier C sous-découpé : **C2 (quartier
-  réel par polygones) et C3 (POI écoles) restent en TODO, reportés** — détail et
-  prérequis dans `backend/CLAUDE.md` §11bis (backlog canonique) et
+  `staging`, PR #111 → `main`) livrés le 2026-06-16 ; **C3** (POI écoles : snapshot
+  Annuaire Éducation + distance bien→école) livré le **2026-06-18** dans le lot
+  « Contexte local v2 ». Reste **C2 (quartier réel par polygones) en TODO, reporté**
+  — détail et prérequis dans `backend/CLAUDE.md` §11bis (backlog canonique) et
   `docs/specs/issue-100-ANALYSE.md` §6/§8. Specs C : `docs/specs/issue-100-C-*.md`.
+- **« Contexte local v2 » — ✅ EN PRODUCTION (2026-06-18).** Temps de trajet réels
+  (Google Routes API, endpoint `POST /travel-times`), re-géocodage de l'adresse
+  texte sans exposer ni persister de lat/lon, Centre Pompidou-Metz en fact distinct,
+  retrait du fact A31 générique en mode quartier, distance aux écoles (= C3).
+  Intégration Google **inactive sans la clé** `GOOGLE_MAPS_API_KEY` (repli « à vol
+  d'oiseau »). Parcours staging-first (PR #115 → `staging`, fix #117, promotion
+  #116 → `main`). Spec : `docs/specs/contexte-local-v2-SPEC.md`.
 
 ---
 
