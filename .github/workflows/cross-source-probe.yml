@@ -1,0 +1,52 @@
+name: Cross-source probe (re-list gisement)
+
+# Probe READ-ONLY du gisement de re-list cross-source (GATE 1 increment 3 :
+# « mesurer avant tout pipeline image »). Interroge l'endpoint admin
+# /admin/comparables/cross-source-probe pour lire des COMPTEURS AGREGES (paires
+# candidates = BORNE HAUTE par proxy d'attributs, ventilation par couple de
+# sources, part du corpus impliquee). Aucune ecriture. Declenchement MANUEL
+# uniquement (pas de cron). Cible parametrable prod/staging.
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Backend a sonder"
+        type: choice
+        options:
+          - prod
+          - staging
+        default: prod
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Fetch cross-source probe and write summary
+        env:
+          BACKEND_URL: ${{ github.event.inputs.target == 'staging' && 'https://coherence-staging.fly.dev' || 'https://backend-frosty-sound-441-docker.fly.dev' }}
+          ADMIN_TOKEN: ${{ github.event.inputs.target == 'staging' && secrets.ADMIN_TOKEN_STAGING || secrets.ADMIN_TOKEN }}
+        run: |
+          curl -fsS --max-time 300 -H "X-Admin-Token: ${ADMIN_TOKEN}" \
+            "${BACKEND_URL}/admin/comparables/cross-source-probe" > probe.json
+          if command -v jq >/dev/null 2>&1; then
+            jq . probe.json | tee probe.pretty.json
+          else
+            python -m json.tool probe.json | tee probe.pretty.json
+          fi
+          {
+            echo '## Probe re-list cross-source (compteurs agreges)';
+            echo '';
+            echo 'BORNE HAUTE par proxy d''attributs (pas un compte de vrais re-lists).';
+            echo 'Intrant de decision axe A — ne dedoublonne PAS market_stats.';
+            echo '';
+            echo '```json';
+            cat probe.pretty.json;
+            echo '```';
+          } >> "$GITHUB_STEP_SUMMARY"

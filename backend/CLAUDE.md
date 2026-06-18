@@ -129,6 +129,7 @@ Ne rien ajouter dedans. Toute nouvelle logique scraper va dans `scrapers/sources
 | GET | `/docs` | aucune | Swagger UI FastAPI |
 | POST | `/analyze` | aucune | Analyse cohérence d'une annonce |
 | GET | `/admin/comparables/stats` | `X-Admin-Token` | `{"total": n, "cities": [...]}` |
+| GET | `/admin/comparables/cross-source-probe` | `X-Admin-Token` | Probe read-only du gisement de re-list cross-source (compteurs agrégés de `tools.probe_cross_source`, voir ci-dessous) |
 | GET | `/admin/comparables/{listing_id}/history` | `X-Admin-Token` | Historique temporel d'une annonce (métadonnées factuelles uniquement, voir ci-dessous) |
 | POST | `/admin/comparables` | `X-Admin-Token` | Import batch (max 10000) |
 | POST | `/admin/comparables/maintenance` | `X-Admin-Token` | Assainit l'historique + rétention 24 mois (voir §9) |

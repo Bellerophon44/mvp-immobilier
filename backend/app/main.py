@@ -283,6 +283,36 @@ def comparables_coverage(x_admin_token: Optional[str] = Header(default=None)) ->
     }
 
 
+@app.get("/admin/comparables/cross-source-probe")
+def comparables_cross_source_probe(
+    x_admin_token: Optional[str] = Header(default=None),
+) -> dict:
+    """
+    Probe READ-ONLY du gisement de re-list cross-source (chantier cross-agence
+    increment 2b etape 1 ; GATE 1 increment 3 : « mesurer avant tout pipeline
+    image »). Expose les COMPTEURS AGREGES de `tools.probe_cross_source` :
+    paires candidates (BORNE HAUTE par proxy d'attributs, PAS un compte de vrais
+    re-lists), ventilation par couple de sources, part du corpus impliquee.
+    Aucune ecriture/mutation ; n'expose AUCUN contenu re-publiable par-annonce
+    (ni id, url, adresse ou prix individuel) — UNIQUEMENT des compteurs agreges
+    (conformite CONTEXT §11.3). Intrant de decision pour l'axe A.
+    """
+    _check_admin_token(x_admin_token)
+
+    # Import paresseux : la probe est un outil (tools/), inutile de la charger au
+    # demarrage de l'app.
+    from tools.probe_cross_source import compute_probe
+
+    stats = compute_probe()
+    logger.info(
+        "ADMIN cross-source-probe: total=%d pairs=%d involved_pct=%s",
+        stats.get("total_comparables", 0),
+        stats.get("total_pairs", 0),
+        stats.get("involved_pct", 0.0),
+    )
+    return stats
+
+
 @app.get("/admin/comparables/{listing_id}/history")
 def comparable_history(
     listing_id: str,
