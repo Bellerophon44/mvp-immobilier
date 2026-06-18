@@ -1,5 +1,5 @@
-"""Cas d'evaluation de la refonte des leviers de negociation (chantier
-negotiation-levers-review).
+"""Cas d'evaluation de la refonte des leviers de negociation (issue #123,
+chantier negotiation-levers-review).
 
 Probleme corrige : la section « Leviers de negociation » reprenait les POINTS
 FORTS du bien (favorables au vendeur) au lieu d'elements mobilisables par
@@ -9,7 +9,7 @@ distinctes cote LLM :
 - `negotiation_levers` : uniquement des elements DEFAVORABLES / relativisants
   (travaux, DPE faible, nuisances...), cote acheteur.
 
-L'annonce de cases/levers.txt est SYNTHETIQUE (reecriture fictive melant atouts
+L'annonce de cases/issue_123.txt est SYNTHETIQUE (reecriture fictive melant atouts
 nets et points faibles nets, CONTEXT §11.3, repo public). Un seul appel LLM reel
 par run (fixture module-scoped). Assertions thematiques (tolerantes a la
 formulation), bloquantes : une PR de prompt qui re-melange les deux intentions
@@ -30,7 +30,7 @@ _WEAK_TOKENS = ("travaux", "rénov", "renov", "toiture", "dpe", "passoire",
 
 @pytest.fixture(scope="module")
 def semantic_levers(load_case):
-    return analyze_semantic(load_case("levers"))
+    return analyze_semantic(load_case("issue_123"))
 
 
 def test_extraction_property_type_maison(semantic_levers):
