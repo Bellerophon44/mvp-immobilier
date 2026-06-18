@@ -68,6 +68,9 @@ export interface ApiResult {
   confidence: string;
   pillars: ApiPillar[];
   actions: {
+    // Atouts factuels du bien (objective sa valeur). Optionnel -> rétro-compatible
+    // avec les anciennes réponses sans ce bloc.
+    highlights?: string[];
     questions: string[];
     negotiation: string[];
   };

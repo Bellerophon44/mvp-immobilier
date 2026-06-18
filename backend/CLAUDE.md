@@ -242,7 +242,7 @@ POST /analyze
         │     retourne :
         │     - transparency_score (int 0-100)
         │     - verdict, summary, risk_level, risk_summary
-        │     - to_check[], questions[], negotiation_levers[]
+        │     - questions[], highlights[], negotiation_levers[]
         │     - listing: {city, district, property_type, surface_m2, price_total}
         │
         ├── _price_pillar_from_listing(listing)
@@ -572,12 +572,19 @@ system "Cohérence"). Côté contrat API :
   par la page principale.
 
 **Côté backend, retenir** : la réponse `/analyze` doit garder ce schéma
-(`global_score`, `verdict`, `confidence`, `pillars[]`, `actions{questions,
-negotiation}`, `local_context` optionnel). Le frontend code en dur l'ordre des
+(`global_score`, `verdict`, `confidence`, `pillars[]`, `actions{highlights,
+questions, negotiation}`, `local_context` optionnel). Le frontend code en dur l'ordre des
 piliers `[prix, transparence, risques]`. Chaque pilier porte `points`/`max`
 (prix /40, transparence /30, risque /30) : **le score global est exactement la
 somme des `points`** (cf. §11, scoring 40/30/30). Depuis le chantier A, `actions`
-n'a plus que **deux** listes (`questions` fusionne l'ancien `to_check`) ; le bloc
+a fusionné `to_check` dans `questions`. Depuis la refonte des leviers
+(chantier negotiation-levers-review) `actions` porte **trois** listes :
+`highlights` (atouts factuels du bien, objective sa valeur — LLM), `questions`,
+et `negotiation` recentré **côté acheteur** (éléments factuels qui pèsent à la
+baisse : prix sur-positionné [dérivé du pilier prix], DPE F/G, allégation locale
+peu plausible, étage élevé sans ascenseur, points faibles extraits par le LLM ;
+liste vide plutôt que des atouts si rien de défavorable). `highlights` est
+optionnel dans le contrat (rétro-compatible). Le bloc
 `local_context` (non-scoré) porte le profil de quartier (couche A), la liste
 `claims` (couche B : `{text, type, status, note}`), `address` (si saisie) et
 `precision` ∈ `{"quartier","adresse"}` (couche C : `"adresse"` = distances

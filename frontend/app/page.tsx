@@ -798,6 +798,13 @@ export default function HomePage() {
               : []),
           ]
         : []),
+      ...((result.actions.highlights ?? []).length
+        ? [
+            "",
+            "Atouts du bien :",
+            ...(result.actions.highlights ?? []).map((h) => `- ${h}`),
+          ]
+        : []),
       "",
       "Questions à poser (vendeur / agent) :",
       ...result.actions.questions.map((q) => `- ${q}`),
@@ -1240,13 +1247,20 @@ export default function HomePage() {
               </div>
             </div>
 
+            {/* Atouts du bien (objective la valeur avant la négociation) */}
+            <LeversList
+              title="Atouts du bien"
+              accent="var(--moss)"
+              items={(result.actions.highlights ?? []).map((h) => ({ quote: h }))}
+            />
+
             {/* Questions (fusion à-vérifier + questions) */}
             <ChecklistCard
               eyebrow="Questions à poser (vendeur / agent)"
               items={result.actions.questions.map((q) => ({ title: q }))}
             />
 
-            {/* Leviers */}
+            {/* Leviers (côté acheteur : éléments qui pèsent à la baisse) */}
             <LeversList
               items={result.actions.negotiation.map((n) => ({ quote: n }))}
             />

@@ -62,6 +62,7 @@ USER_PROMPT_TEMPLATE = """Analyse le texte d'annonce immobilière ci-dessous et 
   "summary": string,
   "risk_summary": string,
   "questions": [string],
+  "highlights": [string],
   "negotiation_levers": [string],
   "local_claims": [
     {{ "text": string, "type": string }}
@@ -95,7 +96,8 @@ Règles :
 - `risk_level` ∈ ["Faible", "Modéré", "Élevé"].
 - `questions` : points à clarifier AVANT la visite, formulés comme de vraies questions à poser au vendeur ou à l'agent (étage/ascenseur, charges, travaux, exposition, parking, nuisances, copropriété, etc.). Adapter les sujets au type de bien : les questions copropriété / syndic / charges de copropriété ne s'appliquent qu'aux biens en copropriété, JAMAIS à une maison individuelle. Une liste unique, non redondante, sans estimation de prix.
 - Ne JAMAIS poser une question dont la réponse est EXPLICITEMENT donnée dans l'annonce : une question ne porte que sur ce qui MANQUE ou doit être confirmé. En particulier, si l'annonce indique le montant des charges, ne pas en redemander le montant (on peut demander ce qu'elles couvrent ou leur évolution) ; de même, ne pas redemander la surface, le DPE, l'étage ou le nombre de pièces déjà précisés.
-- `negotiation_levers` : arguments factuels mobilisables en négociation (intention distincte des questions), formulés en affirmations courtes.
+- `highlights` : ATOUTS du bien — points forts factuels EXPLICITEMENT présents dans l'annonce qui fondent sa valeur (état, prestations, équipements, surfaces, situation, exposition favorable, extérieurs, stationnement...), formulés en affirmations courtes. Objectif : aider l'acheteur à apprécier la valeur du bien. Ne rien inventer ; liste vide si l'annonce n'affirme aucun atout. NE PAS y mettre de point négatif.
+- `negotiation_levers` : LEVIERS DE NÉGOCIATION côté ACHETEUR — uniquement des éléments factuels présents dans l'annonce qui PÈSENT À LA BAISSE sur le prix ou affaiblissent la position du vendeur : travaux ou rafraîchissement à prévoir, défauts ou réserves mentionnés, DPE faible (passoire thermique), nuisances ou exposition défavorable, absence d'un équipement attendu (pas d'ascenseur en étage élevé, pas de stationnement, pas d'extérieur), charges élevées, vétusté, mono-orientation, contraintes (mitoyenneté, vis-à-vis, servitude). Formulés en affirmations courtes, factuelles, JAMAIS estimatives (aucun prix cible). Ce ne sont JAMAIS les qualités du bien (celles-ci vont dans `highlights`). Ne rien inventer : si l'annonce ne révèle aucun point défavorable, renvoyer une liste VIDE plutôt que de réutiliser un atout.
 - `local_claims` : allégations de LOCALISATION / VOISINAGE affirmées par l'annonce (ex. "vue cathédrale", "proche gare", "5 min de l'A31", "quartier calme", "commerces à pied", "frontalier Luxembourg"). N'extraire QUE ce qui est affirmé dans le texte ; ne rien inventer. `text` = citation courte et fidèle. `type` ∈ ["centre","cathedrale","gare","transport","commerces","nature","ecoles","calme","a31","autre"]. Les repères visuels NOMMÉS — Centre Pompidou-Metz, Temple Neuf, Jardin Botanique (et analogues) — sont classés en "autre" (ou "nature" pour le Jardin Botanique / les plans d'eau), JAMAIS "centre" : le type "centre" est réservé à la proximité du centre-ville, pas aux lieux contenant le mot « Centre ». Liste vide si aucune allégation locale.
 - `property_type` ∈ ["appartement", "maison", null].
 - `dpe` : lettre de classe énergie ∈ ["A","B","C","D","E","F","G"] si présente, sinon null (ne pas confondre avec le GES).
@@ -121,6 +123,7 @@ _FALLBACK = {
     "summary": "Analyse indisponible.",
     "risk_summary": "Impossible d'évaluer les risques.",
     "questions": [],
+    "highlights": [],
     "negotiation_levers": [],
     "local_claims": [],
     "listing": {
@@ -353,6 +356,7 @@ def analyze_semantic(raw_text: str) -> Dict[str, Any]:
         "summary": result.get("summary") or "",
         "risk_summary": result.get("risk_summary") or "",
         "questions": result.get("questions") or [],
+        "highlights": result.get("highlights") or [],
         "negotiation_levers": result.get("negotiation_levers") or [],
         "local_claims": _coerce_claims(result.get("local_claims")),
         "listing": listing,
