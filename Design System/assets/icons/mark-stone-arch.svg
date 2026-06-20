@@ -1,0 +1,26 @@
+<!-- Cohérence — Direction D : la clef de voûte (RETENUE).
+     Un arc plein cintre sur deux piédroits, avec une CLEF DE VOÛTE pleine au
+     sommet — le claveau central qui, en architecture, verrouille l'arc et le
+     fait tenir. Métaphore exacte de la cohérence (l'élément qui tient l'ensemble)
+     et de la robustesse ; ancre la pierre de Jaumont et l'architecture messine
+     SANS silhouette de bâtiment ni de cathédrale.
+
+     Lisibilité vérifiée par rasterisation : la clef pleine survit à 16 px (elle
+     reste une encoche visible au sommet) là où un claveau au trait disparaît.
+     C'est ce qui distingue ce mark d'une simple arche.
+
+     Encrage : trait monochrome via currentColor (ink ou parchemin selon le fond).
+     La clef de voûte peut être remplie en or Jaumont (--jaumont #C9A14A) pour
+     porter discrètement l'accent local — c'est le seul endroit où l'or apparaît.
+     Trait 2 px sur viewBox 24 (un mark se calibre plus épais qu'une icône inline).
+     Dégrade en favicon 16 px : arc + clef tiennent ; rien d'essentiel ne tombe. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <!-- piédroits -->
+  <path d="M5 19 L5 12" />
+  <path d="M19 19 L19 12" />
+  <!-- arc plein cintre -->
+  <path d="M5 12 A 7 7 0 0 1 19 12" />
+  <!-- clef de voûte : claveau trapézoïdal plein (remplir en --jaumont si accent local souhaité) -->
+  <path d="M10.4 5.2 L13.6 5.2 L13.1 8.0 L10.9 8.0 Z" fill="currentColor" stroke="none" />
+</svg>

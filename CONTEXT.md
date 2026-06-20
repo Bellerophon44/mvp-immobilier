@@ -51,12 +51,13 @@
    Pompidou) ; extraction des **allégations locales** de l'annonce + **contrôle de
    cohérence** géographique (couche B) ; **géocodage de l'adresse** (BAN) pour des
    distances exactes au bien, avec repli quartier (couche C). Section non-scorée.
-   - *Limite à optimiser* : distances **à vol d'oiseau**, pas un temps de trajet
-     réel (« 3 min à vol d'oiseau » ≠ « 7 min à pied » de la cathédrale ou « 12 min
-     en voiture » de l'A31). Brancher un routing isochrone plus tard.
+   - *Optimisation livrée (2026-06-18)* : **temps de trajet réels** (Google Routes
+     API) en mode adresse + onglets par mode (à pied / vélo / voiture / transports),
+     avec repli « à vol d'oiseau » si la clé est absente. Voir « Contexte local v2 »
+     en fin de section.
 3. **Prochaines étapes** : faire peser la cohérence (couche B) sur le pilier risques ;
-   routing temps de trajet ; secteur « Metz métropole » (communes limitrophes) ;
-   rééquilibrage scoring ; dette (lifespan, cache LLM/géocodage persistant, tests).
+   secteur « Metz métropole » (communes limitrophes, **livré**) ; rééquilibrage
+   scoring ; dette (lifespan, cache LLM/géocodage/routing persistant, tests).
 
 ### Livré depuis le snapshot (post-2026-06-04)
 - **Cross-agence — incrément 1 : ✅ EN PRODUCTION (2026-06-11).** Tracking
@@ -80,6 +81,43 @@
   financier du harnais) — sans secret, le
   workflow échoue explicitement, jamais de faux vert. Spec :
   `docs/specs/evals-harness-SPEC.md`.
+- **Issue #100 (retour pilote « quartier Botanique ») — référentiel géo, paliers
+  A / B / C1 / C3 ✅ EN PRODUCTION.** C5 (questions non redondantes), A
+  (Sainte-Thérèse/Botanique + garde-fou d'incertitude), B (gazetteer unique
+  `app/geo_gazetteer.py`) puis **C1** (inter-communal & commune réelle, PR #110 →
+  `staging`, PR #111 → `main`) livrés le 2026-06-16 ; **C3** (POI écoles : snapshot
+  Annuaire Éducation + distance bien→école) livré le **2026-06-18** dans le lot
+  « Contexte local v2 ». Reste **C2 (quartier réel par polygones) en TODO, reporté**
+  — détail et prérequis dans `backend/CLAUDE.md` §11bis (backlog canonique) et
+  `docs/specs/issue-100-ANALYSE.md` §6/§8. Specs C : `docs/specs/issue-100-C-*.md`.
+- **« Contexte local v2 » — ✅ EN PRODUCTION (2026-06-18).** Temps de trajet réels
+  (Google Routes API, endpoint `POST /travel-times`), re-géocodage de l'adresse
+  texte sans exposer ni persister de lat/lon, Centre Pompidou-Metz en fact distinct,
+  retrait du fact A31 générique en mode quartier, distance aux écoles (= C3).
+  Intégration Google **inactive sans la clé** `GOOGLE_MAPS_API_KEY` (repli « à vol
+  d'oiseau »). Parcours staging-first (PR #115 → `staging`, fix #117, promotion
+  #116 → `main`). Spec : `docs/specs/contexte-local-v2-SPEC.md`.
+- **Refonte des leviers de négociation + « Atouts du bien » — ✅ EN PRODUCTION
+  (2026-06-18, PR #121 → `main`).** Les leviers reprenaient les points forts du
+  bien (favorables au vendeur) ; désormais deux intentions distinctes :
+  `actions.highlights` (atouts factuels, objective la valeur) et
+  `actions.negotiation` recentré **côté acheteur** (éléments factuels qui pèsent
+  à la baisse : prix sur-positionné, DPE F/G, allégation locale peu plausible,
+  étage élevé sans ascenseur ; liste vide plutôt que du remplissage). Contrat
+  `actions` rétro-compatible. Cas d'éval pilote #122.
+- **Screening photo — réglage cap/résolution ✅ EN PRODUCTION (2026-06-18).** La
+  vérification visuelle des allégations locales (`app/photo_evidence.py`, bloc
+  **non-scoré** : un appel `gpt-4.1-mini` multimodal confronte aux photos de
+  l'annonce les claims locaux éligibles `cathedrale`/`nature`/`autre` → statut
+  `confirme`/`non_trouve`/`non_applicable`, repli sûr `non_trouve`) ratait trop
+  de repères pourtant présents. Deux causes corrigées : le **cap d'images passe
+  de 6 à 15** et le **détail de `"low"` à `"high"`** (un repère en arrière-plan
+  était illisible à 512px). Garanties inchangées (score 40/30/30 intact, RGPD :
+  URLs jamais loggées, cache mémoire TTL 7j). Coût `detail:"high"` × 15 ≈ 3-4k
+  tokens/analyse non cachée — garde-fou recommandé : usage limit OpenAI. Parcours
+  staging-first (PR #124 → `staging`, promotion #125 → `main`), resync préalable
+  `main` → `staging`. Spec : `docs/specs/photo-evidence-SPEC.md` ; carto technique :
+  `backend/CLAUDE.md` §6bis.
 
 ---
 
@@ -239,9 +277,11 @@
 │   │   ├── main.py             # FastAPI app, CORS, /analyze, lifecycle
 │   │   ├── analysis.py         # orchestrateur run_full_analysis
 │   │   ├── llm_semantic.py     # appel OpenAI, prompt, cache, fallback
-│   │   ├── url_fetch.py        # fetch HTTP + extraction texte HTML
+│   │   ├── url_fetch.py        # fetch HTTP + extraction texte HTML + images
+│   │   ├── photo_evidence.py   # screening photo non-scoré (vision, cap 15/detail high)
 │   │   ├── market_stats.py     # stats marché local sur Comparable
-│   │   └── scoring.py          # score global 0-100 + verdict + confiance
+│   │   ├── scoring.py          # score global 0-100 + verdict + confiance
+│   │   └── (carto complète des modules : backend/CLAUDE.md §4)
 │   ├── db/
 │   │   ├── models.py           # SQLAlchemy Comparable
 │   │   └── session.py          # engine SQLite, DATABASE_PATH=/data/...

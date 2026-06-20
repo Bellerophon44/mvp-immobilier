@@ -1,0 +1,58 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=390,initial-scale=1">
+<link rel="stylesheet" href="_tokens.css">
+<title>D3 — La Frontière — mobile</title>
+<style>
+  .label{position:fixed;top:0;left:0;right:0;z-index:99;background:var(--ink);color:var(--parchment);
+    font-family:var(--font-mono);font-size:11px;letter-spacing:.04em;padding:6px 12px;}
+  .wrap{padding-top:28px;}
+  header.bar{padding:16px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--stone-line);}
+  .wm{display:inline-flex;align-items:center;gap:9px;}
+  .wm .name{font-family:var(--font-serif);font-size:22px;line-height:1;letter-spacing:-.02em;color:var(--ink);}
+  .scope{font-family:var(--font-mono);font-size:10px;letter-spacing:.06em;color:var(--stone);text-transform:uppercase;}
+  main{max-width:720px;margin:0 auto;padding:30px 20px 56px;}
+  .kicker{font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--brick);margin-bottom:18px;}
+  h1.hero{font-family:var(--font-serif);font-size:50px;line-height:0.98;letter-spacing:-.025em;
+    color:var(--ink);margin:0 0 22px;font-weight:400;}
+  h1.hero em{color:var(--brick);font-style:italic;display:block;}
+  .sub{font-family:var(--font-sans);font-size:16px;line-height:1.55;color:var(--ink-2);margin:0 0 26px;max-width:520px;}
+  .countrow{display:flex;align-items:baseline;gap:10px;margin:0 0 30px;padding:14px 0;border-top:1px solid var(--ink);border-bottom:1px solid var(--stone-line);}
+  .countrow .big{font-family:var(--font-mono);font-weight:600;font-size:34px;color:var(--ink);letter-spacing:-.03em;line-height:1;}
+  .countrow .txt{font-family:var(--font-sans);font-size:13px;color:var(--ink-3);line-height:1.35;}
+  .ink-panel{margin-top:34px;background:var(--ink);color:var(--parchment);border-radius:8px;padding:22px 20px;}
+  .ink-panel .q{font-family:var(--font-serif);font-style:italic;font-size:21px;line-height:1.25;}
+  .ink-panel .q .h{color:var(--jaumont);}
+</style></head>
+<body>
+<div class="label">DIRECTION 3 · « LA FRONTIÈRE » (audacieuse, type-as-hero) — manchette éditoriale, plus de contraste/échelle</div>
+<div class="wrap">
+<header class="bar">
+  <span class="wm">
+    <svg width="22" height="22" viewBox="0 0 64 64"><path d="M32 6 L58 32 L32 58 L6 32 Z" fill="var(--brick)"/><path d="M32 20 L44 32 L32 44 L20 32 Z" fill="var(--parchment)"/></svg>
+    <span class="name">Cohérence</span>
+  </span>
+  <span class="scope">Édition Metz</span>
+</header>
+
+<main>
+  <div class="kicker">Metz · données du marché réel</div>
+  <h1 class="hero">Le vendeur connaît le marché.<em>Désormais, vous aussi.</em></h1>
+  <p class="sub">Le livre foncier n'est pas public. Nous reconstituons le marché messin à partir des annonces réelles, quartier par quartier, et plaçons la vôtre dans ce contexte — score, trois piliers, points à vérifier.</p>
+
+  <div class="analyzer">
+    <div class="tabs"><span class="tab on">Coller le texte</span><span class="tab">Coller une URL</span></div>
+    <textarea>Collez ici le texte de l'annonce…</textarea>
+    <button class="cta">Analyser l'annonce →</button>
+  </div>
+
+  <div class="countrow">
+    <span class="big">17 000+</span>
+    <span class="txt">comparables messins,<br>collectés chaque semaine sur 16 quartiers.</span>
+  </div>
+
+  <div class="ink-panel">
+    <div class="q">« Nous ne devinons pas un prix.<br><span class="h">Nous vérifions une cohérence.</span> »</div>
+  </div>
+</main>
+</div>
+</body></html>

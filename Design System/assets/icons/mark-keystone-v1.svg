@@ -1,0 +1,15 @@
+<!-- Cohérence — mark-keystone v1 : LA CLEF SEULE.
+     Concept : le claveau trapézoïdal isolé, sans l'arc. La pierre qui verrouille,
+     réduite à son signe pur. Plus abstrait, plus fort, plus gros dans le cadre —
+     conçu pour survivre à 16 px là où une arche entière s'efface.
+     Le trapèze légèrement asymétrique (lit supérieur plus large que la base) +
+     les deux lignes d'assise (joints des claveaux voisins) disent « pierre taillée »
+     et non « bloc générique ». Trait calibré mark (2,25 px). Encrable Jaumont. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round">
+  <!-- la clef : trapèze inversé (large en haut, étroit en bas), légèrement asymétrique -->
+  <path d="M6.4 6.5 L17.6 6.5 L14.6 18 L9.4 18 Z" />
+  <!-- joints des claveaux voisins, à droite et à gauche : la clef est prise dans un appareil -->
+  <path d="M6.4 6.5 L4 9.2" />
+  <path d="M17.6 6.5 L20 9.2" />
+</svg>

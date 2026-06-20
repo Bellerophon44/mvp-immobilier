@@ -10,6 +10,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, field_validator
 
 from app.analysis import run_full_analysis
+from app.geocode import geocode_address
+from app.routing import compute_travel_times
+from app.metz_local import _POI, _MODE_LABELS, _fmt_dist
 from app.rate_limit import rate_limiter
 from app.url_fetch import fetch_listing, extract_image_urls
 from db.session import init_db, SessionLocal
@@ -638,6 +641,76 @@ def analyze(
             status_code=500,
             detail=f"Erreur lors de l'analyse : {str(e)}",
         )
+
+
+class TravelTimesIn(BaseModel):
+    # Schema ferme (anti-PII) : extra='forbid' rejette toute coordonnee ou champ
+    # non declare. Seule l'adresse texte (deja exposee cote front) circule.
+    model_config = ConfigDict(extra="forbid")
+    address: str = Field(min_length=1, max_length=300)
+    mode: Literal["WALK", "DRIVE", "BICYCLE", "TRANSIT"]
+    city_hint: Optional[str] = "Metz"
+
+
+# Libelles affichables des POI routables (cathedrale/gare/pompidou/a31).
+_POI_LABELS: Dict[str, str] = {
+    "cathedrale": "Centre / Cathédrale St-Étienne",
+    "gare": "Gare Metz-Ville",
+    "pompidou": "Centre Pompidou-Metz",
+    "a31": "Échangeur A31 le plus proche",
+}
+_TRAVEL_TIMES_ORDER = ["cathedrale", "gare", "pompidou", "a31"]
+
+
+@app.post("/travel-times")
+def travel_times(
+    payload: TravelTimesIn,
+    _rl: None = Depends(rate_limiter(limit=30, window_seconds=60)),
+) -> dict:
+    # Sans LLM ni DB (pattern /feedback /events) : re-geocode l'adresse texte
+    # puis interroge le routing. Aucune lat/lon n'est exposee ni persistee (RGPD).
+    geo = geocode_address(payload.address, payload.city_hint or "Metz")
+    if geo is None:
+        return {"status": "indisponible", "reason": "adresse"}
+
+    origin = (geo["lat"], geo["lon"])
+    destinations = {p: _POI[p] for p in _TRAVEL_TIMES_ORDER}
+    routed = compute_travel_times(origin, destinations, payload.mode) or {}
+
+    results: List[Dict[str, Any]] = []
+    for poi_id in _TRAVEL_TIMES_ORDER:
+        label = _POI_LABELS[poi_id]
+        route = routed.get(poi_id)
+        if isinstance(route, dict) and route.get("duration_s") is not None:
+            mode = route.get("mode") or payload.mode
+            label_mode = _MODE_LABELS.get(mode, "")
+            minutes = round(route["duration_s"] / 60)
+            entry: Dict[str, Any] = {
+                "poi_id": poi_id,
+                "label": label,
+                "value": f"~{minutes} min {label_mode}".rstrip(),
+                "mode": mode,
+                "duration_s": int(route["duration_s"]),
+                "estimated": False,
+            }
+            if route.get("distance_m") is not None:
+                entry["distance_m"] = int(route["distance_m"])
+            if label_mode:
+                entry["label_mode"] = label_mode
+        else:
+            from app.metz_local import haversine_km
+
+            km = haversine_km(origin[0], origin[1], _POI[poi_id][0], _POI[poi_id][1])
+            entry = {
+                "poi_id": poi_id,
+                "label": label,
+                "value": f"{_fmt_dist(km)} à vol d'oiseau",
+                "mode": "vol_oiseau",
+                "estimated": True,
+            }
+        results.append(entry)
+
+    return {"status": "ok", "mode": payload.mode, "results": results}
 
 
 @app.post("/feedback", status_code=201)

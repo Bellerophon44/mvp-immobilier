@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cohérence — Refonte du mark : 4 directions</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --parchment: #F5F1EA;
+    --paper:     #FBF8F2;
+    --ink:       #1A1814;
+    --stone:     #8B8275;
+    --stone-line:#D9D2C5;
+    --brick:     #B5462F;
+    --jaumont:   #C9A14A;
+    --font-serif: "Instrument Serif", Georgia, serif;
+    --font-sans:  "Geist", ui-sans-serif, system-ui, sans-serif;
+    --font-mono:  "Geist Mono", ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--parchment); color: var(--ink); font-family: var(--font-sans); }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 56px 32px 120px; }
+  header.page { border-bottom: 1px solid var(--stone-line); padding-bottom: 28px; margin-bottom: 48px; }
+  h1 { font-family: var(--font-serif); font-weight: 400; font-size: 40px; line-height: 1.05; margin: 0 0 8px; letter-spacing: -0.01em; }
+  .lede { color: #46423b; font-size: 15px; line-height: 1.55; max-width: 760px; margin: 0; }
+  .lede code { font-family: var(--font-mono); font-size: 13px; background: #ece5da; padding: 1px 5px; border-radius: 3px; }
+
+  .dir { margin-bottom: 64px; }
+  .dir-head { display: flex; align-items: baseline; gap: 14px; margin-bottom: 6px; }
+  .dir-no { font-family: var(--font-mono); font-size: 12px; color: var(--brick); letter-spacing: 0.1em; }
+  .dir-name { font-family: var(--font-serif); font-size: 26px; }
+  .dir-concept { color: #46423b; font-size: 14px; line-height: 1.55; max-width: 820px; margin: 0 0 24px; }
+  .dir-concept strong { color: var(--ink); font-weight: 600; }
+
+  .panels { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--stone-line); border: 1px solid var(--stone-line); border-radius: 8px; overflow: hidden; }
+  .panel { padding: 30px 28px; display: flex; flex-direction: column; gap: 22px; }
+  .panel.parch { background: var(--parchment); }
+  .panel.ink   { background: var(--ink); }
+  .panel-lbl { font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--stone); }
+  .panel.ink .panel-lbl { color: #8f877a; }
+
+  .sizes { display: flex; align-items: flex-end; gap: 28px; flex-wrap: wrap; }
+  .size { display: flex; flex-direction: column; align-items: center; gap: 9px; }
+  .size .cap { font-family: var(--font-mono); font-size: 10px; color: var(--stone); }
+  .panel.ink .size .cap { color: #8f877a; }
+  .glyph { display: grid; place-items: center; }
+
+  /* default ink/parchment marks pick up colour from container */
+  .panel.parch .mk { color: var(--ink); }
+  .panel.ink   .mk { color: var(--parchment); }
+  .mk.jaumont { color: var(--jaumont) !important; }
+  .mk.brick   { color: var(--brick); }
+
+  .hdr-demo { margin-top: 22px; }
+  .fakehdr { display: flex; align-items: center; justify-content: space-between; padding: 14px 22px; border-radius: 8px; }
+  .fakehdr.parch { background: var(--paper); border: 1px solid var(--stone-line); }
+  .fakehdr.ink   { background: var(--ink); }
+  .brandlock { display: inline-flex; align-items: center; gap: 11px; text-decoration: none; }
+  .brandlock .word { font-family: var(--font-serif); font-size: 27px; line-height: 1; letter-spacing: -0.02em; }
+  .fakehdr.parch .word { color: var(--ink); }
+  .fakehdr.ink   .word { color: var(--parchment); }
+  .navfake { display: flex; gap: 22px; font-size: 13px; color: var(--stone); }
+  .fakehdr.ink .navfake { color: #9a9184; }
+  .cta { font-size: 13px; padding: 8px 14px; border-radius: 4px; background: var(--brick); color: #fff; }
+
+  .crit { margin-top: 22px; background: var(--paper); border: 1px solid var(--stone-line); border-left: 3px solid var(--brick); border-radius: 4px; padding: 18px 20px; font-size: 13.5px; line-height: 1.6; color: #46423b; max-width: 900px; }
+  .crit b { color: var(--ink); }
+  .verdict { margin-top: 56px; background: var(--paper); border: 1px solid var(--stone-line); border-radius: 8px; padding: 32px 34px; }
+  .verdict h2 { font-family: var(--font-serif); font-size: 28px; margin: 0 0 14px; }
+  .verdict p { font-size: 14.5px; line-height: 1.65; color: #46423b; max-width: 880px; }
+  .verdict .pick { display: inline-block; font-family: var(--font-mono); font-size: 12px; color: #fff; background: var(--brick); padding: 3px 9px; border-radius: 3px; letter-spacing: 0.04em; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="page">
+    <h1>Cohérence — refonte du mark</h1>
+    <p class="lede">Quatre directions distinctes, chacune déclinée à <b>16 / 20 / 28 / 64 / 120 px</b>, sur fond parchemin et sur fond encre, et posée dans un faux en-tête avec le mot « Cohérence ». Priorité n°1 : <b>lisibilité et sens à petite taille</b> — un logo doit tenir en favicon 16 px. Registre : sobre, noble, gravé. Tokens : <code>--ink #1A1814</code>, <code>--jaumont #C9A14A</code>, <code>--brick #B5462F</code>.</p>
+  </header>
+
+  <!-- ================= DIRECTION A — MONOGRAMME C ================= -->
+  <section class="dir">
+    <div class="dir-head"><span class="dir-no">DIRECTION A</span><span class="dir-name">Monogramme « C » gravé + losange</span></div>
+    <p class="dir-concept">Le <strong>« C » de Cohérence</strong> taillé en arc franc (terminaisons droites, comme au burin), refermé sur le <strong>losange de marque existant</strong> logé dans son ouverture : continuité directe avec le wordmark actuel, mais le losange n'est plus seul — il est <em>tenu</em> par une lettre. Dit « Cohérence », évoque l'anneau d'un sceau sans en être un, moderne et institutionnel.</p>
+    <div class="panels">
+      <div class="panel parch">
+        <span class="panel-lbl">sur parchemin</span>
+        <div class="sizes" id="A-parch"></div>
+        <div class="hdr-demo">
+          <div class="fakehdr parch">
+            <a class="brandlock"><span class="mk" data-mark="A" data-size="28"></span><span class="word">Cohérence</span></a>
+            <span class="navfake">Méthode&nbsp;&nbsp;Comparables&nbsp;&nbsp;À propos</span>
+          </div>
+        </div>
+      </div>
+      <div class="panel ink">
+        <span class="panel-lbl">sur encre</span>
+        <div class="sizes" id="A-ink"></div>
+        <div class="hdr-demo">
+          <div class="fakehdr ink">
+            <a class="brandlock"><span class="mk" data-mark="A" data-size="28"></span><span class="word">Cohérence</span></a>
+            <span class="cta">Analyser l'annonce</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="crit"><b>Auto-critique.</b> Un « C » nu serait générique ; le losange logé dedans le sauve et l'ancre sur l'existant. <b>Casse vers 16 px</b> si le losange devient un point flou — il est gardé volontairement petit pour ne pas étouffer le C. Un sceptique dira « c'est un C, comme cent marques ». Réponse : peu de marques referment le C sur un mark — mais l'argument tient, c'est le plus sûr et le moins distinctif.</div>
+  </section>
+
+  <!-- ================= DIRECTION B — ALÉRION UNIQUE ================= -->
+  <section class="dir">
+    <div class="dir-head"><span class="dir-no">DIRECTION B</span><span class="dir-name">Alérion lorrain unique</span></div>
+    <p class="dir-concept">UN seul <strong>alérion</strong> — aiglon héraldique <strong>ailes déployées, sans bec ni pattes</strong> — réduit à un chevron d'ailes et un corps fuselé. C'est l'abandon assumé des trois alérions illisibles : <em>un</em> oiseau franc, façon logo d'institution. Encrable en <strong>or Jaumont</strong> pour porter le local. Ancrage messin le plus fort du lot.</p>
+    <div class="panels">
+      <div class="panel parch">
+        <span class="panel-lbl">sur parchemin · encré Jaumont</span>
+        <div class="sizes" id="B-parch"></div>
+        <div class="hdr-demo">
+          <div class="fakehdr parch">
+            <a class="brandlock"><span class="mk jaumont" data-mark="B" data-size="28"></span><span class="word">Cohérence</span></a>
+            <span class="navfake">Méthode&nbsp;&nbsp;Comparables&nbsp;&nbsp;À propos</span>
+          </div>
+        </div>
+      </div>
+      <div class="panel ink">
+        <span class="panel-lbl">sur encre · encré Jaumont</span>
+        <div class="sizes" id="B-ink"></div>
+        <div class="hdr-demo">
+          <div class="fakehdr ink">
+            <a class="brandlock"><span class="mk jaumont" data-mark="B" data-size="28"></span><span class="word">Cohérence</span></a>
+            <span class="cta">Analyser l'annonce</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="crit"><b>Auto-critique.</b> Le plus distinctif et le plus local. <b>Risque majeur : à 16-20 px</b> le corps et les ailes peuvent fusionner en une « tache » — exactement le défaut des marks précédents, ici atténué car il n'y a qu'un sujet, pas trois. Un sceptique y verra « un oiseau / une ancre / un trident » plutôt qu'un alérion (qui est de toute façon peu connu). C'est le pari le plus noble mais le plus fragile à petite taille ; jugez la colonne 16/20 px sans complaisance.</div>
+  </section>
+
+  <!-- ================= DIRECTION C — COÏNCIDENCE ================= -->
+  <section class="dir">
+    <div class="dir-head"><span class="dir-no">DIRECTION C</span><span class="dir-name">La coïncidence</span></div>
+    <p class="dir-concept">Deux chevrons — <strong>le prix et le marché</strong> — qui se font face et <strong>s'alignent sur un même axe</strong> : l'idée littérale et abstraite de la <em>mise en cohérence</em>, le cœur du produit. Géométrique, moderne, zéro figuratif. Le sommet de contact peut s'encrer en <strong>brick</strong> (l'accent d'action). Forme la plus robuste à petite taille.</p>
+    <div class="panels">
+      <div class="panel parch">
+        <span class="panel-lbl">sur parchemin</span>
+        <div class="sizes" id="C-parch"></div>
+        <div class="hdr-demo">
+          <div class="fakehdr parch">
+            <a class="brandlock"><span class="mk" data-mark="C" data-size="28"></span><span class="word">Cohérence</span></a>
+            <span class="navfake">Méthode&nbsp;&nbsp;Comparables&nbsp;&nbsp;À propos</span>
+          </div>
+        </div>
+      </div>
+      <div class="panel ink">
+        <span class="panel-lbl">sur encre</span>
+        <div class="sizes" id="C-ink"></div>
+        <div class="hdr-demo">
+          <div class="fakehdr ink">
+            <a class="brandlock"><span class="mk" data-mark="C" data-size="28"></span><span class="word">Cohérence</span></a>
+            <span class="cta">Analyser l'annonce</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="crit"><b>Auto-critique.</b> Tient parfaitement à 16 px (deux chevrons restent deux chevrons), moderne, conceptuellement juste. <b>Mais : aucun ancrage local.</b> Un sceptique y verra un « < > », un curseur média, un logo de fintech générique. Robuste et intelligent, mais c'est la direction qui sacrifie le plus la crédibilité messine demandée.</div>
+  </section>
+
+  <!-- ================= DIRECTION D — CLEF DE VOÛTE ================= -->
+  <section class="dir">
+    <div class="dir-head"><span class="dir-no">DIRECTION D</span><span class="dir-name">La clef de voûte</span></div>
+    <p class="dir-concept">Un <strong>arc plein cintre sur deux piédroits</strong>, avec une <strong>clef de voûte pleine</strong> au sommet — le claveau qui verrouille l'arc et le fait tenir. La clef est l'élément qui <em>tient tout l'ensemble</em> : métaphore exacte de la cohérence et de la robustesse. Évoque la pierre de Jaumont et l'architecture messine <strong>sans silhouette de bâtiment ni de cathédrale</strong>. Clef remplie en <strong>or Jaumont</strong> : seul accent local du mark.</p>
+    <div class="panels">
+      <div class="panel parch">
+        <span class="panel-lbl">sur parchemin · clef Jaumont</span>
+        <div class="sizes" id="D-parch"></div>
+        <div class="hdr-demo">
+          <div class="fakehdr parch">
+            <a class="brandlock"><span class="mk" data-mark="D" data-size="28"></span><span class="word">Cohérence</span></a>
+            <span class="navfake">Méthode&nbsp;&nbsp;Comparables&nbsp;&nbsp;À propos</span>
+          </div>
+        </div>
+      </div>
+      <div class="panel ink">
+        <span class="panel-lbl">sur encre · clef Jaumont</span>
+        <div class="sizes" id="D-ink"></div>
+        <div class="hdr-demo">
+          <div class="fakehdr ink">
+            <a class="brandlock"><span class="mk" data-mark="D" data-size="28"></span><span class="word">Cohérence</span></a>
+            <span class="cta">Analyser l'annonce</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="crit"><b>Auto-critique.</b> Le plus riche de sens (robustesse + pierre + « ce qui tient l'ensemble ») et noble. <b>Test rasterisé : la clef PLEINE survit à 16 px</b> comme une encoche/un trapèze visible au sommet — c'est ce qui distingue ce mark d'une arche nue (un claveau au trait, lui, disparaît à petite taille). Risque : un sceptique y verra « assurance », « banque » ou « porte de ville ». La clef Jaumont et la légère asymétrie du trapèze le tirent vers la pierre messine plutôt que vers le pictogramme bancaire.</div>
+  </section>
+
+  <!-- ================= VERDICT ================= -->
+  <section class="verdict">
+    <h2>Vote motivé</h2>
+    <p>
+      <span class="pick">RETENU — DIRECTION D, la clef de voûte (clef Jaumont)</span><br><br>
+      Méthode : chaque direction a été <b>rasterisée à 16 / 20 / 28 px puis agrandie</b> pour juger la lisibilité réelle, pas l'intuition. Le test a renversé un a priori : la <b>coïncidence (C)</b>, séduisante sur le papier, dégénère à petite taille en simple « X » ou en flèche « download » — robuste mais générique et <em>sans aucun ancrage local</em>. L'<b>alérion (B)</b> confirme le défaut des marks précédents : à 16-20 px il devient une tache illisible. Le <b>monogramme (A)</b> se referme en bouton flou. Seule la <b>clef de voûte (D)</b> tient les cinq tailles <em>et</em> garde du sens : la clef pleine survit à 16 px, l'arc reste lu, et l'ensemble dit « ce qui tient l'édifice » — la cohérence — tout en évoquant la pierre messine sans folklore.
+    </p>
+    <p style="margin-top:14px;">
+      Elle répond aux trois exigences à la fois : <b>robuste</b> (l'arc, la pierre), <b>moderne</b> (géométrie franche, aucune fioriture), <b>local crédible</b> (clef en or Jaumont, architecture de Metz sans cathédrale ni dragon) et <b>lisible partout</b> (16 px → grand format). C'est le seul mark du lot qui ne sacrifie ni la lisibilité ni le sens.
+    </p>
+    <p style="margin-top:14px;">
+      <b>Recommandation opérationnelle :</b> adopter <b>D</b> comme mark système (favicon, header, remplacement du losange dans le wordmark), clef remplie en Jaumont sur les supports où l'or est admis, sinon monochrome. Garder le <b>cachet Jaumont</b> (Seal / alérion unique) pour le bloc « contexte local » en grand format (≥ 64 px) où il respire. Si le fondateur veut le local <em>dans</em> le logo lui-même, <b>B (alérion unique)</b> est le repli — mais il faut accepter sa fragilité 16 px, visible ci-dessus.
+    </p>
+  </section>
+</div>
+
+<script>
+  // Mark factory — un seul source de vérité par direction, rendu à toutes tailles.
+  // viewBox 0 0 24 24 partout.
+  function svg(inner, opts){
+    opts = opts || {};
+    const sw = opts.sw || 2;
+    return `<svg class="mk-svg" viewBox="0 0 24 24" width="100%" height="100%" fill="none"
+      stroke="currentColor" stroke-width="${sw}" stroke-linecap="${opts.cap||'round'}" stroke-linejoin="round">${inner}</svg>`;
+  }
+
+  const MARKS = {
+    // A — monogramme C (coupes franches) + losange logé dans l'ouverture
+    A: () => svg(
+      `<path d="M18.2 6.6 A 7.6 7.6 0 1 0 18.2 17.4" stroke-linecap="butt"/>
+       <path d="M12 9 L15 12 L12 15 L9 12 Z" stroke-width="1.6"/>`,
+      {sw:2}),
+    // B — alérion unique : deux ailes en chevron + corps fuselé
+    B: () => svg(
+      `<path d="M12 8.4 C 9.2 7.5 6.6 7.9 4.6 9.9 C 7 9.3 9.4 9.6 11.2 11.1"/>
+       <path d="M12 8.4 C 14.8 7.5 17.4 7.9 19.4 9.9 C 17 9.3 14.6 9.6 12.8 11.1"/>
+       <path d="M12 8 L12 15.6"/>`,
+      {sw:1.75}),
+    // C — coïncidence : deux chevrons alignés sur un axe central
+    C: (accent) => svg(
+      `<path d="M5 6.6 L12 11 L19 6.6"/>
+       <path d="M5 17.4 L12 13 L19 17.4"/>` +
+      (accent ? `<circle cx="12" cy="12" r="0.4" fill="${accent}" stroke="none"/>` : ``),
+      {sw:2}),
+    // D — clef de voûte : arc plein cintre + piédroits + claveau PLEIN (clef)
+    // La clef est remplie en Jaumont : seul accent local du mark.
+    D: () => svg(
+      `<path d="M5 19 L5 12"/>
+       <path d="M19 19 L19 12"/>
+       <path d="M5 12 A 7 7 0 0 1 19 12"/>
+       <path d="M10.4 5.2 L13.6 5.2 L13.1 8 L10.9 8 Z" fill="#C9A14A" stroke="#C9A14A"/>`,
+      {sw:2}),
+  };
+
+  const SIZES = [16,20,28,64,120];
+
+  function renderSizes(containerId, markKey, opts){
+    opts = opts || {};
+    const el = document.getElementById(containerId);
+    el.innerHTML = SIZES.map(s => {
+      const colorClass = opts.colorClass ? ' ' + opts.colorClass : '';
+      return `<div class="size">
+        <div class="glyph mk${colorClass}" style="width:${s}px;height:${s}px;">${MARKS[markKey]()}</div>
+        <span class="cap">${s} px</span>
+      </div>`;
+    }).join('');
+  }
+
+  // Direction A
+  renderSizes('A-parch','A');
+  renderSizes('A-ink','A');
+  // Direction B — Jaumont
+  renderSizes('B-parch','B',{colorClass:'jaumont'});
+  renderSizes('B-ink','B',{colorClass:'jaumont'});
+  // Direction C
+  renderSizes('C-parch','C');
+  renderSizes('C-ink','C');
+  // Direction D
+  renderSizes('D-parch','D');
+  renderSizes('D-ink','D');
+
+  // Header lockup marks
+  document.querySelectorAll('.mk[data-mark]').forEach(node=>{
+    const k = node.getAttribute('data-mark');
+    const sz = node.getAttribute('data-size');
+    node.style.width = sz+'px'; node.style.height = sz+'px';
+    node.classList.add('glyph');
+    node.innerHTML = MARKS[k]();
+  });
+</script>
+</body>
+</html>

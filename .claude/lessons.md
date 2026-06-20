@@ -26,10 +26,26 @@
 
 ## Entrées
 
-- **[2026-06-18] [increment3-couronne] CI muette sur une PR créée par l'intégration Claude Code : ce n'est PAS le budget — les events générés par le token de l'intégration ne déclenchent pas Actions**
-  - Symptôme : PR #113 (recon agences couronne) ouverte par l'intégration → aucun workflow Actions ne démarre (ni `test.yml` malgré `backend/**`, ni `diagnose-scrapers` qui doit poster les verdicts recon). Seul Vercel tourne. J'ai diagnostiqué « budget Actions à 0 $ » À TORT plusieurs fois de suite, alors que la capture Billing montrait budget Actions 5 $ / 0 $ dépensé (barre non pleine).
-  - Cause racine : GitHub ne crée PAS de run pour les events `push`/`pull_request` générés via le token d'une intégration/App (protection anti-récursion, cf. règle `GITHUB_TOKEN`). Preuve : tous les runs récents (`test.yml`, `diagnose-scrapers`) ont `triggering_actor = <humain>`, event `pull_request` ; la PR créée par l'intégration n'en génère aucun. Vercel n'est pas affecté (webhook hors Actions). Workflow présent sur base+défaut, filtre de chemins matchant, `workflow_dispatch` présent : tout est bon SAUF le déclencheur.
-  - Garde-fou (règle, diagnostic) : si la CI ne part pas sur une PR ouverte par l'intégration → d'abord regarder la barre de budget Actions (si NON pleine, écarter immédiatement le budget — ne pas y revenir), puis conclure « event token-généré ». Seule une **action humaine** déclenche : close/reopen de la PR dans l'UI, push fait par l'humain, ou « Run workflow » (workflow_dispatch) depuis l'UI Actions. L'intégration ne peut PAS déclencher (API `run_workflow`/`rerun` → 403). Pour `diagnose-scrapers`, le plus simple = l'humain close+reopen la PR (event `reopened` → recon-all + commentaire postés). NB : recon impossible en local ici (egress sur allowlist : `Host not in allowlist` → 403 proxy, pas un vrai verdict site).
+- **[2026-06-18] [increment3-couronne] CI `pull_request` muette : suspecter d'abord le CONFLIT de merge (PR `dirty`), pas le budget**
+  - Symptôme : sur #113 aucun workflow `pull_request` ne démarre (ni `test.yml` malgré `backend/**`, ni `diagnose-scrapers` censé poster les verdicts recon), ni sur push, ni après un reopen humain. Seul Vercel tourne. ERREUR répétée : j'ai d'abord accusé le « budget Actions à 0 $ » alors que la capture Billing montrait Actions 5 $ / 0 $ dépensé (barre NON pleine) — le budget n'était pas le sujet.
+  - Cause racine (suspect n°1, à confirmer par l'observation post-résolution) : la PR est `mergeable_state: dirty` (conflit, ici `staging` a avancé). Un workflow `pull_request` tourne sur le commit de merge `refs/pull/N/merge` ; tant que la PR est en conflit, GitHub ne peut pas le fabriquer → AUCUN run `pull_request` n'est créé, quel que soit l'auteur du push ou un reopen. Cohérent avec le fait que les runs récents marchaient sur des branches NON conflictuelles (`staging`, autres). (Hypothèse secondaire envisagée puis dépriorisée : events générés par le token de l'intégration ne déclencheraient pas Actions — non tranché.)
+  - Garde-fou (règle, diagnostic) : CI `pull_request` muette → (1) vérifier la barre budget Actions ; si NON pleine, écarter le budget DÉFINITIVEMENT ; (2) vérifier `mergeable_state` de la PR — si `dirty`, RÉSOUDRE le conflit (merge/rebase de la base dans la branche) AVANT toute autre piste, c'est très probablement le blocage. Levier de secours indépendant du commit de merge : `workflow_dispatch` (« Run workflow » UI) — mais l'étape de commentaire de `diagnose-scrapers` est gardée `if github.event_name == 'pull_request'`, donc un dispatch ne posterait pas le commentaire. NB : recon impossible en local ici (egress sur allowlist : `Host not in allowlist` → 403 proxy, pas un vrai verdict site).
+
+- **[2026-06-16] [issue-100 / C1] Une cascade avec PLUSIEURS candidats d'un même niveau : l'oracle doit vérifier l'activation conditionnelle sur CHAQUE candidat, pas sur le plus simple**
+  - Symptôme : l'inter-communalité (passer `cities=` au niveau quartier de `compute_market_stats` pour réunir Metz + Montigny sur le quartier Sainte-Thérèse/Botanique) était correctement câblée par le développeur sur les DEUX candidats de niveau quartier (`quartier+bande DPE` ET `quartier seul`), mais la phase A des tests ne couvrait QUE le candidat sans bande DPE. Un futur refactor aurait pu retirer `cities` du candidat `quartier+DPE` sans qu'aucun test ne rougisse → élargissement silencieusement partiel (pool DPE limité à Metz).
+  - Cause racine : l'oracle a testé un candidat « représentatif » d'un niveau qui en compte plusieurs. Même classe de faux-vert que la leçon « golden d'ordre capturé mais non asserté » : on verrouille une instance, pas chaque artefact.
+  - Garde-fou : tests adversariaux `tests/test_issue_100_C_adversarial.py::test_adv_intercommunal_with_dpe_band_unites_two_communes` et `::test_adv_intercommunal_dpe_candidate_receives_cities` (sonde d'appel sur le candidat `quartier+DPE`), falsifiabilité prouvée en cassant `market_stats.py:178`. Règle : quand une activation conditionnelle s'applique à un NIVEAU de cascade qui a plusieurs candidats (avec/sans filtre DPE, etc.), asserter l'activation sur CHAQUE candidat du niveau.
+
+- **[2026-06-16] [issue-100 / C5] Ne jamais poser une question dont la réponse est déjà extraite dans `listing` — garde-fou déterministe, pas confiance au prompt**
+  - Symptôme : pour un appartement dont l'annonce donne les charges (« Charges mensuelles : 320 € »), l'analyse posait « Quel est le montant des charges de copropriété ? » (question LLM) PENDANT que la question déterministe (`analysis._amenity_actions`) citait ce même montant (« …charges annoncées (3840 €/an)… ») : on demande une info qu'on affiche par ailleurs → incohérence visible, perte de crédibilité (retour pilote, `gravite/bloquant-credibilite`).
+  - Cause racine : aucun invariant « ne pas redemander ce que l'annonce/extraction fournit déjà ». Le prompt demandait des « points à clarifier » sans interdire de clarifier un point déjà clair ; et `_merge_unique` (analysis.py) ne déduplique que sur le texte quasi identique, pas sur l'intention/le sujet → les deux questions coexistaient.
+  - Garde-fou : filtre déterministe `llm_semantic._filter_redundant_fee_question` (retire les questions LLM sur le MONTANT des charges — « charge » + montant/combien/coût — quand `condo_fees is not None`), appliqué AVANT le cache comme `_filter_condo_for_house` ; + règle de prompt générale (ne pas redemander une info explicite : charges, surface, DPE, étage, pièces). Tests `tests/test_issue_100_questions.py` (filtre + conservatisme condo_fees None + items non-str + cache porte la valeur filtrée + règle de prompt statique). Note d'interaction : un exemple de question copro servant à tester le filtre MAISON (issue #80, `_QUESTIONS_AC16`) ne doit pas être une demande de montant, sinon C5 le retire et mêle les deux filtres (corrigé : exemple « règlement de copropriété »).
+  - Suivi : ✅ FAIT (2026-06-16) — cas d'éval LLM `evals/cases/issue_100.txt` + `test_eval_issue_100.py` ajouté, et **harnais d'évals généralisé multi-cas**.
+
+- **[2026-06-16] [evals-harness] Un oracle écrit pour UN cas peut coder en dur la cardinalité « 1 » et bloquer l'ajout d'un 2e cas — généraliser « par module », pas « globalement »**
+  - Symptôme : ajouter un 2e cas d'éval (`issue_100`) cassait `test_evals_harness.py::test_ac14_un_seul_point_appel_analyze_semantic`, qui assertait **exactement 1** site d'appel `analyze_semantic` dans TOUT `evals/`. Or l'intention de la spec (§3.4) est « 1 appel par CAS et par run » (coût borné), pas « 1 appel dans tout le harnais ».
+  - Cause racine : l'oracle mono-cas a sur-implémenté l'invariant de coût en cardinalité globale ; la formulation spec « n'apparaît nulle part ailleurs dans evals/ » visait « hors de la fixture de cas de chaque module », pas « une seule fois au total ».
+  - Garde-fou : AC14 généralisé — « exactement 1 site `analyze_semantic` PAR module `test_eval_issue_*.py` (dans une fixture `scope=module`) ET 0 hors module ». Provenance docstring (#<n> + synthétique) itérée sur tous les modules via `_eval_modules()`. Oracles `issue_100` ajoutés (tokens, sanity bloquantes, régression C5). Règle : tout oracle de harnais destiné à accueillir N artefacts doit itérer sur la collection (`rglob` des modules de cas) et asserter une propriété PAR artefact, jamais une cardinalité globale figée au 1er cas. Spec mise à jour (AC14).
 
 - **[2026-06-14] [bienici-couronne] Ne JAMAIS coder en dur l'environnement prod dans une feature : staging doit avoir les mêmes capacités que prod**
   - Symptôme : après collecte de la couronne, un test utilisateur sur STAGING (maison à Marly) retombait sur le repli « Metz métropole » alors que la prod fonctionnait. Cause immédiate : `collect.yml` poussait les comparables vers une URL prod **codée en dur** → seule la base prod était peuplée ; staging (env isolé, base dédiée) restait vide, donc inutilisable pour tester la feature.
@@ -406,3 +422,85 @@
     module à cache global doit réinitialiser ce cache en `autouse`. Verrouillé par
     `tests/test_photo_evidence_hardening.py` (tests de cache hit/miss dédiés :
     discrimination de la clé sur claims ET images, marqueur `_CACHE == {}` en entrée).
+
+- **[2026-06-16] [issue-100-A] Un oracle qui asserte une clé brute force une implémentation contre-conventionnelle**
+  - Symptôme : AC10 (convergence des référentiels) testait `CANON in _SECTORS_RAW`
+    puis `_SECTORS_RAW[CANON]` avec `CANON="Sainte-Therese"` (forme canonique sans
+    accent). Cela a forcé le développeur à poser la **clé** de secteur en forme
+    canonique, alors que toutes les autres clés de `_SECTORS_RAW` sont des libellés
+    humains accentués (« Centre Ville », « Plantières-Queuleu ») servant de
+    `scope_name` exposé au front. La spec §3.3 prescrivait pourtant la clé accentuée
+    `"Sainte-Thérèse"` avec dérivation canonique au chargement (`_build_sector_maps`).
+  - Cause racine : l'oracle a verrouillé la convergence canonique en assertant
+    l'**identité de la clé source** d'un dict dont les clés ont un rôle d'affichage,
+    au lieu d'asserter la **valeur canonicalisée dérivée** par la fonction de
+    chargement. Risque fonctionnel ici nul (secteur ne contenant que le quartier →
+    libellé inatteignable en affichage), mais incohérence de convention.
+  - Garde-fou (règle) : pour verrouiller la convergence canonique d'un nouveau
+    référentiel, l'oracle asserte la **forme dérivée** (sortie de la fonction de
+    normalisation, p.ex. `_DISTRICT_TO_SECTOR[CANON]` / `canonical_district`), JAMAIS
+    l'identité d'une clé source dont les clés portent un rôle d'affichage. Parenté
+    avec la leçon 2026-06-13 (oracle qui force une implémentation au lieu d'oracler
+    une propriété). Si harmonisation souhaitée : assouplir AC10
+    (`backend/tests/test_issue_100_A.py`) au niveau du tester, pas du développeur.
+
+- **[2026-06-16] [issue-100-B] Un golden d'ORDRE capturé mais non asserté est un faux-vert (refactor d'un matcher « premier match »)**
+  - Symptôme : la migration des 4 référentiels vers le gazetteer unique a fait passer
+    tous les goldens ET la review, mais le challenge adversarial a trouvé une
+    régression réelle : `geo_gazetteer.known_localities_districts()` appliquait un tri
+    GLOBAL `forms.sort(key=len, reverse=True)` qui détruisait l'ordre curaté
+    historique de `scrapers.base._KNOWN_LOCALITIES`. Comme `extract_district` renvoie
+    le PREMIER match par substring, l'ordre détermine quel quartier gagne sur un texte
+    multi-localités : 78 textes (ex. « Vallières proche Technopôle » → ancien
+    `Vallieres`, nouveau `Technopôle`) changeaient de résolution → refactor NON pur.
+  - Cause racine : l'oracle d'origine (AC1) figeait bien le golden d'ordre exact mais
+    n'assertait QUE `set()` + l'invariant partiel long-avant-court (paires en relation
+    de substring). L'ordre relatif des formes DISJOINTES n'était pas verrouillé, et un
+    tri (longueur ou alpha) ne reproduit jamais un ordre curaté arbitraire.
+  - Garde-fou (tests de régression, `backend/tests/test_issue_100_B.py`) :
+    `test_b_regression_known_localities_ordre_exact_egal_golden` (`list(...) == golden`,
+    ordre exact), `test_b_regression_extract_district_multi_localite_inchange` et
+    `test_b_regression_extract_district_balayage_exhaustif_paires` (toutes les paires
+    ordonnées de localités, sortie identique à l'état pré-migration `7d03053`).
+    Règle : quand une liste ORDONNÉE pilote un « premier match » (type
+    `_KNOWN_LOCALITIES`/`extract_district`), l'oracle de non-régression asserte
+    l'ORDRE EXACT contre le golden, pas seulement l'ensemble + une propriété partielle,
+    et teste la fonction consommatrice sur des entrées multi-tokens. L'ordre curaté
+    fait partie du contrat comportemental : ne jamais le re-trier lors d'une
+    unification de référentiels.
+
+- **[2026-06-16] [issue-100-B] Dérivation exécutée au top-level d'un module source crée un import circulaire latent dépendant de l'ordre d'import**
+  - Symptôme : `scrapers.base` appelait `_build_known_localities()` à son top-level, qui
+    importe `app.geo_gazetteer`, lequel importait `scrapers.base` à SON top-level
+    (`from scrapers.base import canonical_district`). `python -c "import app.geo_gazetteer"`
+    en TOUT PREMIER plantait (`AttributeError: partially initialized module`). Le chemin
+    prod (`app.main`) et pytest ne déclenchaient pas le bug (ils chargeaient
+    `scrapers.base` d'abord) → fragilité invisible en suite verte.
+  - Cause racine : cycle d'import A↔B dont une branche s'exécute au top-level ; il ne
+    casse que selon l'ordre d'import, donc passe inaperçu tant qu'un consommateur
+    impose le bon ordre.
+  - Garde-fou (règle + vérif) : une dérivation à l'import qui dépend d'un module qui
+    dépend en retour du module courant doit être robuste à l'ordre — import paresseux
+    d'un côté (ici `canonical_district` importé dans `build_sector_maps`, pas au
+    top-level de `geo_gazetteer`). Vérifier que `python -c "import <A>"` ET
+    `python -c "import <B>"` réussissent CHACUN en premier import (process séparés).
+
+- **[2026-06-18] [contexte-local-v2 / C] Un libellé statique embarquant un faux temps chiffré (« ~45 min ») collisionne avec un invariant anti-fausse-précision testé par regex `~\d+ min`**
+  - Symptôme : la constante `metz_local._A31_LUXEMBOURG` contenait « (~45 min hors trafic) ». Apposée au `value` du fact A31 (qui doit contenir « Luxembourg », AC3), elle faisait matcher la regex `~\d+ min` de l'invariant d'étiquetage honnête (AC23) sur un fact en repli Haversine `estimated=true` (qui ne doit afficher AUCUNE minute) → AC3 et AC23 mutuellement insatisfiables.
+  - Cause racine : un libellé qualitatif d'ancrage local portait une durée chiffrée non sourcée, alors que le produit interdit la fausse précision (distance vol d'oiseau ≠ temps). Détecté par le développeur (signalé sans contourner un test), tranché en phase B.
+  - Garde-fou : « ~45 min » retiré de `_A31_LUXEMBOURG` ; mention A31 placée en PRÉFIXE du value (« à vol d'oiseau » reste en fin). Verrouillé par `tests/test_contexte_local_v2_hardening.py::test_h1_*` (assert : `_A31_LUXEMBOURG` ne matche pas `~\d+ min` + fact a31 réel en repli conforme AC3∧AC23 ; falsifiable en réintroduisant la durée). Règle : ne jamais embarquer de durée chiffrée dans un libellé statique d'ancrage local ; les regex d'étiquetage honnête scannent tout le `value`, suffixe inclus.
+
+- **[2026-06-18] [contexte-local-v2 / C] Un invariant d'étiquetage testé seulement sur les modes du chemin par DÉFAUT laisse non couverts les modes atteignables uniquement à-la-demande**
+  - Symptôme : l'étiquetage honnête (AC23/AC24 : jamais « à vol d'oiseau » sur un temps réel, jamais `~\d+ min` sur un repli) n'était exercé que sur WALK/DRIVE (modes du calcul par défaut à l'analyse). Les modes TRANSIT/BICYCLE, accessibles UNIQUEMENT via `POST /travel-times`, n'étaient jamais vérifiés : un `_MODE_LABELS` amputé d'une entrée ou un repli endpoint affichant des minutes serait passé inaperçu (comportement pourtant correct dans le code, mais non verrouillé).
+  - Cause racine : oracle d'invariant écrit sur le sous-ensemble de valeurs du chemin nominal, pas sur l'ensemble des valeurs atteignables par une surface publique. Parenté avec la leçon issue-100/C1 (« activation conditionnelle sur CHAQUE candidat »).
+  - Garde-fou : `tests/test_contexte_local_v2_hardening.py::test_h4_endpoint_transit_bicycle_label_mode_honest` (paramétré TRANSIT+BICYCLE) et `::test_h5_endpoint_fallback_no_minutes` (falsifiables). Règle : un invariant d'étiquetage qui s'applique à un ENSEMBLE de modes/valeurs doit être asserté sur CHAQUE mode/valeur atteignable par une surface publique, pas seulement le chemin par défaut.
+
+- **[2026-06-18] [contexte-local-v2 / D] Un AC de périmètre sur une donnée curatée ne contrôle pas la plausibilité géométrique des coordonnées qu'elle porte**
+  - Symptôme : AC34 vérifiait commune ∈ `_METRO_CITIES` + degré valide sur `schools_metz.json`, mais pas les coordonnées. Une inversion lat/lon, un (0,0) ou une coord hors zone resterait verte alors que la donnée factuelle (exigence produit) serait fausse et fausserait silencieusement le k-NN écoles.
+  - Cause racine : oracle de périmètre verrouillant les attributs catégoriels d'une donnée curatée, pas la géométrie exploitée par un calcul aval.
+  - Garde-fou : `tests/test_contexte_local_v2_hardening.py::test_h2_real_snapshot_coords_in_metz_bbox` (bbox Metz élargie + anti-inversion lat/lon, falsifiable). Règle : quand une donnée curatée porte des coordonnées exploitées par un calcul, l'oracle de périmètre doit aussi verrouiller une bbox plausible et l'orientation lat/lon, pas seulement les champs catégoriels.
+
+- **[2026-06-18] [contexte-local-v2 / D] DETTE — snapshot écoles curaté à la main (egress bloqué) + communes non canonicalisées à l'écriture**
+  - Symptôme : l'egress vers `data.education.gouv.fr` étant bloqué en environnement de dev (`403 Host not in allowlist`), `backend/app/data/schools_metz.json` est un snapshot INITIAL curaté à la main (24 écoles réelles de Metz + couronne, 4 degrés) au lieu d'un export officiel vérifié. De plus les `commune` y sont stockées en forme non canonique (« Montigny-lès-Metz »), alors que la spec §3 D.1 prescrivait la canonicalisation à l'écriture (impact fonctionnel NUL : `commune` n'est ni exposée ni utilisée comme filtre, et AC34 re-canonicalise à la volée).
+  - Cause racine : indisponibilité réseau du vendor en dev + oracle de périmètre testant l'intention (re-canonicalisation à la volée) plutôt que la forme stockée brute.
+  - Garde-fou / dette : en-tête de `app/schools.py` documente source/date/Licence Ouverte + procédure de rafraîchissement (régénérer via l'API quand l'egress est ouvert, ce qui canonicalisera les communes). Garde-fou RECOMMANDÉ pour ce rafraîchissement (non ajouté ce cycle, à porter par le testeur lors de la régénération) : un test assertant la forme STOCKÉE brute (`s["commune"] in _METRO_CITIES` SANS re-canonicaliser). Règle : pour une donnée versionnée dont la spec impose une forme normalisée à l'écriture, asserter la forme stockée brute en plus de l'intention, sinon le format du fichier source peut dériver silencieusement.

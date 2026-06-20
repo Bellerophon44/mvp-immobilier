@@ -17,7 +17,7 @@ export default function Footer() {
     }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <Wordmark compact size={18} />
-        <span>MVP · Metz / Moselle uniquement</span>
+        <span>Édition Metz · Moselle</span>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <a href="/methode" style={{ color: "var(--ink-3)", textDecoration: "none", fontWeight: 500 }}>

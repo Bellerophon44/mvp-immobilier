@@ -5,11 +5,27 @@
 > [`/CONTEXT.md`](../CONTEXT.md) à la racine du repo (source de vérité).
 > Ce fichier-ci se concentre sur l'état technique courant du backend.
 >
-> **Dernière mise à jour :** 2026-06-11 (cross-agence incrément 1 **déployé en
-> production**, PR #71 → `staging` puis PR #72 → `main`, deploy Fly prod OK :
-> tracking temporel par id stable — `first_seen_at`/`last_seen_at`, snapshots de
-> prix, endpoint admin `/history`, rétention 24 mois + cascade snapshots en
-> maintenance). Incrément 2 (clustering photo) : à faire, staging-first.
+> **Dernière mise à jour :** 2026-06-18 (**screening photo réglé** : `MAX_IMAGES`
+> 6 → **15** et `detail` `"low"` → **`"high"`** dans `app/photo_evidence.py`,
+> PR #124 → `staging`, promotion #125 → `main`, deploy Fly prod OK. But : moins
+> de faux `non_trouve` sur des repères pourtant visibles dans les photos — hors
+> des premières images, ou en arrière-plan illisible à 512px. Bloc toujours
+> **non-scoré**. Voir §6bis. Avant, même session : **refonte leviers de
+> négociation** + section « Atouts du bien » (PR #121 → `main`), resync
+> `main` → `staging`.)
+>
+> **Antérieurement (2026-06-18) :** « Contexte local v2 » **déployé en
+> production**, PR #115 → `staging`, fix #117 → `staging`, promotion #116 →
+> `main`, deploy Fly prod OK : **temps de trajet réels** via Google Routes API
+> (Compute Route Matrix) + endpoint `POST /travel-times`, **re-géocodage** de
+> l'adresse texte sans exposer/persister de lat/lon, **snapshot écoles** Metz +
+> couronne (issue #100 sous-chantier C3). Intégration Google **inactive sans la
+> clé** `GOOGLE_MAPS_API_KEY` → repli « à vol d'oiseau ». Spec :
+> `docs/specs/contexte-local-v2-SPEC.md`. Reste TODO issue #100 : **C2**
+> (quartier réel par polygones).
+> Historique : cross-agence incrément 1 en prod depuis 2026-06-11 (tracking
+> temporel par id stable, snapshots de prix, rétention 24 mois). Incrément 2
+> (clustering photo) : à faire, staging-first.
 
 ---
 
@@ -58,6 +74,7 @@ ou le port 8000 est périmée et doit être ignorée.
 |---|---|---|
 | `OPENAI_API_KEY` | `fly secrets` | Appel `gpt-4.1-mini` |
 | `OPENAI_MODEL` (optionnel) | `fly secrets` | Par défaut `gpt-4.1-mini` |
+| `GOOGLE_MAPS_API_KEY` (optionnel) | `fly secrets` (prod **et** staging) | Active les **temps de trajet réels** (Google Routes API, header `X-Goog-Api-Key`). **Absente → repli « à vol d'oiseau »** (le routing ne lève jamais). Restreindre la clé à *Routes API* + poser un quota/jour (cap dur) côté Google Cloud. |
 | `ADMIN_TOKEN` | `fly secrets` **et** GitHub repo secret | Authentifie `POST /admin/comparables` |
 | `DATABASE_PATH` | `fly.toml [env]` | `/data/comparables.db` |
 | `CORS_ORIGINS` (optionnel) | env Fly | Par défaut : localhost + `coherence-metz.fr`/`www.`/`staging.` + regex `*.vercel.app` (cf. `main.py`) |
@@ -74,12 +91,24 @@ backend/
 ├── requirements.txt        # fastapi, uvicorn[standard], sqlalchemy, requests,
 │                           # beautifulsoup4, openai>=1.50, numpy
 ├── app/
-│   ├── main.py             # FastAPI, CORS, /health, /, /analyze, /admin/comparables
+│   ├── main.py             # FastAPI, CORS, /health, /, /analyze, /travel-times, /admin/*
 │   ├── analysis.py         # Orchestrateur run_full_analysis
 │   ├── llm_semantic.py     # gpt-4.1-mini, cache mémoire SHA-256 TTL 7j
 │   ├── market_stats.py     # SQL comparables, fallback district, stats Q1/médiane/Q3
 │   ├── scoring.py          # Score global 0-100 (40+30+30)
-│   └── url_fetch.py        # GET URL annonce + extraction texte HTML, SSRF filter
+│   ├── url_fetch.py        # GET URL annonce + extraction texte HTML + extract_image_urls, SSRF filter
+│   ├── photo_evidence.py   # screening photo (NON-scoré) : appel vision gpt-4.1-mini
+│   │                       # sur claims locaux éligibles, cap 15 images detail high,
+│   │                       # cache mémoire TTL 7j, repli sûr non_trouve (cf. §6bis)
+│   ├── rate_limit.py       # rate_limiter(limit, window) — dépendance FastAPI (9.9)
+│   ├── geo_gazetteer.py    # référentiel géo unique (issue #100 B) : localités, alias
+│   ├── geocode.py          # adresse → {lat, lon, score, label, city} via la BAN (couche C)
+│   ├── metz_local.py       # profil quartier curaté + facts POI/écoles + contrôle cohérence
+│   ├── routing.py          # client Google Routes (Compute Route Matrix), injectable/
+│   │                       # mockable, repli silencieux, cache mémoire TTL 10 min
+│   ├── schools.py          # k-NN Haversine sur le snapshot écoles (1 école/degré)
+│   └── data/
+│       └── schools_metz.json  # snapshot Annuaire Éducation Nationale (Licence Ouverte)
 ├── db/
 │   ├── models.py           # SQLAlchemy Comparable, ListingPriceSnapshot
 │   └── session.py          # SessionLocal, init_db, DATABASE_PATH
@@ -128,6 +157,7 @@ Ne rien ajouter dedans. Toute nouvelle logique scraper va dans `scrapers/sources
 | GET | `/` | aucune | `{"service":"mvp-immobilier","docs":"/docs"}` |
 | GET | `/docs` | aucune | Swagger UI FastAPI |
 | POST | `/analyze` | aucune | Analyse cohérence d'une annonce |
+| POST | `/travel-times` | aucune (rate-limit 30/60s) | Temps de trajet à la demande depuis une adresse texte (re-géocodée), par mode |
 | GET | `/admin/comparables/stats` | `X-Admin-Token` | `{"total": n, "cities": [...]}` |
 | GET | `/admin/comparables/cross-source-probe` | `X-Admin-Token` | Probe read-only du gisement de re-list cross-source (compteurs agrégés de `tools.probe_cross_source`, voir ci-dessous) |
 | GET | `/admin/comparables/{listing_id}/history` | `X-Admin-Token` | Historique temporel d'une annonce (métadonnées factuelles uniquement, voir ci-dessous) |
@@ -165,6 +195,21 @@ Réponse :
 
 Codes d'erreur : 400 (aucun input), 422 (URL fournie mais inaccessible),
 500 (erreur interne, loguée).
+
+### `POST /travel-times`
+Calcul de **temps de trajet réels** à la demande (onglets « à pied / à vélo /
+en voiture / en transports » du front), via Google Routes API. Sans LLM ni DB.
+Rate-limit 30 requêtes / 60 s (`rate_limiter`).
+
+Body : `{"address": "12 Rue des Parmentiers 57000 Metz", "mode": "WALK"}`
+(modes `WALK` / `BICYCLE` / `DRIVE` / `TRANSIT`).
+
+RGPD : l'adresse texte est **re-géocodée côté serveur** (BAN) à la volée ;
+**aucune coordonnée n'est exposée au client ni persistée**. Si
+`GOOGLE_MAPS_API_KEY` est absente / le routing échoue / l'adresse n'est pas
+géocodable → **repli silencieux** sur la distance Haversine « à vol d'oiseau »
+(jamais de minutes sur une distance, jamais « à vol d'oiseau » sur un temps
+routé — étiquetage honnête).
 
 ### `POST /admin/comparables`
 Authentification : header `X-Admin-Token` comparé en temps constant à
@@ -210,7 +255,7 @@ POST /analyze
         │     retourne :
         │     - transparency_score (int 0-100)
         │     - verdict, summary, risk_level, risk_summary
-        │     - to_check[], questions[], negotiation_levers[]
+        │     - questions[], highlights[], negotiation_levers[]
         │     - listing: {city, district, property_type, surface_m2, price_total}
         │
         ├── _price_pillar_from_listing(listing)
@@ -236,6 +281,38 @@ POST /analyze
 
 Voir §11 pour les pistes de tuning du `scoring.py` (déséquilibre actuel
 quand seul le prix est défavorable).
+
+---
+
+## 6bis. Screening photo des allégations locales (`app/photo_evidence.py`)
+
+Bloc **NON-scoré** (n'entre jamais dans le 40/30/30) branché en **mode URL** dans
+`run_full_analysis(..., image_urls=...)`. Objectif : confronter aux photos de
+l'annonce les seules allégations locales **visuellement vérifiables** et poser un
+`photo_status` informatif sur chaque claim de `local_context.claims`.
+
+Flux :
+1. `url_fetch.extract_image_urls(html, base_url)` extrait les URLs d'images (ordre
+   de priorité `og:image`/`twitter:image` → JSON-LD `image` → `<img>`, dédup).
+2. `assess_claims_with_photos(claims, image_urls)` :
+   - **gating par TYPE** : seuls les claims de type `cathedrale` / `nature` /
+     `autre` (`ELIGIBLE_TYPES`) sont éligibles ; jamais par le texte.
+   - **court-circuit** : 0 claim éligible OU 0 image → aucun appel LLM.
+   - **cap** : `MAX_IMAGES = 15` premières images, transmises en
+     `IMAGE_DETAIL = "high"` (réglage 2026-06-18 : avant 6 / `"low"` ; `high` est
+     nécessaire pour lire les repères en arrière-plan que 512px rendait illisibles).
+   - **un seul** appel multimodal `gpt-4.1-mini` (`temperature=0.2`,
+     `response_format=json_object`), prompt système strict anti-complaisance.
+   - statut par claim ∈ `{confirme, non_trouve, non_applicable}` ; **repli sûr
+     `non_trouve`** à la moindre incertitude/erreur (jamais `confirme` par défaut).
+   - **cache mémoire** SHA-256 (clé = images + claims normalisés), TTL 7j.
+3. `analysis._merge_photo_status` fusionne le statut dans chaque claim éligible.
+
+Garanties : RGPD (URLs d'images **jamais loggées**, transit sans stockage, pas de
+re-fetch serveur), score inchangé. Coût : `detail:"high"` × 15 ≈ 3-4k tokens
+d'entrée par analyse non cachée (`gpt-4.1-mini`), amorti par le cache.
+Spec : `docs/specs/photo-evidence-SPEC.md`. Tests :
+`tests/test_photo_evidence*.py` (bornes du cap recâblées sur `MAX_IMAGES`).
 
 ---
 
@@ -540,12 +617,19 @@ system "Cohérence"). Côté contrat API :
   par la page principale.
 
 **Côté backend, retenir** : la réponse `/analyze` doit garder ce schéma
-(`global_score`, `verdict`, `confidence`, `pillars[]`, `actions{questions,
-negotiation}`, `local_context` optionnel). Le frontend code en dur l'ordre des
+(`global_score`, `verdict`, `confidence`, `pillars[]`, `actions{highlights,
+questions, negotiation}`, `local_context` optionnel). Le frontend code en dur l'ordre des
 piliers `[prix, transparence, risques]`. Chaque pilier porte `points`/`max`
 (prix /40, transparence /30, risque /30) : **le score global est exactement la
 somme des `points`** (cf. §11, scoring 40/30/30). Depuis le chantier A, `actions`
-n'a plus que **deux** listes (`questions` fusionne l'ancien `to_check`) ; le bloc
+a fusionné `to_check` dans `questions`. Depuis la refonte des leviers
+(chantier negotiation-levers-review) `actions` porte **trois** listes :
+`highlights` (atouts factuels du bien, objective sa valeur — LLM), `questions`,
+et `negotiation` recentré **côté acheteur** (éléments factuels qui pèsent à la
+baisse : prix sur-positionné [dérivé du pilier prix], DPE F/G, allégation locale
+peu plausible, étage élevé sans ascenseur, points faibles extraits par le LLM ;
+liste vide plutôt que des atouts si rien de défavorable). `highlights` est
+optionnel dans le contrat (rétro-compatible). Le bloc
 `local_context` (non-scoré) porte le profil de quartier (couche A), la liste
 `claims` (couche B : `{text, type, status, note}`), `address` (si saisie) et
 `precision` ∈ `{"quartier","adresse"}` (couche C : `"adresse"` = distances
@@ -573,15 +657,18 @@ exactes géocodées, `"quartier"` = repli profil). `AnalyzeRequest` accepte
   hors Metz).
 
 ### Ancrage local — limitations connues à optimiser
-- **Distance à vol d'oiseau ≠ temps de trajet réel.** La couche C (Haversine sur
-  `metz_local._POI`) mesure une distance en **ligne droite**. Or l'utilisateur
-  raisonne en **temps** : « 3 min à vol d'oiseau » peut être « 7 min à pied » de la
-  cathédrale ou « 12 min en voiture » de la bretelle A31 la plus proche (réseau
-  routier, sens uniques, ponts sur la Moselle, piétonnier du centre). *Optimisation* :
-  brancher un service de **routing isochrone** (OSRM, Google Distance Matrix, IGN
-  itinéraires…) pour afficher des temps porte-à-porte par mode (à pied / voiture /
-  transports). Tant que ce n'est pas fait, on étiquette explicitement « à vol
-  d'oiseau » côté front et on ne promet pas de temps de trajet.
+- **Temps de trajet réels — LIVRÉ EN PROD (2026-06-18).** En **mode adresse**, les
+  facts POI (cathédrale / gare / Pompidou en `WALK`, échangeur A31 en `DRIVE`)
+  affichent un **temps routé** via Google Routes API (`app/routing.py`,
+  Compute Route Matrix) ; l'endpoint `POST /travel-times` couvre les modes à la
+  demande (à pied / vélo / voiture / transports). Étiquetage honnête : jamais
+  « à vol d'oiseau » sur un temps routé, jamais de minutes sur une distance.
+  Limites restantes : (a) **sans `GOOGLE_MAPS_API_KEY` / sur échec réseau**, repli
+  Haversine « à vol d'oiseau » par POI (le routing ne lève jamais) ; (b) le **mode
+  quartier** (sans adresse) reste en distances approximatives ; (c) les **écoles**
+  (volet D) restent en distance Haversine *par choix* (pas de minutes — anti fausse
+  précision) ; (d) cache routing **mémoire seulement** (TTL 10 min, perdu au restart
+  VM). Coût maîtrisé par le quota/jour Google (cap dur) + budget d'alerte.
 - **POI échangeur A31 approximatif** : `_POI["a31"]` est un point unique approché ;
   un vrai calcul prendrait l'**accès autoroutier le plus proche** parmi plusieurs
   échangeurs (Metz-Nord, Metz-Centre, Metz-Sud), idéalement via routing.
@@ -706,6 +793,56 @@ creuse (pas de dilution d'un pool communal exploitable) ; la métropole n'est
 mobilisée que si le bien est **dans** le périmètre (sinon pas d'élargissement à des
 communes étrangères, ex. Thionville → None). Scope `"metropole"` exposé au front
 (badge), `refinable` gardé à Metz uniquement. Vérifié sur DB temporaire.
+
+### Contexte local v2 — LIVRÉ EN PROD (2026-06-18)
+Lot poussé en prod (PR #115 → `staging`, fix #117, promotion #116 → `main`).
+Spec : `docs/specs/contexte-local-v2-SPEC.md`. Quatre volets, section toujours
+**non-scorée** (40/30/30 intact) :
+- **A** — retrait du fact générique « Axe A31 · Luxembourg » en **mode quartier**
+  (aucune donnée propre à l'annonce ; le quartier passe de 3 à 2 facts).
+- **B** — **Centre Pompidou-Metz** en fact distinct en mode adresse (4 facts POI :
+  cathédrale, gare, Pompidou, échangeur A31 ; fin de la fusion `min(gare, pompidou)`).
+- **C** — **temps de trajet réels** Google Routes (`app/routing.py` + endpoint
+  `POST /travel-times`) — voir §3 (secret), §5 (endpoint) et §11 (limites). C'est
+  l'« optimisation routing isochrone » jusqu'ici en dette.
+- **D** — **distance aux écoles** les plus proches en mode adresse (`app/schools.py`
+  + snapshot `app/data/schools_metz.json`, Annuaire Éducation Nationale, k-NN
+  Haversine, 1 école/degré). = sous-chantier **C3** de l'issue #100. Facts factuels
+  sans jugement de valeur ; le claim `ecoles` reste `A_VERIFIER`.
+  - *Dette connue* : **régénération du snapshot écoles à automatiser** (aujourd'hui
+    curaté/figé) ; egress vers `data.education.gouv.fr` requis pour le régénérer.
+
+### Référentiel géographique (issue #100) — A / B / C1 / C3 FAIT, C2 TODO
+Feuille de route actée le 2026-06-16 (analyse-chapeau
+`docs/specs/issue-100-ANALYSE.md` §4/§8). Les paliers A, B, C1 et **C3** sont en
+production ; le palier C a été **sous-découpé** en trois sous-chantiers. **Seul
+C2 reste à faire** (ne pas l'oublier) :
+
+- **A — extension manuelle du référentiel** (Sainte-Thérèse/Botanique + alias +
+  garde-fou d'incertitude). ✅ EN PRODUCTION.
+- **B — gazetteer unique** (`app/geo_gazetteer.py`, source unique dérivant
+  `_KNOWN_LOCALITIES`, profils, secteurs, alias). ✅ EN PRODUCTION.
+- **C1 — inter-communal & commune réelle.** ✅ EN PRODUCTION (2026-06-16, PR #110
+  → `staging`, PR #111 → `main`). Un quartier à cheval (Botanique = Metz /
+  Montigny-lès-Metz) réunit les comparables de ses deux communes au niveau
+  quartier via une table curatée `intercommunal_districts()` ; `geocode_address`
+  expose en plus `city`/`citycode` de la BAN. Aucun changement de contrat
+  `/analyze`. Spec : `docs/specs/issue-100-C-SPEC.md`.
+- **✅ C3 — POI écoles. EN PRODUCTION (2026-06-18)** via le lot « Contexte local
+  v2 » (volet D ci-dessus) : snapshot **Annuaire de l'Éducation** versionné
+  (`app/data/schools_metz.json`) + `app/schools.py` (k-NN Haversine, 1 école par
+  degré), `facts[]` écoles en mode adresse, distance bien→école. Donnée factuelle
+  sourçable, sans jugement « prisé ». Dette : régénération du snapshot à automatiser.
+- **⬜ C2 — quartier réel par coordonnées (TODO, reporté).** Rattacher l'adresse
+  géocodée à un quartier **réel** par point-in-polygon, remplir les `centroid` du
+  gazetteer, alimenter `_resolve_district` depuis le géocode. Prérequis : mapping
+  coordonnées→quartier (polygones), décision licence/source, garde-fou
+  anti-fake-precision aux frontières. Borne dans `docs/specs/issue-100-C-SPEC.md` §1 OUT.
+
+> Avis ROI consigné (2026-06-16, amendé 2026-06-18) : **C3 livré** ; **C2** reste
+> **non prioritaire** pour le MVP (n'aide que les biens avec adresse saisie ;
+> coût/risque polygones > gain immédiat). À relancer en atelier sur décision
+> explicite du fondateur (GATE 1 ; questions ouvertes en `issue-100-ANALYSE.md` §8).
 
 ### Autres chantiers en attente
 - Mapper les formes composées rares à un secteur (`_SECTORS_RAW`).

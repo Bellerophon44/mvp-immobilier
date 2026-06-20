@@ -133,7 +133,7 @@ The visual language is **editorial-analytical**: it borrows from French print cu
 | Brick-deep | `--brick-deep` | `#6B2018` | *Déconseillé* verdict, hover state of brick CTAs. |
 | Moss (positive) | `--moss` | `#2E6E4F` | *Favorable* verdict only. |
 | Ochre (neutral signal) | `--ochre` | `#C28B3C` | *À creuser* verdict, "À vérifier" tags. |
-| Jaumont (local seal) | `--jaumont` | `#C9A14A` | **Édition Metz only.** Or de la pierre de Jaumont — the honey-gold limestone Metz is actually built from. Reserved for the "contexte local" seal; **not** an action accent. |
+| Jaumont (local) | `--jaumont` | `#C9A14A` | **Édition Metz.** Or de la pierre de Jaumont — the honey-gold limestone Metz is actually built from. Used for the local mark/seal **and the home proof figures** (la donnée — refonte juin 2026); **not** an action accent. |
 
 There is **no blue, no purple, no gradient, no pastel**. The palette is intentionally earth-tone. The brick accent gives the brand its edge; the **Jaumont gold** is the authentic colour of Metz stone (« la ville jaune ») and carries the local seal of each *édition*. See [`/docs/brand/METZ-LOCAL.md`](../docs/brand/METZ-LOCAL.md) and [`/docs/brand/LOCAL-ANCHORING.md`](../docs/brand/LOCAL-ANCHORING.md).
 
@@ -204,6 +204,16 @@ The set is intentionally tiny because the product surface is small. Current set:
 - **scales** — the comparables / median icon. (`assets/icons/scales.svg`)
 - **square-check** — "à vérifier" checklist items. (`assets/icons/square-check.svg`)
 - **copy** — copy-rapport button. (`assets/icons/copy.svg`)
+
+**Brand mark — mise à jour juin 2026.** Le mark primaire en prod est l'**alérion
+lorrain unique** (`AlerionMark`, source `assets/icons/mark-alerion-single.svg`) :
+aiglon héraldique ailes déployées, sans bec ni pattes, trait 1,75 px, encré or
+Jaumont. Il remplace le cachet aux *trois* alérions (`LorraineSeal`), illisible à
+petite taille. Le losange brique du wordmark (`Wordmark`) reste l'autre signe ; le
+losange-cachet `Seal` sert encore au bloc « contexte local ». Une piste alternative
+**« clef de voûte »** (la pierre qui tient l'arc = cohérence + robustesse) est
+explorée en 6 variantes (`preview/brand-keystone-clear.html`, vote v2) mais **non
+intégrée** — décision logo ouverte.
 
 > **Substitution flag:** the seven icons in this system are originals drawn at 1.5 px stroke to match the brand's editorial register. If a CDN set is preferred for breadth, the closest match in tone and weight is [Lucide](https://lucide.dev) at `stroke-width: 1.5`. **Do not mix sets** — pick one.
 

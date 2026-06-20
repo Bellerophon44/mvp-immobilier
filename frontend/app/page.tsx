@@ -1,7 +1,15 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { analyzeListing, sendEvent, sendFeedback, ApiResult, LocalContext } from "../lib/api";
+import {
+  analyzeListing,
+  sendEvent,
+  sendFeedback,
+  fetchTravelTimes,
+  ApiResult,
+  LocalContext,
+  LocalFact,
+} from "../lib/api";
 import AnalyzerInput, { AnalyzerMode } from "../components/design/AnalyzerInput";
 import VerdictHeader from "../components/design/VerdictHeader";
 import PillarBar from "../components/design/PillarBar";
@@ -11,7 +19,7 @@ import Wordmark from "../components/design/Wordmark";
 import ScopeBadge from "../components/design/ScopeBadge";
 import Footer from "../components/design/Footer";
 import FeedbackForm from "../components/design/FeedbackForm";
-import { Copy, Printer, MapPin, Seal, LorraineSeal } from "../components/design/Icons";
+import { Copy, Printer, MapPin, Seal, AlerionMark } from "../components/design/Icons";
 import { METZ_DISTRICTS } from "../lib/districts";
 
 type AppState = "idle" | "analyzing" | "result";
@@ -132,46 +140,102 @@ function Header() {
 // le traitement N&B/grain/scrim est appliqué en CSS, une couleur fait l'affaire.
 const HERO_IMAGE: string | null = "/hero-metz.jpg";
 const HERO_ALT = "La Porte des Allemands et le pont sur la Seille, à Metz";
-// Crédit photo affiché en bas du hero. OBLIGATOIRE si l'image est sous licence
-// à attribution (CC-BY / CC-BY-SA). Ex. "Photo : Markus Bernet · CC BY-SA 4.0 · Wikimedia Commons".
-const HERO_CREDIT: string | null = "Illustration";
 
 // Grain argentique discret (SVG feTurbulence en data-URI), posé en multiply.
 const GRAIN =
   "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")";
 
-// Bandeau photo de la home (édition Metz) — image d'ambiance plein cadre,
-// SANS texte par-dessus (le titre et le cachet vivent sur le parchemin, plus bas,
-// pour rester parfaitement lisibles). Traitement N&B chaud + grain en CSS ; fond
-// qui se fond dans le parchemin par le bas. Placeholder pierre + cachet en
-// filigrane tant qu'aucune image n'est branchée.
-function PhotoBand() {
+// Bande de preuve chiffrée — mécanisme « trois signaux above-the-fold » (cf.
+// docs/strategy/REBRAND-2026.md). On n'affiche QUE des chiffres vrais de
+// méthode/donnée (jamais de traction : pas de logos clients, pas de note, pas de
+// « milliers d'acheteurs »). L'or Jaumont devient la couleur de la donnée.
+// À RECONFIRMER avant promotion prod : « 16 quartiers » = frontend/lib/districts.ts ;
+// « 17 000+ » = plancher de la base prod (~17,7k, CONTEXT.md §0) ; « 7 j » =
+// collecte hebdomadaire (collect.yml). Idéalement brancher sur un endpoint de
+// comptage pour que ces chiffres ne se périment pas.
+const PROOF_POINTS: { num: string; label: string }[] = [
+  { num: "17 000+", label: "comparables messins en base" },
+  { num: "16", label: "quartiers de Metz couverts" },
+  { num: "7 j", label: "données rafraîchies chaque semaine" },
+];
+
+function ProofBand() {
+  return (
+    <div>
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(3, 1fr)",
+        borderTop: "1px solid var(--stone-line)",
+        borderBottom: "1px solid var(--stone-line)",
+      }}>
+        {PROOF_POINTS.map((p, i) => (
+          <div key={p.num} style={{
+            padding: "18px 8px",
+            textAlign: "center",
+            borderLeft: i === 0 ? "none" : "1px solid var(--stone-line)",
+          }}>
+            <div style={{
+              fontFamily: "var(--font-mono)",
+              fontWeight: 600,
+              fontSize: "clamp(20px, 6vw, 30px)",
+              lineHeight: 1,
+              letterSpacing: "-0.02em",
+              color: "var(--jaumont)",
+            }}>
+              {p.num}
+            </div>
+            <div style={{
+              fontFamily: "var(--font-sans)",
+              fontSize: 12,
+              color: "var(--ink-3)",
+              lineHeight: 1.35,
+              marginTop: 8,
+            }}>
+              {p.label}
+            </div>
+          </div>
+        ))}
+      </div>
+      <p style={{
+        fontFamily: "var(--font-serif)",
+        fontStyle: "italic",
+        fontSize: 18,
+        color: "var(--ink-2)",
+        lineHeight: 1.35,
+        margin: "16px 0 0",
+        textAlign: "center",
+      }}>
+        Nous vérifions une cohérence. Nous n&apos;estimons pas un prix.
+      </p>
+    </div>
+  );
+}
+
+// Bande signature « édition Metz » — image d'ambiance N&B chaude, encadrée et
+// posée EN BAS de la home (plus jamais avant le titre, en particulier sur mobile
+// où elle mangeait le premier écran). C'est une respiration éditoriale, pas un
+// sujet. Traitement N&B chaud + grain en CSS ; placeholder pierre si pas d'image.
+function SignatureBand() {
   return (
     <div aria-label="Metz" style={{
       position: "relative",
       width: "100%",
-      height: "clamp(200px, 32vh, 360px)",
+      height: "clamp(120px, 17vh, 184px)",
       overflow: "hidden",
-      background: "var(--stone-fill)",
-      borderTop: "1px solid var(--stone-line)",
-      borderBottom: "1px solid var(--stone-line)",
+      borderRadius: 8,
+      border: "1px solid var(--stone-line)",
     }}>
       {HERO_IMAGE ? (
         <img src={HERO_IMAGE} alt={HERO_ALT} style={{
           position: "absolute", inset: 0, width: "100%", height: "100%",
           objectFit: "cover",
-          filter: "grayscale(1) sepia(0.32) contrast(1.04) brightness(0.99)",
+          filter: "grayscale(1) sepia(0.32) contrast(1.04) brightness(0.78)",
         }} />
       ) : (
         <div aria-hidden style={{
           position: "absolute", inset: 0,
           background: "radial-gradient(130% 140% at 72% 6%, var(--stone-fill) 0%, var(--paper) 60%, var(--parchment) 100%)",
-        }}>
-          <LorraineSeal size={180} style={{
-            color: "var(--jaumont)", opacity: 0.13,
-            position: "absolute", right: "5%", top: "14%",
-          }} />
-        </div>
+        }} />
       )}
 
       {/* Grain argentique */}
@@ -181,22 +245,13 @@ function PhotoBand() {
         mixBlendMode: "multiply", opacity: 0.10, pointerEvents: "none",
       }} />
 
-      {/* Fondu parchemin en bas, pour que le bandeau se fonde dans la page */}
-      <div aria-hidden style={{
-        position: "absolute", left: 0, right: 0, bottom: 0, height: 56,
-        background: "linear-gradient(to bottom, rgba(245,241,234,0), var(--parchment))",
-      }} />
-
-      {/* Crédit / mention (ex. « Illustration ») — discret, bas-droite */}
-      {HERO_CREDIT && (
-        <div style={{
-          position: "absolute", right: 12, bottom: 8,
-          fontFamily: "var(--font-sans)", fontSize: 11,
-          color: "var(--ink-3)", opacity: 0.85,
-        }}>
-          {HERO_CREDIT}
-        </div>
-      )}
+      <div style={{
+        position: "absolute", left: 14, bottom: 10,
+        fontFamily: "var(--font-serif)", fontStyle: "italic", fontSize: 15,
+        color: "var(--parchment)", textShadow: "0 1px 6px rgba(0,0,0,0.5)",
+      }}>
+        Metz, pierre de Jaumont
+      </div>
     </div>
   );
 }
@@ -339,6 +394,42 @@ function LocalContextCard({
   mode?: "url" | "text";
 }) {
   const claims = context.claims || [];
+  // Surcharge locale des `value` de facts routables quand l'utilisateur demande
+  // un autre mode (POST /travel-times). Clé = poi_id -> fact recalculé.
+  const [overrides, setOverrides] = useState<Record<string, LocalFact>>({});
+  const [pendingMode, setPendingMode] = useState<string | null>(null);
+
+  const TRAVEL_MODES: { id: "WALK" | "BICYCLE" | "DRIVE" | "TRANSIT"; label: string }[] = [
+    { id: "WALK", label: "à pied" },
+    { id: "BICYCLE", label: "à vélo" },
+    { id: "DRIVE", label: "en voiture" },
+    { id: "TRANSIT", label: "en transports" },
+  ];
+
+  async function requestMode(modeId: "WALK" | "BICYCLE" | "DRIVE" | "TRANSIT") {
+    if (!context.address) return;
+    setPendingMode(modeId);
+    const resp = await fetchTravelTimes(context.address, modeId);
+    if (resp.status === "ok" && resp.results) {
+      const next: Record<string, LocalFact> = {};
+      for (const r of resp.results) {
+        next[r.poi_id] = {
+          label: r.label,
+          value: r.value,
+          mode: r.estimated ? undefined : (modeId as LocalFact["mode"]),
+          duration_s: r.duration_s,
+          distance_m: r.distance_m,
+          estimated: r.estimated,
+          poi_id: r.poi_id,
+        };
+      }
+      setOverrides(next);
+    }
+    setPendingMode(null);
+  }
+
+  const hasRoutable = context.facts.some((f) => f.poi_id);
+
   return (
     <div style={{
       background: "var(--paper)",
@@ -371,6 +462,21 @@ function LocalContextCard({
           Adresse indiquée : {context.address}
         </div>
       )}
+      {context.district_caveat && (
+        <div style={{
+          fontFamily: "var(--font-sans)",
+          fontSize: 13,
+          color: "var(--brick)",
+          background: "var(--paper)",
+          border: "1px solid var(--brick)",
+          borderRadius: 4,
+          padding: "8px 12px",
+          marginBottom: 12,
+          lineHeight: 1.45,
+        }}>
+          {context.district_caveat}
+        </div>
+      )}
       <div style={{
         fontFamily: "var(--font-serif)",
         fontStyle: "italic",
@@ -381,29 +487,60 @@ function LocalContextCard({
       }}>
         {context.summary}
       </div>
+      {/* Onglets de mode (volet C) : recalculent les temps des facts routables
+          via POST /travel-times. Affichés seulement si des POI routables existent
+          ET qu'une adresse est disponible (mode adresse). */}
+      {hasRoutable && context.address && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
+          {TRAVEL_MODES.map((m) => (
+            <button
+              key={m.id}
+              type="button"
+              onClick={() => requestMode(m.id)}
+              disabled={pendingMode !== null}
+              style={{
+                fontFamily: "var(--font-sans)",
+                fontSize: 12,
+                padding: "4px 10px",
+                borderRadius: 999,
+                border: "1px solid var(--stone-line)",
+                background: "var(--paper)",
+                color: "var(--ink-2)",
+                cursor: pendingMode !== null ? "default" : "pointer",
+                opacity: pendingMode !== null && pendingMode !== m.id ? 0.5 : 1,
+              }}
+            >
+              {pendingMode === m.id ? "…" : m.label}
+            </button>
+          ))}
+        </div>
+      )}
       <dl style={{ margin: 0, display: "flex", flexDirection: "column", gap: 10 }}>
-        {context.facts.map((f) => (
-          <div key={f.label} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            <dt style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 11,
-              letterSpacing: "0.04em",
-              color: "var(--stone)",
-              textTransform: "uppercase",
-            }}>
-              {f.label}
-            </dt>
-            <dd style={{
-              margin: 0,
-              fontFamily: "var(--font-sans)",
-              fontSize: 14,
-              color: "var(--ink-2)",
-              lineHeight: 1.5,
-            }}>
-              {f.value}
-            </dd>
-          </div>
-        ))}
+        {context.facts.map((f) => {
+          const shown = (f.poi_id && overrides[f.poi_id]) || f;
+          return (
+            <div key={f.label} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              <dt style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: 11,
+                letterSpacing: "0.04em",
+                color: "var(--stone)",
+                textTransform: "uppercase",
+              }}>
+                {f.label}
+              </dt>
+              <dd style={{
+                margin: 0,
+                fontFamily: "var(--font-sans)",
+                fontSize: 14,
+                color: "var(--ink-2)",
+                lineHeight: 1.5,
+              }}>
+                {shown.value}
+              </dd>
+            </div>
+          );
+        })}
       </dl>
 
       {/* Couche B : cohérence des allégations de l'annonce vs profil quartier */}
@@ -501,7 +638,7 @@ function LocalContextCard({
         lineHeight: 1.5,
       }}>
         {context.precision === "adresse"
-          ? "Distances à vol d'oiseau depuis l'adresse — non comptées dans le score (temps de trajet réel à venir)."
+          ? "Temps de trajet et distances depuis l'adresse — les valeurs « à vol d'oiseau » sont des distances en ligne droite (repli). Non comptés dans le score."
           : "Repères indicatifs au niveau du quartier — non comptés dans le score."}
       </div>
     </div>
@@ -661,6 +798,13 @@ export default function HomePage() {
               : []),
           ]
         : []),
+      ...((result.actions.highlights ?? []).length
+        ? [
+            "",
+            "Atouts du bien :",
+            ...(result.actions.highlights ?? []).map((h) => `- ${h}`),
+          ]
+        : []),
       "",
       "Questions à poser (vendeur / agent) :",
       ...result.actions.questions.map((q) => `- ${q}`),
@@ -710,8 +854,6 @@ export default function HomePage() {
     <div style={{ minHeight: "100vh", background: "var(--parchment)", color: "var(--ink)" }}>
       <Header />
 
-      {appState === "idle" && <PhotoBand />}
-
       <main style={{
         maxWidth: 720,
         margin: "0 auto",
@@ -723,27 +865,25 @@ export default function HomePage() {
         {appState === "idle" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 40 }}>
             <div>
-              {/* Cachet « édition Metz » aux trois alérions, en letterhead, sur
-                  parchemin — lisible, et le titre n'est plus superposé à la photo. */}
-              <LorraineSeal size={88} style={{ color: "var(--jaumont)", marginBottom: 24, display: "block" }} />
+              {/* Marque « édition Metz » : l'alérion lorrain unique (aiglon de
+                  Lorraine, sans bec ni pattes), en letterhead sur parchemin, encré
+                  en or Jaumont. Lisible — contrairement au cachet aux trois alérions. */}
+              <AlerionMark size={72} style={{ color: "var(--jaumont)", marginBottom: 24, display: "block" }} />
               <div className="t-eyebrow" style={{ marginBottom: 16 }}>
-                Analyse d&apos;annonces immobilières · Metz &amp; Moselle
+                Édition Metz · Moselle
               </div>
               <h1 style={{
                 fontFamily: "var(--font-serif)",
-                fontSize: 56,
-                lineHeight: 1.02,
+                fontSize: "clamp(34px, 8vw, 56px)",
+                lineHeight: 1.04,
                 letterSpacing: "-0.02em",
                 color: "var(--ink)",
                 margin: "0 0 18px",
                 fontWeight: 400,
                 maxWidth: 620,
               }}>
-                Ce prix et cette annonce<br />
-                sont-ils{" "}
-                <em style={{ color: "var(--brick)", fontStyle: "italic" }}>cohérents</em>{" "}
-                avec<br />
-                le marché messin, quartier par quartier&nbsp;?
+                Le marché immobilier messin, lu{" "}
+                <em style={{ color: "var(--brick)", fontStyle: "italic" }}>quartier par quartier</em>.
               </h1>
               <p style={{
                 fontFamily: "var(--font-sans)",
@@ -753,12 +893,11 @@ export default function HomePage() {
                 margin: 0,
                 maxWidth: 540,
               }}>
-                Le livre foncier n&apos;est pas public : impossible de savoir à quel
-                prix s&apos;est vraiment vendu le voisin. Nous reconstituons le marché
-                local à partir des annonces réelles — du Sablon à Queuleu, de
-                Devant-les-Ponts à l&apos;Outre-Seille — et comparons votre annonce,
-                comparable par comparable. Score de cohérence, trois piliers de lecture,
-                et les points à vérifier avant la visite.
+                Le livre foncier n&apos;est pas public. Nous reconstituons le marché
+                messin à partir des annonces réelles — du Sablon à Queuleu, de
+                Devant-les-Ponts à l&apos;Outre-Seille — et plaçons la vôtre dans ce
+                contexte&nbsp;: score de cohérence, trois piliers de lecture, et les
+                points à vérifier avant la visite.
               </p>
             </div>
 
@@ -779,8 +918,10 @@ export default function HomePage() {
               </div>
             )}
 
+            <ProofBand />
             <SecondaryRow />
             <LocalEdgeSection />
+            <SignatureBand />
           </div>
         )}
 
@@ -792,7 +933,7 @@ export default function HomePage() {
           <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
             {/* En-tête « scellé » visible uniquement à l'impression / PDF. */}
             <div className="print-only" style={{ marginBottom: 8 }}>
-              <LorraineSeal size={56} style={{ color: "var(--jaumont)", display: "block", marginBottom: 12 }} />
+              <AlerionMark size={48} style={{ color: "var(--jaumont)", display: "block", marginBottom: 12 }} />
               <div style={{ fontFamily: "var(--font-serif)", fontSize: 28, color: "var(--ink)", lineHeight: 1.1 }}>
                 Cohérence <span style={{ color: "var(--ink-3)" }}>— édition Metz</span>
               </div>
@@ -1106,13 +1247,20 @@ export default function HomePage() {
               </div>
             </div>
 
+            {/* Atouts du bien (objective la valeur avant la négociation) */}
+            <LeversList
+              title="Atouts du bien"
+              accent="var(--moss)"
+              items={(result.actions.highlights ?? []).map((h) => ({ quote: h }))}
+            />
+
             {/* Questions (fusion à-vérifier + questions) */}
             <ChecklistCard
               eyebrow="Questions à poser (vendeur / agent)"
               items={result.actions.questions.map((q) => ({ title: q }))}
             />
 
-            {/* Leviers */}
+            {/* Leviers (côté acheteur : éléments qui pèsent à la baisse) */}
             <LeversList
               items={result.actions.negotiation.map((n) => ({ quote: n }))}
             />

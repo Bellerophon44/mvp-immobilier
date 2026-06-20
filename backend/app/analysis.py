@@ -1,11 +1,13 @@
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from app.llm_semantic import analyze_semantic
 from app.market_stats import compute_price_market_pillar
 from app.photo_evidence import assess_claims_with_photos
 from app.geocode import geocode_address
+import app.metz_local as metz_local
 from app.metz_local import (
+    _resolve_key,
     assess_claims,
     claim_distances_from_coords,
     local_context,
@@ -121,6 +123,53 @@ def _amenity_actions(listing: Dict[str, Any]) -> Dict[str, list]:
     return {"questions": questions, "negotiation": negotiation}
 
 
+def _derived_negotiation_levers(
+    price_pillar: Dict[str, Any],
+    listing: Dict[str, Any],
+    local_ctx: Optional[Dict[str, Any]],
+) -> list:
+    """Leviers de négociation déterministes tirés de l'analyse elle-même (pas du
+    LLM), côté acheteur : positionnement prix défavorable au vendeur, DPE faible,
+    allégation locale peu plausible. Factuels, jamais estimatifs (aucun prix
+    cible). Ordre stable : prix d'abord (levier principal), puis DPE, puis
+    allégations."""
+    levers: list = []
+
+    verdict = (price_pillar.get("verdict") or "").lower()
+    # Verdicts "sur-positionné" (le tiret est un U+2011 insécable) : le prix
+    # dépasse la fourchette locale observée -> levier principal. "sous-positionné"
+    # ne contient pas "sur" et est donc exclu (favorable à l'acheteur).
+    if "sur" in verdict and "position" in verdict:
+        if "fort" in verdict:
+            levers.append(
+                "Prix au m² nettement au-dessus des niveaux observés localement "
+                "pour des biens comparables — principal levier à la baisse."
+            )
+        else:
+            levers.append(
+                "Prix au m² au-dessus de la fourchette habituelle du marché "
+                "local observé pour des biens comparables."
+            )
+
+    dpe = (listing.get("dpe") or "").upper()
+    if dpe in ("F", "G"):
+        levers.append(
+            f"DPE {dpe} (passoire thermique) : travaux d'amélioration énergétique "
+            "à prévoir, à intégrer à la négociation."
+        )
+
+    for claim in (local_ctx or {}).get("claims") or []:
+        if claim.get("status") == "peu_plausible":
+            text = (claim.get("text") or "").strip()
+            if text:
+                levers.append(
+                    f"Allégation « {text} » peu plausible localement — "
+                    "à faire préciser et relativiser dans la discussion."
+                )
+
+    return levers
+
+
 def _merge_unique(base: list, extra: list) -> list:
     """Concatène en évitant les doublons (insensible à la casse/espaces)."""
     seen = {str(x).strip().lower() for x in base}
@@ -190,14 +239,41 @@ def run_full_analysis(
         local_ctx = local_context_from_coords(
             geo["lat"], geo["lon"], district, city, address=geo.get("label") or addr
         )
+        # Ecole mesuree la plus proche (tous degres) pour enrichir la note du
+        # claim `ecoles` (volet D.3). Best-effort : un echec n'empeche pas
+        # l'evaluation des autres claims.
+        nearest_school = None
+        try:
+            schools = metz_local.nearest_schools(geo["lat"], geo["lon"])
+            if schools:
+                nearest_school = min(schools, key=lambda s: s.get("distance_km", float("inf")))
+        except Exception:
+            logger.exception("nearest_schools indisponible pour la note ecoles")
         local_ctx["claims"] = assess_claims(
             district, claims, city,
             dist_override=claim_distances_from_coords(geo["lat"], geo["lon"]),
+            nearest_school=nearest_school,
         )
     else:
-        local_ctx = local_context(district, city)
+        # Garde-fou C2 (branche sans géocodage uniquement) : si le quartier
+        # retenu vient d'un override utilisateur que l'annonce ne corrobore PAS
+        # (clé d'extraction différente ou absente), on pose une réserve et on
+        # rétrograde les claims sinon cohérents. Règle binaire déterministe
+        # (override vs extraction), pas de détection géographique réelle.
+        corroborated: Optional[bool] = None
+        if district_override:
+            k_override = _resolve_key(district_override, city)
+            k_extracted = _resolve_key(
+                listing.get("district") or extract_district(raw_text), city
+            )
+            corroborated = (
+                k_extracted is not None and k_override == k_extracted
+            )
+        local_ctx = local_context(district, city, district_corroborated=corroborated)
         if local_ctx is not None:
-            local_ctx["claims"] = assess_claims(district, claims, city)
+            local_ctx["claims"] = assess_claims(
+                district, claims, city, district_corroborated=corroborated
+            )
             if addr:
                 local_ctx["address"] = addr
 
@@ -243,9 +319,16 @@ def run_full_analysis(
     ]
 
     extra = _amenity_actions(listing)
+    # Leviers = leviers LLM (recentrés côté acheteur) + leviers déterministes
+    # confort (étage/ascenseur) + leviers dérivés de l'analyse (prix, DPE,
+    # allégations). `highlights` = atouts factuels du bien (LLM uniquement),
+    # section distincte pour objectiver la valeur avant la négociation.
+    derived = _derived_negotiation_levers(price_market_pillar, listing, local_ctx)
+    negotiation = _merge_unique(semantic_result["negotiation_levers"], extra["negotiation"])
     actions = {
+        "highlights": list(semantic_result.get("highlights") or []),
         "questions": _merge_unique(semantic_result["questions"], extra["questions"]),
-        "negotiation": _merge_unique(semantic_result["negotiation_levers"], extra["negotiation"]),
+        "negotiation": _merge_unique(negotiation, derived),
     }
 
     return {

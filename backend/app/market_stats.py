@@ -13,6 +13,7 @@ from scrapers.base import (
     DPE_BANDS,
     dpe_rank,
 )
+from app import geo_gazetteer as gazetteer
 
 
 logger = logging.getLogger("market_stats")
@@ -25,29 +26,6 @@ logger = logging.getLogger("market_stats")
 MIN_REFINED_COMPARABLES = 10
 MIN_COMPARABLES = 5  # plancher absolu (niveau ville) ; <5 -> quartiles trop fragiles
 MIN_PROFILE = 5      # mini pour calculer un profil DPE/année de pool fiable
-
-
-# Secteurs de Metz : regroupements de quartiers adjacents. Quand un quartier est
-# trop creux pour des quartiles fiables, on emprunte aux quartiers voisins du
-# même secteur AVANT de retomber sur toute la ville — toujours 100% comparables
-# observés, jamais d'estimation. Les libellés bruts ci-dessous sont normalisés
-# via canonical_district au chargement pour matcher les valeurs stockées (y
-# compris les formes composées de bien'ici, ex. 'Plantières - Queuleu').
-_SECTORS_RAW = {
-    # Découpage validé manuellement. Plusieurs secteurs ne contiennent qu'un seul
-    # quartier (volume déjà suffisant) : la cascade n'y gagne rien mais le secteur
-    # documente l'intention. Les regroupements utiles : Bellecroix+Vallières et
-    # les 4 quartiers du centre. Les formes mono (sélecteur front) sont rattachées
-    # à leur quartier réel pour que le choix utilisateur tombe sur le bon pool.
-    "Devant-les-Ponts": ["Devant-les-Ponts"],
-    "Patrotte-Metz-Nord": ["Patrotte-Metz-Nord", "La Patrotte"],
-    "Sablon": ["Sablon"],
-    "Plantières-Queuleu": ["Plantières - Queuleu", "Queuleu", "Plantières"],
-    "Magny": ["Magny"],
-    "Borny": ["Borny", "Technopôle", "Grange-aux-Bois"],
-    "Bellecroix - Vallières": ["Bellecroix", "Vallières-lès-Bordes", "Vallières"],
-    "Centre Ville": ["Centre-Ville", "Ancienne-Ville", "Nouvelle Ville", "Les Îles", "Outre-Seille"],
-}
 
 
 # Metz Métropole : niveau AU-DESSUS de la ville, regroupant Metz et ses communes
@@ -71,23 +49,25 @@ _METRO_CITIES_RAW = [
 _METRO_CITIES = sorted({canonical_city(c) for c in _METRO_CITIES_RAW if canonical_city(c)})
 
 
-def _build_sector_maps():
-    """Construit, à partir de _SECTORS_RAW, le mapping quartier_canonique ->
-    secteur et secteur -> liste de quartiers canoniques (pour le filtre SQL)."""
-    district_to_sector: Dict[str, str] = {}
-    sector_districts: Dict[str, List[str]] = {}
-    for sector, quartiers in _SECTORS_RAW.items():
-        canon = []
-        for q in quartiers:
-            cq = canonical_district(q, "Metz")
-            if cq and cq not in canon:
-                canon.append(cq)
-                district_to_sector[cq] = sector
-        sector_districts[sector] = canon
-    return district_to_sector, sector_districts
+# Secteurs de Metz : regroupements de quartiers adjacents. Quand un quartier est
+# trop creux pour des quartiles fiables, on emprunte aux quartiers voisins du même
+# secteur AVANT de retomber sur toute la ville — toujours 100% comparables
+# observés, jamais d'estimation. DERIVE de la source unique `app.geo_gazetteer`
+# (issue #100 chantier B) : `_DISTRICT_TO_SECTOR[canonical_key] = sector_display`,
+# `_SECTOR_DISTRICTS[sector_display] = [canonical_key, ...]`. Les libellés bruts de
+# stock (formes composées bien'ici, 'Vallières-lès-Bordes', 'Patrotte-Metz-Nord')
+# sont canonicalisés au chargement, comme avant. Harmonisation Q6 : le secteur de
+# Sainte-Thérèse expose désormais le libellé affiché accentué.
+# `_SECTORS_RAW` (clé = sector_key canonique) reste exposé pour les consommateurs
+# référençant un secteur par sa clé pivot (issue #100 chantier A, AC10).
+_SECTORS_RAW = gazetteer.sectors_raw()
+_DISTRICT_TO_SECTOR, _SECTOR_DISTRICTS = gazetteer.build_sector_maps()
 
-
-_DISTRICT_TO_SECTOR, _SECTOR_DISTRICTS = _build_sector_maps()
+# Table curatee des quartiers inter-communaux (chantier C1) :
+# {canonical_key: tuple(communes canonicalisees)}. Derivee a l'import depuis la
+# source unique `geo_gazetteer`. SEUL alimentateur de `cities` au niveau quartier
+# de la cascade : un quartier absent de la table garde le filtre commune exact.
+_INTERCOMMUNAL = gazetteer.intercommunal_districts()
 
 
 # ============================
@@ -180,6 +160,9 @@ def compute_market_stats(
 
     sector = _DISTRICT_TO_SECTOR.get(district) if district else None
     sector_districts = _SECTOR_DISTRICTS.get(sector) if sector else None
+    # Quartier inter-communal : son pool quartier puise dans l'ENSEMBLE de ses
+    # communes (table curatee) au lieu de la seule commune du bien. None sinon.
+    district_cities = _INTERCOMMUNAL.get(district) if district else None
     # La métropole n'est mobilisée que si le bien est dans le périmètre Metz
     # Métropole (sinon on ne s'autorise pas à élargir à des communes étrangères).
     metro_cities = _METRO_CITIES if city in _METRO_CITIES else None
@@ -192,9 +175,9 @@ def compute_market_stats(
     # Le DERNIER candidat est le filet (accepté quel que soit le volume).
     candidates = []
     if district and band_letters:
-        candidates.append(("quartier", district, district, None, band, None))
+        candidates.append(("quartier", district, district, None, band, district_cities))
     if district:
-        candidates.append(("quartier", district, district, None, None, None))
+        candidates.append(("quartier", district, district, None, None, district_cities))
     if sector_districts and band_letters:
         candidates.append(("secteur", sector, None, sector_districts, band, None))
     if sector_districts:
