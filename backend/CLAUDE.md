@@ -58,7 +58,7 @@ Anti-patterns à ne JAMAIS introduire :
 | Persistence | SQLite, chemin via `DATABASE_PATH=/data/comparables.db` |
 | Auto-stop / auto-start machines | `true` / `min_machines_running = 0` |
 | Plateforme frontend | Vercel (Next.js **16.2.6** App Router) |
-| CI | GitHub Actions : `test.yml` (pytest, suite gratuite `backend/tests/`), `evals.yml` (suite `backend/evals/`, **payante : vrais appels LLM**, PR touchant prompt/pipeline, secret `OPENAI_API_KEY` requis), `collect.yml`, `diagnose-scrapers.yml`, `diag-bienici.yml` |
+| CI | GitHub Actions : `test.yml` (pytest, suite gratuite `backend/tests/`), `evals.yml` (suite `backend/evals/`, **payante : vrais appels LLM**, PR touchant prompt/pipeline, secret `OPENAI_API_KEY` requis), `collect.yml` (collecte hebdo+manuel, **cible `prod`/`staging`**), `coverage-probe.yml` + `cross-source-probe.yml` (probes admin **read-only**, `workflow_dispatch`, cible `prod`/`staging`), `diagnose-scrapers.yml`, `diag-bienici.yml`. ⚠️ Un workflow `pull_request` **ne se lance pas** si la PR est en conflit (`mergeable_state: dirty`) — voir §9. |
 | CD backend | `deploy-backend.yml` — **auto-deploy Fly** : push `main`→**prod** (`fly.toml`), push `staging`→**staging** (`fly.staging.toml`, app `coherence-staging`). `flyctl deploy --remote-only`, secret `FLY_API_TOKEN` (accès aux 2 apps), concurrency par env ; `workflow_dispatch` manuel |
 | App Fly staging | `coherence-staging` (env de test isolé, base SQLite + volume dédiés ⇒ events 9.10 séparés de la prod). Voir `docs/specs/ENVIRONNEMENTS-ET-DOMAINE.md` |
 | Domaine définitif | `coherence-metz.fr` (OVH) — **LIVRÉ 2026-06-11**, TLS actif : prod `coherence-metz.fr` / `api.coherence-metz.fr`, staging `staging.` / `api-staging.`. Détail : `docs/specs/ENVIRONNEMENTS-ET-DOMAINE.md` |
@@ -75,7 +75,8 @@ ou le port 8000 est périmée et doit être ignorée.
 | `OPENAI_API_KEY` | `fly secrets` | Appel `gpt-4.1-mini` |
 | `OPENAI_MODEL` (optionnel) | `fly secrets` | Par défaut `gpt-4.1-mini` |
 | `GOOGLE_MAPS_API_KEY` (optionnel) | `fly secrets` (prod **et** staging) | Active les **temps de trajet réels** (Google Routes API, header `X-Goog-Api-Key`). **Absente → repli « à vol d'oiseau »** (le routing ne lève jamais). Restreindre la clé à *Routes API* + poser un quota/jour (cap dur) côté Google Cloud. |
-| `ADMIN_TOKEN` | `fly secrets` **et** GitHub repo secret | Authentifie `POST /admin/comparables` |
+| `ADMIN_TOKEN` | `fly secrets` **et** GitHub repo secret | Authentifie `POST /admin/comparables` + endpoints admin (probes). Le secret repo = celui de la **prod** |
+| `ADMIN_TOKEN_STAGING` | GitHub repo secret | = `ADMIN_TOKEN` de l'app `coherence-staging`. Requis pour dispatcher `collect.yml` / `coverage-probe.yml` / `cross-source-probe.yml` avec `target=staging` (sans lui, un dispatch staging enverrait le token prod → 401). Comportement prod inchangé |
 | `DATABASE_PATH` | `fly.toml [env]` | `/data/comparables.db` |
 | `CORS_ORIGINS` (optionnel) | env Fly | Par défaut : localhost + `coherence-metz.fr`/`www.`/`staging.` + regex `*.vercel.app` (cf. `main.py`) |
 | `NEXT_PUBLIC_API_URL` | Vercel | URL prod du backend |
@@ -486,6 +487,11 @@ agence, notamment quelques maisons dans les communes limitrophes.
 
 Agences écartées au recon : herbeth, agencevalentin (robots.txt interdit +
 HTTP 403), century21, orpi (rendu JS-only, pas de prix dans le HTML serveur).
+**Vague couronne / incrément 3 (recon 2026-06-20, écartées)** : Les Artisans de
+l'Immobilier (HTML serveur propre + maisons couronne, MAIS `robots.txt` interdit
+les pages de listing), SOREC (robots OK mais **JS-only**, 0 prix en HTML serveur).
+→ 0 candidate retenue sur cette vague. Détail + gisement cross-source mesuré :
+`docs/specs/increment3-couronne-RESULTATS-RECON.md`.
 
 ### Bases utilitaires partagées
 `scrapers/base.py` :
@@ -531,11 +537,16 @@ HTTP 403), century21, orpi (rendu JS-only, pas de prix dans le HTML serveur).
 
 ### En CI (production)
 1. `.github/workflows/collect.yml` se déclenche :
-   - manuellement (`workflow_dispatch`)
-   - **chaque lundi 04:00 UTC** (`schedule: cron "0 4 * * 1"`)
+   - manuellement (`workflow_dispatch`, input **`target: prod|staging`**, défaut `prod`)
+   - **chaque lundi 04:00 UTC** (`schedule: cron "0 4 * * 1"`, **toujours `prod`**)
 2. Le runner GitHub installe Python 3.12 + `requirements.txt`
-3. Exécute `python -m jobs.push_comparables` avec
-   `BACKEND_URL=https://...fly.dev` et `ADMIN_TOKEN=<secret>`
+3. Exécute `python -m jobs.push_comparables` avec `BACKEND_URL` et `ADMIN_TOKEN`
+   **résolus par expression selon la cible** : `staging` →
+   `https://coherence-staging.fly.dev` + `ADMIN_TOKEN_STAGING` ; sinon prod +
+   `ADMIN_TOKEN`. La collecte écrit dans **SA** base (staging peut donc être
+   peuplé à la demande, mêmes capacités que la prod — cf. `.claude/lessons.md`).
+   Mêmes inputs `target` pour les probes read-only `coverage-probe.yml` et
+   `cross-source-probe.yml`.
 4. Le job :
    - appelle `scrapers.sources.load_all()` qui importe automatiquement tous
      les modules de `scrapers/sources/` (déclenche leurs `@register`). Une
@@ -559,6 +570,17 @@ Boucle de développement automatisable des nouveaux scrapers :
 Boucle type pour intégrer une agence : déposer `sources/<agence>.py` sur une
 branche → ouvrir une PR → lire le commentaire de diagnostic → corriger les
 sélecteurs → repousser → relire → merge quand vert.
+
+⚠️ **Piège CI (vécu 2026-06-20)** : un workflow `pull_request` tourne sur le
+commit de merge `refs/pull/N/merge`. **Tant que la PR est en conflit
+(`mergeable_state: dirty`), GitHub ne peut pas le fabriquer → AUCUN run
+`pull_request` ne démarre** (ni `diagnose-scrapers`, ni `test`), ni sur push ni
+sur reopen ; seul Vercel (webhook) continue. Si la CI est muette : (1) vérifier
+la barre de budget Actions (si NON pleine, ce n'est PAS le budget) ; (2) vérifier
+`mergeable_state` — si `dirty`, **résoudre le conflit** (merge/rebase de la base
+dans la branche) AVANT toute autre piste. Le recon (`--recon-all`) sort en CI
+seulement : en local d'atelier l'egress est sur allowlist (tout en `403` proxy).
+Détail : `.claude/lessons.md` (2026-06-18).
 
 ### Maintenance de l'historique (`POST /admin/comparables/maintenance`)
 Le garde-fou prix/m² et le filtre zone à l'ingestion ne nettoient que les
@@ -843,6 +865,25 @@ C2 reste à faire** (ne pas l'oublier) :
 > **non prioritaire** pour le MVP (n'aide que les biens avec adresse saisie ;
 > coût/risque polygones > gain immédiat). À relancer en atelier sur décision
 > explicite du fondateur (GATE 1 ; questions ouvertes en `issue-100-ANALYSE.md` §8).
+
+### Incrément 3 — couronne (agences locales) — PRÉPA GATE 1, en attente
+Feuille de route (analyse `docs/specs/increment3-couronne-ANALYSE.md`). **GATE 1
+actée** : axe B (agences locales couronne) d'abord ; axe A (dédup multi-mandat /
+matching photo) **différé et dégroupé** ; « recon avant code » côté agences ;
+mesurer le gisement cross-source avant tout pipeline image.
+
+- **Outillage livré (PR #113, ouverte)** : endpoint admin **read-only**
+  `GET /admin/comparables/cross-source-probe` (compteurs agrégés de
+  `tools.probe_cross_source`, aucune donnée re-publiable) + workflow
+  `cross-source-probe.yml`. `compute_probe` optimisé par bucketing
+  `(city, postal_code, property_type)` (sortie identique).
+- **⛔ Recon 1ʳᵉ vague (2026-06-20) : 0 candidate retenue.** Les Artisans de
+  l'Immobilier (techniquement propre mais `robots.txt` interdit), SOREC (JS-only).
+  Résultats + gisement cross-source mesuré (688 paires strictes, 79 groupes de
+  `reference` partagée intra-bien'ici) : `docs/specs/increment3-couronne-RESULTATS-RECON.md`.
+- **Prochaine décision humaine (non tranchée)** : (1) vérifier le `robots.txt`
+  réel d'Artisans avant écart définitif ; (2) 2ᵉ vague de recon (autres agences
+  couronne) ; (3) ou acter le gisement scrapable maigre de l'axe B.
 
 ### Autres chantiers en attente
 - Mapper les formes composées rares à un secteur (`_SECTORS_RAW`).
