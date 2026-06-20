@@ -51,11 +51,15 @@ TIMEOUT = 20
 # laveine.immo, idemmo et benedic sont deja des sources actives, donc absentes.
 # Ecartees apres recon : herbeth, agencevalentin (robots interdit + 403),
 # century21 et orpi (rendu JS-only, pas de prix dans le HTML serveur).
-SITES = {
-    # Vide : toutes les candidates sont traitées (idemmo, benedic, immoheytienne
-    # actives ; herbeth/agencevalentin/century21/orpi écartées). Ajouter une URL
-    # ici pour ausculter une nouvelle agence au prochain run.
-}
+#
+# Vague couronne (incrément 3, GATE 1 « recon avant code ») : recon effectue le
+# 2026-06-20 sur 3 candidates locales independantes -> 0 retenue (Les Artisans de
+# l'Immobilier : HTML serveur propre + maisons couronne mais robots.txt interdit ;
+# SOREC : JS-only). Verdicts archives dans
+# docs/specs/increment3-couronne-RESULTATS-RECON.md. SITES remis a vide : le recon
+# tourne en CI (egress local sur allowlist) ; ajouter une URL ici pour ausculter
+# une nouvelle agence au prochain run (rendu serveur presume, .htm/.html/.php).
+SITES: dict[str, str] = {}
 
 DUMP_DIR = "recon_dumps"
 

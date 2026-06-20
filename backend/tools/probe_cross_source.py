@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+from collections import defaultdict
 from datetime import datetime
 from itertools import combinations
 from typing import Optional
@@ -102,18 +103,33 @@ def compute_probe(now: Optional[datetime] = None) -> dict:
     # Une paire candidate associe un membre DISPARU (A) a un autre comparable (B)
     # apparu apres dans la fenetre. On considere les deux orientations (chaque
     # membre du couple peut etre le "disparu"), sans double-compter le couple.
-    for x, y in combinations(comparables, 2):
-        if _is_disappeared(x, now) and _is_candidate_pair(x, y, now):
-            a, b = x, y
-        elif _is_disappeared(y, now) and _is_candidate_pair(y, x, now):
-            a, b = y, x
-        else:
+    #
+    # Optimisation O(n^2) -> O(sum n_bucket^2) : une paire candidate exige
+    # TOUJOURS meme (city, postal_code, property_type) avec les deux postal_code
+    # non nuls (cf. `_is_candidate_pair`, conditions symetriques aux deux
+    # orientations). Toute paire inter-bucket est donc rejetee : on n'enumere que
+    # les paires INTRA-bucket. La sortie est strictement identique (les compteurs
+    # sont des sommes/ensembles ordre-independants), mais la probe devient
+    # tractable sur le stock prod (~17,7k lignes) derriere l'endpoint admin.
+    buckets: dict[tuple, list] = defaultdict(list)
+    for comp in comparables:
+        if comp.postal_code is None:
             continue
-        total_pairs += 1
-        couple = _source_couple(a.source, b.source)
-        pairs_by_source_couple[couple] = pairs_by_source_couple.get(couple, 0) + 1
-        involved_ids.add(a.id)
-        involved_ids.add(b.id)
+        buckets[(comp.city, comp.postal_code, comp.property_type)].append(comp)
+
+    for bucket in buckets.values():
+        for x, y in combinations(bucket, 2):
+            if _is_disappeared(x, now) and _is_candidate_pair(x, y, now):
+                a, b = x, y
+            elif _is_disappeared(y, now) and _is_candidate_pair(y, x, now):
+                a, b = y, x
+            else:
+                continue
+            total_pairs += 1
+            couple = _source_couple(a.source, b.source)
+            pairs_by_source_couple[couple] = pairs_by_source_couple.get(couple, 0) + 1
+            involved_ids.add(a.id)
+            involved_ids.add(b.id)
 
     involved_pct = (
         round(100.0 * len(involved_ids) / total_comparables, 1)

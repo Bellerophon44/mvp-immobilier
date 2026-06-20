@@ -20,9 +20,13 @@
 - **Frontend** : **Next.js 16** App Router sur Vercel, design system « Cohérence »
   (palette ink/parchment/brick/moss/ochre, fonts Instrument Serif/Geist), composants
   sous `frontend/components/design/`. **Pas l'UI bleue de transition décrite en §2.3.**
-- **CI** : 3 GitHub Actions — `collect.yml` (collecte hebdo lundi 04:00 + manuel),
-  `diagnose-scrapers.yml` (sur PR touchant les scrapers → commentaire de diagnostic),
-  `deploy-backend.yml` (deploy Fly sur merge `main`).
+- **CI** : GitHub Actions — `collect.yml` (collecte hebdo lundi 04:00 + manuel,
+  **cible `prod`/`staging`**), `coverage-probe.yml` + `cross-source-probe.yml`
+  (probes admin **read-only** paramétrables `prod`/`staging`), `diagnose-scrapers.yml`
+  (sur PR touchant les scrapers → commentaire de diagnostic + recon), `test.yml`,
+  `evals.yml`, `deploy-backend.yml` (deploy Fly : `main`→prod, `staging`→staging).
+  Secret `ADMIN_TOKEN_STAGING` requis pour cibler staging (détail `backend/CLAUDE.md` §3).
+  ⚠️ Un workflow `pull_request` ne démarre **pas** si la PR est en conflit (`dirty`) — §7.3.
 - **Branche de dev courante** : `claude/clever-gates-xXqfp` (l'ancienne
   `claude/analyze-mvp-immobilier-vtne5` est périmée).
 
@@ -118,6 +122,19 @@
   staging-first (PR #124 → `staging`, promotion #125 → `main`), resync préalable
   `main` → `staging`. Spec : `docs/specs/photo-evidence-SPEC.md` ; carto technique :
   `backend/CLAUDE.md` §6bis.
+- **Collecte & probes paramétrables `prod`/`staging` — ✅ EN PRODUCTION
+  (2026-06-20, PR #99 → `main`).** `collect.yml` et `coverage-probe.yml` exposent
+  un input `workflow_dispatch target: prod|staging` (le cron de collecte vise
+  toujours la prod) ; URL + token résolus par expression. **Principe : staging =
+  mêmes capacités que prod** (peupler/sonder sa base isolée à la demande). Geste
+  ops requis : secret GitHub `ADMIN_TOKEN_STAGING`. Leçon : `.claude/lessons.md`.
+- **Incrément 3 « couronne » — PRÉPA GATE 1 (PR #113, ouverte, NON mergée).**
+  Axe B (agences locales couronne) d'abord ; axe A (dédup multi-mandat) différé.
+  Outillage : endpoint read-only `GET /admin/comparables/cross-source-probe` +
+  `cross-source-probe.yml`. **Recon 1ʳᵉ vague (2026-06-20) : 0 candidate retenue**
+  (Artisans = `robots.txt` interdit ; SOREC = JS-only). Décision humaine en
+  attente. Détail : `docs/specs/increment3-couronne-{ANALYSE,RESULTATS-RECON}.md`,
+  `backend/CLAUDE.md` §11bis.
 
 ---
 
@@ -314,6 +331,8 @@
 |---|---|---|
 | `OPENAI_API_KEY` | platform.openai.com | Appel LLM |
 | `OPENAI_MODEL` (optionnel) | par défaut `gpt-4.1-mini` | Pour basculer sur `gpt-4o-mini` ou autre |
+| `ADMIN_TOKEN` | `fly secrets` **et** GitHub repo secret | Endpoints admin (`/admin/comparables`, probes). Le secret repo = celui de la prod |
+| `ADMIN_TOKEN_STAGING` | GitHub repo secret | = `ADMIN_TOKEN` de `coherence-staging` ; requis pour `target=staging` (collecte/probes). Voir `backend/CLAUDE.md` §3 |
 | `DATABASE_PATH` | fly.toml `[env]` | Chemin SQLite, par défaut `/data/comparables.db` |
 | `CORS_ORIGINS` (optionnel) | env Fly | Liste séparée par virgules ; par défaut couvre `*.vercel.app` |
 
@@ -378,6 +397,7 @@ class Comparable(Base):
 - **Browser cache** : après un deploy frontend, ouvrir en navigation privée OU hard reload (Ctrl+Shift+R)
 - **Volume Fly** : 1 machine = 1 volume. Si on scale à 2, il faut créer un 2e volume.
 - **App fantôme** : `fly launch` au lieu de `fly deploy` crée des apps parasites. Toujours utiliser `fly deploy --app <nom>` explicite.
+- **CI muette sur une PR** : un workflow `pull_request` (test, diagnose-scrapers…) tourne sur le commit de merge `refs/pull/N/merge` ; si la PR est en **conflit** (`mergeable_state: dirty`), GitHub ne peut pas le fabriquer → **aucun run ne démarre** (ni sur push ni sur reopen), seul Vercel continue. Diagnostic : (1) barre budget Actions (si non pleine, ce n'est pas le budget) ; (2) `mergeable_state` → si `dirty`, **résoudre le conflit d'abord**. (Vécu 2026-06-20 ; `.claude/lessons.md`.)
 
 ---
 
