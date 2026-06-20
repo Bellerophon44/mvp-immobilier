@@ -865,10 +865,6 @@ export default function HomePage() {
         {appState === "idle" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 40 }}>
             <div>
-              {/* Marque « édition Metz » : l'alérion lorrain unique (aiglon de
-                  Lorraine, sans bec ni pattes), en letterhead sur parchemin, encré
-                  en or Jaumont. Lisible — contrairement au cachet aux trois alérions. */}
-              <AlerionMark size={72} style={{ color: "var(--jaumont)", marginBottom: 24, display: "block" }} />
               <div className="t-eyebrow" style={{ marginBottom: 16 }}>
                 Édition Metz · Moselle
               </div>
