@@ -79,6 +79,8 @@ GOLDEN_PILLAR_SABLON = {
     "scope_name": "Sablon",
     "dpe_band": None,
     "n_comparables": 10,
+    # Prix au m² de l'annonce (210000 / 70), repère factuel exposé au front.
+    "listing_price_m2": 3000,
     "refinable": False,
 }
 
@@ -619,6 +621,7 @@ BODY_KEYS = {
 PILLAR_KEYS_EXPOSED = {
     "label", "verdict", "explanation", "points", "max", "scope",
     "scope_name", "dpe_band", "n_comparables", "refinable",
+    "listing_price_m2",
 }
 
 

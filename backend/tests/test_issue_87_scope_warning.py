@@ -328,11 +328,12 @@ def test_ac5c_out_of_metro_4_comparables_indetermine():
 # ===========================================================================
 PILLAR_KEYS = {
     "verdict", "explanation", "confidence", "scope", "scope_name",
-    "dpe_band", "n_comparables", "refinable",
+    "dpe_band", "n_comparables", "refinable", "listing_price_m2",
 }
 PILLAR_KEYS_EXPOSED = {
     "label", "verdict", "explanation", "points", "max", "scope",
     "scope_name", "dpe_band", "n_comparables", "refinable",
+    "listing_price_m2",
 }
 BODY_KEYS = {
     "global_score", "verdict", "confidence", "pillars", "actions",

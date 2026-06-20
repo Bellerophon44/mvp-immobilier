@@ -422,6 +422,11 @@ def compute_price_market_pillar(
         dpe=dpe,
     )
 
+    # Prix au m² de l'annonce, dérivé (prix total / surface) : repère factuel
+    # exposé tel quel au front, y compris quand le marché local n'est pas
+    # comparable — ce n'est pas une estimation, juste le chiffre de l'annonce.
+    listing_price_m2_ref = int(round(listing_price_m2))
+
     if market_stats is None:
         return {
             "verdict": "Indéterminé",
@@ -435,6 +440,7 @@ def compute_price_market_pillar(
             "dpe_band": None,
             "n_comparables": 0,
             "refinable": False,
+            "listing_price_m2": listing_price_m2_ref,
         }
 
     positioning = interpret_price_positioning(listing_price_m2, market_stats)
@@ -454,6 +460,7 @@ def compute_price_market_pillar(
         "scope_name": market_stats["scope_name"],
         "dpe_band": market_stats["dpe_band"],
         "n_comparables": market_stats["count"],
+        "listing_price_m2": listing_price_m2_ref,
         # Analyse restée large (ville ou métropole) pour un bien messin : on peut
         # l'affiner si l'utilisateur précise le quartier (sélecteur Metz côté
         # front). Inutile hors Metz : le sélecteur ne propose que des quartiers

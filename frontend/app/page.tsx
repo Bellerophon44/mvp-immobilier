@@ -865,10 +865,6 @@ export default function HomePage() {
         {appState === "idle" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 40 }}>
             <div>
-              {/* Marque « édition Metz » : l'alérion lorrain unique (aiglon de
-                  Lorraine, sans bec ni pattes), en letterhead sur parchemin, encré
-                  en or Jaumont. Lisible — contrairement au cachet aux trois alérions. */}
-              <AlerionMark size={72} style={{ color: "var(--jaumont)", marginBottom: 24, display: "block" }} />
               <div className="t-eyebrow" style={{ marginBottom: 16 }}>
                 Édition Metz · Moselle
               </div>
@@ -1064,6 +1060,26 @@ export default function HomePage() {
                     </span>
                   )}
                 </div>
+                {/* Prix au m² de l'annonce calculé par l'appli (prix/surface),
+                    repère factuel placé en tête du verdict — pas une estimation. */}
+                {typeof pricePillar.listing_price_m2 === "number" && (
+                  <div style={{
+                    display: "flex",
+                    alignItems: "baseline",
+                    gap: 8,
+                    marginBottom: 12,
+                  }}>
+                    <span className="t-eyebrow">Prix de l&apos;annonce</span>
+                    <span style={{
+                      fontFamily: "var(--font-serif)",
+                      fontSize: 20,
+                      color: "var(--ink)",
+                      lineHeight: 1,
+                    }}>
+                      {pricePillar.listing_price_m2.toLocaleString("fr-FR")} €/m²
+                    </span>
+                  </div>
+                )}
                 <div style={{
                   fontFamily: "var(--font-sans)",
                   fontSize: 14,
