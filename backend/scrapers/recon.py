@@ -52,18 +52,14 @@ TIMEOUT = 20
 # Ecartees apres recon : herbeth, agencevalentin (robots interdit + 403),
 # century21 et orpi (rendu JS-only, pas de prix dans le HTML serveur).
 #
-# Vague couronne (incrément 3, GATE 1 « recon avant code ») : agences LOCALES
-# INDEPENDANTES (site propre, pas un portail/agregateur — la re-agregation est un
-# anti-pattern produit) ciblees pour leur couverture couronne et MAISONS. Le recon
-# tourne en CI (egress conteneur bloque) ; ces verdicts decident lesquelles valent
-# un scraper. Pages choisies en rendu serveur presume (.htm/.html/.php).
-SITES = {
-    # Les Artisans de l'Immobilier (Metz + couronne : Longeville, Moulins, Peltre).
-    "artisans_immobilier_maisons": "https://www.artisans-immobilier.com/maison-a-vendre-.htm",
-    "artisans_immobilier_ventes": "https://www.artisans-immobilier.com/immobilier-a-vendre-.htm",
-    # SOREC (independante, Metz + Marly / environs).
-    "sorec_immobilier": "https://www.sorec-immobilier.com/annonces/transaction/vente.html",
-}
+# Vague couronne (incrément 3, GATE 1 « recon avant code ») : recon effectue le
+# 2026-06-20 sur 3 candidates locales independantes -> 0 retenue (Les Artisans de
+# l'Immobilier : HTML serveur propre + maisons couronne mais robots.txt interdit ;
+# SOREC : JS-only). Verdicts archives dans
+# docs/specs/increment3-couronne-RESULTATS-RECON.md. SITES remis a vide : le recon
+# tourne en CI (egress local sur allowlist) ; ajouter une URL ici pour ausculter
+# une nouvelle agence au prochain run (rendu serveur presume, .htm/.html/.php).
+SITES: dict[str, str] = {}
 
 DUMP_DIR = "recon_dumps"
 
