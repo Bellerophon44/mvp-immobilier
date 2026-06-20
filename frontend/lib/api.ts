@@ -12,6 +12,10 @@ export interface ApiPillar {
   dpe_band?: string | null;
   n_comparables?: number | null;
   refinable?: boolean;
+  // Prix au m² de l'annonce calculé par l'appli (prix total / surface), exposé
+  // comme repère factuel — pas une estimation. Absent si l'annonce ne fournit
+  // pas prix + surface exploitables.
+  listing_price_m2?: number | null;
 }
 
 // Allégation locale de l'annonce confrontée au profil de quartier (couche B).
