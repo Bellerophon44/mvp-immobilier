@@ -97,6 +97,27 @@
   Intégration Google **inactive sans la clé** `GOOGLE_MAPS_API_KEY` (repli « à vol
   d'oiseau »). Parcours staging-first (PR #115 → `staging`, fix #117, promotion
   #116 → `main`). Spec : `docs/specs/contexte-local-v2-SPEC.md`.
+- **Refonte des leviers de négociation + « Atouts du bien » — ✅ EN PRODUCTION
+  (2026-06-18, PR #121 → `main`).** Les leviers reprenaient les points forts du
+  bien (favorables au vendeur) ; désormais deux intentions distinctes :
+  `actions.highlights` (atouts factuels, objective la valeur) et
+  `actions.negotiation` recentré **côté acheteur** (éléments factuels qui pèsent
+  à la baisse : prix sur-positionné, DPE F/G, allégation locale peu plausible,
+  étage élevé sans ascenseur ; liste vide plutôt que du remplissage). Contrat
+  `actions` rétro-compatible. Cas d'éval pilote #122.
+- **Screening photo — réglage cap/résolution ✅ EN PRODUCTION (2026-06-18).** La
+  vérification visuelle des allégations locales (`app/photo_evidence.py`, bloc
+  **non-scoré** : un appel `gpt-4.1-mini` multimodal confronte aux photos de
+  l'annonce les claims locaux éligibles `cathedrale`/`nature`/`autre` → statut
+  `confirme`/`non_trouve`/`non_applicable`, repli sûr `non_trouve`) ratait trop
+  de repères pourtant présents. Deux causes corrigées : le **cap d'images passe
+  de 6 à 15** et le **détail de `"low"` à `"high"`** (un repère en arrière-plan
+  était illisible à 512px). Garanties inchangées (score 40/30/30 intact, RGPD :
+  URLs jamais loggées, cache mémoire TTL 7j). Coût `detail:"high"` × 15 ≈ 3-4k
+  tokens/analyse non cachée — garde-fou recommandé : usage limit OpenAI. Parcours
+  staging-first (PR #124 → `staging`, promotion #125 → `main`), resync préalable
+  `main` → `staging`. Spec : `docs/specs/photo-evidence-SPEC.md` ; carto technique :
+  `backend/CLAUDE.md` §6bis.
 
 ---
 
@@ -256,9 +277,11 @@
 │   │   ├── main.py             # FastAPI app, CORS, /analyze, lifecycle
 │   │   ├── analysis.py         # orchestrateur run_full_analysis
 │   │   ├── llm_semantic.py     # appel OpenAI, prompt, cache, fallback
-│   │   ├── url_fetch.py        # fetch HTTP + extraction texte HTML
+│   │   ├── url_fetch.py        # fetch HTTP + extraction texte HTML + images
+│   │   ├── photo_evidence.py   # screening photo non-scoré (vision, cap 15/detail high)
 │   │   ├── market_stats.py     # stats marché local sur Comparable
-│   │   └── scoring.py          # score global 0-100 + verdict + confiance
+│   │   ├── scoring.py          # score global 0-100 + verdict + confiance
+│   │   └── (carto complète des modules : backend/CLAUDE.md §4)
 │   ├── db/
 │   │   ├── models.py           # SQLAlchemy Comparable
 │   │   └── session.py          # engine SQLite, DATABASE_PATH=/data/...
