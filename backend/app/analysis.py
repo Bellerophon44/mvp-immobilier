@@ -301,6 +301,8 @@ def run_full_analysis(
             "dpe_band": price_market_pillar.get("dpe_band"),
             "n_comparables": price_market_pillar.get("n_comparables"),
             "refinable": price_market_pillar.get("refinable", False),
+            # Prix au m² de l'annonce (prix/surface), repère factuel pour le front.
+            "listing_price_m2": price_market_pillar.get("listing_price_m2"),
         },
         {
             "label": "Transparence de l'annonce",
