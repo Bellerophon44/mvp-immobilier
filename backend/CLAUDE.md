@@ -5,7 +5,16 @@
 > [`/CONTEXT.md`](../CONTEXT.md) à la racine du repo (source de vérité).
 > Ce fichier-ci se concentre sur l'état technique courant du backend.
 >
-> **Dernière mise à jour :** 2026-06-18 (« Contexte local v2 » **déployé en
+> **Dernière mise à jour :** 2026-06-18 (**screening photo réglé** : `MAX_IMAGES`
+> 6 → **15** et `detail` `"low"` → **`"high"`** dans `app/photo_evidence.py`,
+> PR #124 → `staging`, promotion #125 → `main`, deploy Fly prod OK. But : moins
+> de faux `non_trouve` sur des repères pourtant visibles dans les photos — hors
+> des premières images, ou en arrière-plan illisible à 512px. Bloc toujours
+> **non-scoré**. Voir §6bis. Avant, même session : **refonte leviers de
+> négociation** + section « Atouts du bien » (PR #121 → `main`), resync
+> `main` → `staging`.)
+>
+> **Antérieurement (2026-06-18) :** « Contexte local v2 » **déployé en
 > production**, PR #115 → `staging`, fix #117 → `staging`, promotion #116 →
 > `main`, deploy Fly prod OK : **temps de trajet réels** via Google Routes API
 > (Compute Route Matrix) + endpoint `POST /travel-times`, **re-géocodage** de
@@ -87,7 +96,10 @@ backend/
 │   ├── llm_semantic.py     # gpt-4.1-mini, cache mémoire SHA-256 TTL 7j
 │   ├── market_stats.py     # SQL comparables, fallback district, stats Q1/médiane/Q3
 │   ├── scoring.py          # Score global 0-100 (40+30+30)
-│   ├── url_fetch.py        # GET URL annonce + extraction texte HTML, SSRF filter
+│   ├── url_fetch.py        # GET URL annonce + extraction texte HTML + extract_image_urls, SSRF filter
+│   ├── photo_evidence.py   # screening photo (NON-scoré) : appel vision gpt-4.1-mini
+│   │                       # sur claims locaux éligibles, cap 15 images detail high,
+│   │                       # cache mémoire TTL 7j, repli sûr non_trouve (cf. §6bis)
 │   ├── rate_limit.py       # rate_limiter(limit, window) — dépendance FastAPI (9.9)
 │   ├── geo_gazetteer.py    # référentiel géo unique (issue #100 B) : localités, alias
 │   ├── geocode.py          # adresse → {lat, lon, score, label, city} via la BAN (couche C)
@@ -268,6 +280,38 @@ POST /analyze
 
 Voir §11 pour les pistes de tuning du `scoring.py` (déséquilibre actuel
 quand seul le prix est défavorable).
+
+---
+
+## 6bis. Screening photo des allégations locales (`app/photo_evidence.py`)
+
+Bloc **NON-scoré** (n'entre jamais dans le 40/30/30) branché en **mode URL** dans
+`run_full_analysis(..., image_urls=...)`. Objectif : confronter aux photos de
+l'annonce les seules allégations locales **visuellement vérifiables** et poser un
+`photo_status` informatif sur chaque claim de `local_context.claims`.
+
+Flux :
+1. `url_fetch.extract_image_urls(html, base_url)` extrait les URLs d'images (ordre
+   de priorité `og:image`/`twitter:image` → JSON-LD `image` → `<img>`, dédup).
+2. `assess_claims_with_photos(claims, image_urls)` :
+   - **gating par TYPE** : seuls les claims de type `cathedrale` / `nature` /
+     `autre` (`ELIGIBLE_TYPES`) sont éligibles ; jamais par le texte.
+   - **court-circuit** : 0 claim éligible OU 0 image → aucun appel LLM.
+   - **cap** : `MAX_IMAGES = 15` premières images, transmises en
+     `IMAGE_DETAIL = "high"` (réglage 2026-06-18 : avant 6 / `"low"` ; `high` est
+     nécessaire pour lire les repères en arrière-plan que 512px rendait illisibles).
+   - **un seul** appel multimodal `gpt-4.1-mini` (`temperature=0.2`,
+     `response_format=json_object`), prompt système strict anti-complaisance.
+   - statut par claim ∈ `{confirme, non_trouve, non_applicable}` ; **repli sûr
+     `non_trouve`** à la moindre incertitude/erreur (jamais `confirme` par défaut).
+   - **cache mémoire** SHA-256 (clé = images + claims normalisés), TTL 7j.
+3. `analysis._merge_photo_status` fusionne le statut dans chaque claim éligible.
+
+Garanties : RGPD (URLs d'images **jamais loggées**, transit sans stockage, pas de
+re-fetch serveur), score inchangé. Coût : `detail:"high"` × 15 ≈ 3-4k tokens
+d'entrée par analyse non cachée (`gpt-4.1-mini`), amorti par le cache.
+Spec : `docs/specs/photo-evidence-SPEC.md`. Tests :
+`tests/test_photo_evidence*.py` (bornes du cap recâblées sur `MAX_IMAGES`).
 
 ---
 
