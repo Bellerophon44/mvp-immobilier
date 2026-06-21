@@ -345,7 +345,7 @@ function LocalEdgeSection() {
         Un T3 à Queuleu et un T3 au Sablon n&apos;ont ni le même marché, ni le même
         prix au m². Une médiane à l&apos;échelle de Metz lisse ces écarts et trompe.
         Nous reconstituons le marché à partir des annonces réelles du secteur,
-        retenons les comparables à surface proche (±20 %, au moins trois), et
+        retenons les comparables à caractéristiques proches, et
         situons votre annonce dans ce contexte — pas dans une moyenne nationale.
       </p>
       <a href="/methode" style={{
