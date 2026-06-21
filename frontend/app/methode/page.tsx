@@ -1,7 +1,6 @@
 import Wordmark from "../../components/design/Wordmark";
 import Footer from "../../components/design/Footer";
 import ScopeBadge from "../../components/design/ScopeBadge";
-import { LorraineSeal } from "../../components/design/Icons";
 import PageViewBeacon from "../../components/PageViewBeacon";
 
 export const metadata = {
@@ -72,9 +71,7 @@ export default function MethodePage() {
       </header>
 
       <main style={{ maxWidth: 720, margin: "0 auto", padding: "64px 24px 64px" }}>
-        {/* Hero : le sceau aux trois alérions, à sa pleine taille. */}
         <div style={{ display: "flex", flexDirection: "column", gap: 24, marginBottom: 48 }}>
-          <LorraineSeal size={120} style={{ color: "var(--jaumont)" }} />
           <div className="t-eyebrow">Édition Metz · notre méthode</div>
           <h1 style={{
             fontFamily: "var(--font-serif)",
@@ -98,7 +95,7 @@ export default function MethodePage() {
           }}>
             Cohérence ne se veut pas un portail national de plus. C&apos;est un second
             avis local : nous comparons votre annonce au marché réel de son secteur,
-            avec la prudence d&apos;un professionnel qui connaît le terrain.
+            avec la prudence d&apos;une analyse statistique objective.
           </p>
         </div>
 
@@ -127,7 +124,7 @@ export default function MethodePage() {
           <Section eyebrow="Comment on compare" title="Des comparables à surface proche">
             <p style={{ margin: 0 }}>
               Pour situer un prix, nous retenons les biens comparables : même secteur,
-              surface proche (±&nbsp;20&nbsp;%), au moins trois comparables avant de
+              surface proche, DPE… sur un nombre minimum de biens comparables avant de
               prononcer un écart. Nous calculons la médiane locale au m² et la position
               de votre annonce — aligné, sur-positionné, sous-positionné. Des chiffres,
               pas des adjectifs.
@@ -139,9 +136,9 @@ export default function MethodePage() {
               Le score de cohérence combine trois piliers :
             </p>
             <ul style={{ margin: 0, paddingLeft: 18, display: "flex", flexDirection: "column", gap: 8 }}>
-              <li><strong>Le prix</strong> (40&nbsp;points) — l&apos;écart à la médiane locale.</li>
-              <li><strong>La transparence</strong> (30&nbsp;points) — l&apos;annonce est-elle claire&nbsp;? Quels signaux manquent&nbsp;?</li>
-              <li><strong>Les risques</strong> (30&nbsp;points) — points d&apos;attention à creuser avant la visite.</li>
+              <li><strong>Le prix</strong> — l&apos;écart à la médiane locale.</li>
+              <li><strong>La transparence</strong> — l&apos;annonce est-elle claire&nbsp;? Quels signaux manquent&nbsp;?</li>
+              <li><strong>Les risques</strong> — points d&apos;attention à creuser avant la visite.</li>
             </ul>
           </Section>
 
@@ -151,18 +148,17 @@ export default function MethodePage() {
               <li>Nous ne promettons pas une précision à la rue près quand la donnée
                   ne la soutient pas — l&apos;analyse reste alors à l&apos;échelle du quartier
                   ou de la ville, et le dit.</li>
-              <li>Nous ne donnons pas d&apos;ordre. Nous signalons ce qui est cohérent ou
-                  non&nbsp;; vous décidez.</li>
+              <li>Nous ne donnons pas de recommandations d&apos;achat. Nous signalons ce
+                  qui est cohérent ou non&nbsp;; vous décidez.</li>
               <li>Vos analyses ne sont pas conservées.</li>
             </ul>
           </Section>
 
           <Section eyebrow="Le périmètre" title="Metz & Moselle, pour de vrai">
             <p style={{ margin: 0 }}>
-              C&apos;est l&apos;édition Metz. La donnée, le lexique des quartiers et les
-              repères sont messins — c&apos;est la condition d&apos;une évaluation
-              contextualisée, donc crédible. D&apos;autres villes auront, le moment venu,
-              leur propre édition, avec la même exigence locale.
+              Cohérence c&apos;est Metz. La donnée, le lexique des quartiers et les
+              repères sont messins avec une vraie exigence locale — c&apos;est la
+              condition d&apos;une évaluation contextualisée, donc crédible.
             </p>
           </Section>
 
