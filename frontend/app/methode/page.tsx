@@ -124,7 +124,7 @@ export default function MethodePage() {
           <Section eyebrow="Comment on compare" title="Des comparables à surface proche">
             <p style={{ margin: 0 }}>
               Pour situer un prix, nous retenons les biens comparables : même secteur,
-              surface proche (±&nbsp;20&nbsp;%), au moins trois comparables avant de
+              surface proche, DPE… sur un nombre minimum de biens comparables avant de
               prononcer un écart. Nous calculons la médiane locale au m² et la position
               de votre annonce — aligné, sur-positionné, sous-positionné. Des chiffres,
               pas des adjectifs.
