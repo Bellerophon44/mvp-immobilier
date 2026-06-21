@@ -291,7 +291,7 @@ function SecondaryRow() {
       borderTop: "1px solid var(--stone-line)",
     }}>
       {[
-        { n: "01", t: "Pilier prix", d: "Médiane du quartier et écart calculés sur ≥ 3 comparables messins." },
+        { n: "01", t: "Pilier prix", d: "Médiane du quartier et écart calculés sur les comparables messins." },
         { n: "02", t: "Pilier sémantique", d: "L'annonce est-elle claire ? Quels signaux manquent ?" },
         { n: "03", t: "Pilier global", d: "Score 0 – 100 et verdict en une phrase." },
       ].map((c) => (
