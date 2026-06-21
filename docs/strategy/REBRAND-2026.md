@@ -196,11 +196,11 @@ Garde-fou repo : la promesse ne dépasse jamais la maturité de la donnée
 `[repo: CONTEXT.md §1.4]`.
 
 ### Activables tout de suite (preuve réelle)
-- **Chiffres de profondeur de données**, above-the-fold : « ~17 700 comparables
-  messins » / « 16 quartiers » / « collecte hebdomadaire »
-  `[repo: CONTEXT.md §0]`. Chiffres avant adjectifs — c'est déjà ta doctrine.
-  *À valider : afficher un chiffre rond « 17 000+ » et le brancher sur une vraie
-  source (endpoint count) pour qu'il ne se périme pas.* `[HYPOTHÈSE — à valider]`
+- **Chiffres de profondeur de données**, above-the-fold — ✅ **LIVRÉ & rafraîchi
+  2026-06-21** : « 29 000+ comparables » / « 17 quartiers de Metz » / « Metz et ses
+  10 communes de couronne » `[repo: CONTEXT.md §0, 2026-06-21]`. Chiffres avant
+  adjectifs — c'est déjà ta doctrine. *Reste à faire : les brancher sur un endpoint
+  de comptage pour qu'ils ne se périment plus (aujourd'hui codés en dur).*
 - **Preuve de méthode** : remonter le lien « Notre méthode locale » de tout en
   bas vers le premier écran. La transparence de la méthode EST le badge de
   sérieux (mécanisme AWS transposé).
@@ -242,7 +242,7 @@ l'actuel (« Ce prix… sont-ils cohérents… ? »).
 ### Proposition A — « l'expertise locale chiffrée » (sobre-évolutive)
 - **Eyebrow** : `Édition Metz · Moselle`
 - **H1** : « Le marché immobilier messin, lu *quartier par quartier*. »
-- **Sous-titre** : « Collez une annonce. Nous la confrontons à ~17 000
+- **Sous-titre** : « Collez une annonce. Nous la confrontons à ~29 000
   comparables réels — du Sablon à Queuleu — et vous disons ce qui est cohérent,
   ce qui est à creuser, et les questions à poser avant la visite. »
 - *Force* : affirmatif, chiffré, ancré. *Risque* : faible.
@@ -303,7 +303,7 @@ mono pour les chiffres).
 - **Hero / mobile** : structure en **trois étages** above-the-fold —
   (1) eyebrow + H1 + sous-titre, (2) **le champ d'analyse, dominant** (héros
   réel, façon Netflix « une seule action »), (3) **bande de 3 preuves chiffrées**
-  (« ~17 000 comparables · 16 quartiers · collecte hebdomadaire »). La photo N&B
+  (« 29 000+ comparables · 17 quartiers · Metz et sa couronne », maj 2026-06-21). La photo N&B
   passe en **arrière-plan très atténué d'une seule section** ou en filet, jamais
   en bloc plein avant le texte. Mobile : H1 → champ → 3 chiffres, aucune image
   bloquante.
@@ -371,8 +371,8 @@ risquée pour l'autorité.
 
 | # | Hypothèse | Statut | Impact si fausse |
 |---|---|---|---|
-| H1 | La base fait ~17 700 comparables aujourd'hui et le restera (croissant) | `[repo: CONTEXT.md §0]` daté 2026-06-04 — à rafraîchir | Chiffre-preuve faux = perte de crédibilité (l'inverse du but) |
-| H2 | 16 quartiers Metz couverts | `[repo: districts.ts]` non recompté ici | Chiffre above-the-fold erroné |
+| H1 | La base fait ~29 700 comparables aujourd'hui (29 682) et croît | ✅ **VÉRIFIÉ 2026-06-21** `/admin/comparables/stats` `[repo: CONTEXT.md §0]` | Chiffre-preuve faux = perte de crédibilité (l'inverse du but) |
+| H2 | 17 quartiers Metz couverts (et non 16 : Sainte-Thérèse ajoutée) | ✅ **VÉRIFIÉ 2026-06-21** `[repo: frontend/lib/districts.ts]` (recompté) | Chiffre above-the-fold erroné |
 | H3 | La collecte hebdo tourne réellement chaque lundi | `[repo: CONTEXT.md §0 collect.yml]` | « collecte hebdomadaire » deviendrait un mensonge |
 | H4 | Cold start Fly acceptable pour promettre une dispo | `[HYPOTHÈSE — à valider]` | Promesse de fiabilité contredite par l'expérience |
 | H5 | La photo N&B libre de droits sera bien branchée (pas « Illustration ») | `[repo: page.tsx L137]` non résolu | Reste un signal garage tant que non fait |
