@@ -136,9 +136,9 @@ export default function MethodePage() {
               Le score de cohérence combine trois piliers :
             </p>
             <ul style={{ margin: 0, paddingLeft: 18, display: "flex", flexDirection: "column", gap: 8 }}>
-              <li><strong>Le prix</strong> (40&nbsp;points) — l&apos;écart à la médiane locale.</li>
-              <li><strong>La transparence</strong> (30&nbsp;points) — l&apos;annonce est-elle claire&nbsp;? Quels signaux manquent&nbsp;?</li>
-              <li><strong>Les risques</strong> (30&nbsp;points) — points d&apos;attention à creuser avant la visite.</li>
+              <li><strong>Le prix</strong> — l&apos;écart à la médiane locale.</li>
+              <li><strong>La transparence</strong> — l&apos;annonce est-elle claire&nbsp;? Quels signaux manquent&nbsp;?</li>
+              <li><strong>Les risques</strong> — points d&apos;attention à creuser avant la visite.</li>
             </ul>
           </Section>
 
