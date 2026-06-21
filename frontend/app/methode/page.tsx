@@ -1,7 +1,6 @@
 import Wordmark from "../../components/design/Wordmark";
 import Footer from "../../components/design/Footer";
 import ScopeBadge from "../../components/design/ScopeBadge";
-import { LorraineSeal } from "../../components/design/Icons";
 import PageViewBeacon from "../../components/PageViewBeacon";
 
 export const metadata = {
@@ -72,9 +71,7 @@ export default function MethodePage() {
       </header>
 
       <main style={{ maxWidth: 720, margin: "0 auto", padding: "64px 24px 64px" }}>
-        {/* Hero : le sceau aux trois alérions, à sa pleine taille. */}
         <div style={{ display: "flex", flexDirection: "column", gap: 24, marginBottom: 48 }}>
-          <LorraineSeal size={120} style={{ color: "var(--jaumont)" }} />
           <div className="t-eyebrow">Édition Metz · notre méthode</div>
           <h1 style={{
             fontFamily: "var(--font-serif)",
@@ -98,7 +95,7 @@ export default function MethodePage() {
           }}>
             Cohérence ne se veut pas un portail national de plus. C&apos;est un second
             avis local : nous comparons votre annonce au marché réel de son secteur,
-            avec la prudence d&apos;un professionnel qui connaît le terrain.
+            avec la prudence d&apos;une analyse statistique objective.
           </p>
         </div>
 
