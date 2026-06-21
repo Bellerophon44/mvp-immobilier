@@ -156,10 +156,9 @@ export default function MethodePage() {
 
           <Section eyebrow="Le périmètre" title="Metz & Moselle, pour de vrai">
             <p style={{ margin: 0 }}>
-              C&apos;est l&apos;édition Metz. La donnée, le lexique des quartiers et les
-              repères sont messins — c&apos;est la condition d&apos;une évaluation
-              contextualisée, donc crédible. D&apos;autres villes auront, le moment venu,
-              leur propre édition, avec la même exigence locale.
+              Cohérence c&apos;est Metz. La donnée, le lexique des quartiers et les
+              repères sont messins avec une vraie exigence locale — c&apos;est la
+              condition d&apos;une évaluation contextualisée, donc crédible.
             </p>
           </Section>
 
