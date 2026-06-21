@@ -148,8 +148,8 @@ export default function MethodePage() {
               <li>Nous ne promettons pas une précision à la rue près quand la donnée
                   ne la soutient pas — l&apos;analyse reste alors à l&apos;échelle du quartier
                   ou de la ville, et le dit.</li>
-              <li>Nous ne donnons pas d&apos;ordre. Nous signalons ce qui est cohérent ou
-                  non&nbsp;; vous décidez.</li>
+              <li>Nous ne donnons pas de recommandations d&apos;achat. Nous signalons ce
+                  qui est cohérent ou non&nbsp;; vous décidez.</li>
               <li>Vos analyses ne sont pas conservées.</li>
             </ul>
           </Section>
