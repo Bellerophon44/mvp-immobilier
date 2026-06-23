@@ -4,6 +4,7 @@
  * Cas attendus : texte + URL -> l'URL ; URL nue -> elle-meme ; plusieurs URLs
  * -> la premiere ; aucune URL -> null.
  */
-export function firstUrl(_input: string): string | null {
-  throw new Error('NOT_IMPLEMENTED: firstUrl');
+export function firstUrl(input: string): string | null {
+  const match = (input || '').match(/https?:\/\/[^\s]+/i);
+  return match ? match[0] : null;
 }

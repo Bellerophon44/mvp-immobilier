@@ -10,6 +10,9 @@ export interface AnalyzeBody {
  *  - image_urls = la galerie filtree ; OMETTRE la cle si la galerie est vide ;
  *  - ne JAMAIS emettre de champ 'url' (le backend l'extraierait via fetch HTML).
  */
-export function buildAnalyzeBody(_rawText: string, _imageUrls: string[]): AnalyzeBody {
-  throw new Error('NOT_IMPLEMENTED: buildAnalyzeBody');
+export function buildAnalyzeBody(rawText: string, imageUrls: string[]): AnalyzeBody {
+  if (imageUrls.length === 0) {
+    return { raw_text: rawText };
+  }
+  return { raw_text: rawText, image_urls: imageUrls };
 }
