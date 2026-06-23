@@ -1,0 +1,16 @@
+{
+  "name": "mvp-immobilier-mobile",
+  "private": true,
+  "version": "0.0.1",
+  "description": "App mobile (Phase 2) — coeur de logique pure testable. Les composants RN/Expo seront ajoutes au-dessus de src/lib.",
+  "scripts": {
+    "test": "jest"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.12",
+    "@types/node": "^20.11.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.2",
+    "typescript": "^5.3.0"
+  }
+}
