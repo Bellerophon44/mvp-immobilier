@@ -160,9 +160,9 @@
   - **Push notifications = Phase 3 DISTINCTE**, jamais fondue dans le jour 1 : seul
     lot qui casse les invariants « anonyme / sans état » (auth, PII, persistance,
     pHash) — cap d'architecture + RGPD majeur, mêmes bloqueurs que §9.6.
-  - **Prérequis bloquant avant toute publication store** : poser un **usage limit
-    OpenAI hard** (voir §9.4) — geste humain console OpenAI, non automatisable depuis
-    le repo.
+  - **Garde-fou coût déjà en place** : l'usage limit OpenAI hard existe déjà
+    (§9.4) — pas un bloqueur, juste à re-vérifier (montant) avant un lancement à
+    plus fort trafic.
   - Analyse complète + questions : `docs/specs/mobile-phase2-app-ANALYSE.md`.
 
 ---
@@ -539,16 +539,16 @@ de dégradation (PR #55). **Alerte complète différée.** Specs :
   garantit que le marqueur `LLM call failed` reste émis et explicite — tout
   monitoring futur s'appuiera dessus. Coût nul, aucun changement de comportement.
 
-### 9.4 [workflow] Alertes coût OpenAI — ⬜ À faire (hors atelier)
-**Statut : ⬜ À faire.** Volontairement **hors atelier** (pure config UI, pas de
-code → le pipeline à 5 rôles ne se justifie pas, cf. règle right-sizing
-`.claude/commands/feature.md`).
-- **Action** : sur `platform.openai.com → Settings → Limits`, poser un **usage
-  limit hard** (ex. 20 €) + alerte douce à 80 %. ~5 min, aucune dépendance.
-- **Promu prérequis BLOQUANT (GATE 1 mobile, 2026-06-23)** : à poser **avant toute
-  publication store** de l'app mobile (§0 Phase 2) — un succès de lancement ferait
-  déraper la facture (analyse multimodale + travel-times). Geste humain console
-  OpenAI, non automatisable depuis le repo ; reste donc ⬜ à faire côté humain.
+### 9.4 [workflow] Alertes coût OpenAI — ✅ En place (hors atelier)
+**Statut : ✅ Fait (en place de longue date, documenté tardivement ici).**
+Volontairement **hors atelier** (pure config UI, pas de code → le pipeline à
+5 rôles ne se justifie pas, cf. règle right-sizing `.claude/commands/feature.md`).
+- **En place** : sur `platform.openai.com → Settings → Limits`, un **usage limit
+  hard** + alerte douce sont configurés (garde-fou financier §3.3). Couvre aussi la
+  clé CI dédiée (item référencé en §0 « Harnais d'évals »).
+- **Note GATE 1 mobile (2026-06-23)** : ce garde-fou étant déjà actif, il ne
+  constitue **pas** un bloqueur pour la publication store de l'app mobile (§0
+  Phase 2) — simplement à re-vérifier (montant adapté au trafic) le moment venu.
 
 ### 9.5 [agent contenu] Génération SEO long-tail — ⏸️ Différé
 **Statut : ⏸️ Différé.** Spec : `docs/specs/9.5-ANALYSE.md`.

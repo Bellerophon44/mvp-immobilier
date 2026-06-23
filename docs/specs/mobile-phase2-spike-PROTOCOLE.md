@@ -7,6 +7,25 @@
 > l'atelier (pas de device, egress LBC hors allowlist) : c'est un geste
 > humain/device.
 
+## 0. Ce qui est DÉJÀ tranché — ne pas re-tester
+
+**Spike A (« Probe images LBC », `.github/workflows/probe-lbc-images.yml`,
+exécuté le 2026-06-23) a déjà répondu à la moitié AVAL du problème** : une fois
+qu'on dispose des URLs d'images, **OpenAI les fetche** (4/4 vraies photos, CDN
+`img.leboncoin.fr` ouvert, URLs non signées, pas de verrou Referer). Conclusion
+actée : **Option 1 (envoyer les URLs) suffit**, l'upload d'octets (Option 2) est
+inutile pour LBC. C'est sur ce résultat qu'a été bâtie la Phase 1 (`image_urls`).
+Enseignement clé : **le mur anti-bot DataDome est sur la PAGE d'annonce, pas sur
+le CDN d'images.**
+
+**Ce spike-ci porte donc UNIQUEMENT sur la moitié AMONT, non testée** : l'app
+peut-elle, sur l'appareil, **récupérer automatiquement** le texte + les URLs de
+la galerie depuis la page d'annonce (qui, elle, est derrière DataDome) ? Le probe,
+lui, recevait des URLs **copiées à la main** depuis un navigateur — il n'a jamais
+testé l'extraction automatique. Ne pas refaire le test de fetchabilité OpenAI
+(le POST `/analyze` en fin de procédure n'est qu'une confirmation de bout en bout,
+pas le cœur du spike).
+
 ## 1. Objectif
 
 Prouver — ou infirmer — qu'une app mobile peut, **on-device**, extraire d'une
