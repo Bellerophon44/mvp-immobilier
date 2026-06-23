@@ -81,6 +81,18 @@ export interface ApiResult {
   local_context?: LocalContext | null;
 }
 
+// Corps de requête POST /analyze. `image_urls` (screening photo, mode raw_text
+// de l'app mobile ou override en mode url) est documenté ici mais NON émis par
+// le web : analyzeListing ne le renseigne pas. Le backend ne le logge/stocke/
+// re-fetche jamais (RGPD).
+export interface AnalyzeRequestBody {
+  url?: string;
+  raw_text?: string;
+  district?: string;
+  address?: string;
+  image_urls?: string[];
+}
+
 export async function analyzeListing(
   input: string,
   mode: "url" | "text",
