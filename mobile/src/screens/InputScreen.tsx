@@ -6,6 +6,9 @@ import {
   TextInput,
   Pressable,
   StyleSheet,
+  KeyboardAvoidingView,
+  ScrollView,
+  Platform,
 } from 'react-native';
 import { firstUrl } from '../lib/extractUrl';
 import { Wordmark } from '../components/Wordmark';
@@ -39,49 +42,71 @@ export function InputScreen({ onSubmit }: { onSubmit: (url: string) => void }) {
       <View style={styles.header}>
         <Wordmark />
       </View>
-      <View style={styles.content}>
-        <Text style={styles.eyebrow}>Analyse d'annonce</Text>
-        <Text style={styles.title}>Une lecture honnête, avant la visite.</Text>
-        <Text style={styles.subtitle}>
-          Colle l'URL d'une annonce LeBonCoin (ou le texte de partage qui la
-          contient), puis lance l'analyse.
-        </Text>
-
-        <View style={styles.card}>
-          <TextInput
-            style={styles.input}
-            value={value}
-            onChangeText={setValue}
-            autoCapitalize="none"
-            autoCorrect={false}
-            multiline
-            placeholder="https://www.leboncoin.fr/ad/ventes_immobilieres/..."
-            placeholderTextColor={colors.stone}
-          />
-        </View>
-
-        {error ? <Text style={styles.error}>{error}</Text> : null}
-
-        <Pressable
-          style={({ pressed }) => [styles.cta, pressed && styles.ctaPressed]}
-          onPress={handleAnalyser}
-          accessibilityRole="button"
+      {/* KeyboardAvoidingView + ScrollView : sans ca le clavier (TextInput
+          multiline) recouvre le CTA et l'ecran reste fige. keyboardShouldPersistTaps
+          'handled' garde le bouton cliquable clavier ouvert ; keyboardDismissMode
+          'on-drag' ferme le clavier des qu'on scrolle. */}
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <ScrollView
+          style={styles.flex}
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          showsVerticalScrollIndicator={false}
         >
-          <Text style={styles.ctaLabel}>Analyser</Text>
-        </Pressable>
-      </View>
+          <Text style={styles.eyebrow}>Analyse d'annonce</Text>
+          <Text style={styles.title}>Une lecture honnête, avant la visite.</Text>
+          <Text style={styles.subtitle}>
+            Colle l'URL d'une annonce LeBonCoin (ou le texte de partage qui la
+            contient), puis lance l'analyse.
+          </Text>
+
+          <View style={styles.card}>
+            <TextInput
+              style={styles.input}
+              value={value}
+              onChangeText={setValue}
+              autoCapitalize="none"
+              autoCorrect={false}
+              multiline
+              placeholder="https://www.leboncoin.fr/ad/ventes_immobilieres/..."
+              placeholderTextColor={colors.stone}
+            />
+          </View>
+
+          {error ? <Text style={styles.error}>{error}</Text> : null}
+
+          <Pressable
+            style={({ pressed }) => [styles.cta, pressed && styles.ctaPressed]}
+            onPress={handleAnalyser}
+            accessibilityRole="button"
+          >
+            <Text style={styles.ctaLabel}>Analyser</Text>
+          </Pressable>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.parchment },
+  flex: { flex: 1 },
   header: {
     paddingHorizontal: spacing.s5,
     paddingTop: spacing.s4,
     paddingBottom: spacing.s2,
   },
-  content: { flex: 1, paddingHorizontal: spacing.s5, justifyContent: 'center', gap: spacing.s4 },
+  content: {
+    flexGrow: 1,
+    paddingHorizontal: spacing.s5,
+    paddingBottom: spacing.s6,
+    justifyContent: 'center',
+    gap: spacing.s4,
+  },
   eyebrow: {
     fontFamily: fontFamily.sansMedium,
     fontSize: 11,
