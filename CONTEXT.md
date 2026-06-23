@@ -135,6 +135,35 @@
   (Artisans = `robots.txt` interdit ; SOREC = JS-only). Décision humaine en
   attente. Détail : `docs/specs/increment3-couronne-{ANALYSE,RESULTATS-RECON}.md`,
   `backend/CLAUDE.md` §11bis.
+- **App mobile — Phase 1 (câblage backend) ✅ EN PRODUCTION (2026-06-23).**
+  `POST /analyze` accepte un champ optionnel `image_urls: list[str]` routé vers
+  le screening photo existant (`run_full_analysis(..., image_urls=...)`) y compris
+  en mode `raw_text`, pour qu'un client mobile fournisse ses propres URLs de photos
+  (extraction on-device) sans dépendre de l'extraction HTML serveur. Additif,
+  rétro-compatible, **non-scoré** ; sûreté : filtrage `_is_safe_url` (whitelist
+  http/https + rejet localhost/IP privées), cap d'entrée 50 distinct du cap aval
+  `MAX_IMAGES=15`, ordre figé (nettoyage → dédup → filtrage → troncature) ; RGPD :
+  URLs jamais loggées (compteur seul). Parcours staging-first (PR #141 → `staging`,
+  promotion #142 → `main`). Specs : `docs/specs/mobile-phase1-image-urls-{ANALYSE,SPEC}.md`.
+- **App mobile — Phase 2 (l'app elle-même) ⬜ DÉCIDÉE, NON DÉMARRÉE (GATE 1 du
+  2026-06-23).** Décision actée d'en faire le prochain grand chantier (auparavant
+  absente de cette doc, d'où ce report). Arbitrages humains GATE 1 :
+  - **Périmètre Tier 1 uniquement** (parcours `/analyze` raw_text + `image_urls`,
+    partage natif depuis les apps immo, OCR, géoloc). **Le backend est déjà prêt
+    (Phase 1) : 0 backend nouveau pour Tier 1.**
+  - **Spike on-device d'abord** (~1-3 j) : prouver l'extraction texte + galerie
+    LeBonCoin via WebView + injection JS AVANT de figer la techno (risque technique
+    n°1). Protocole : `docs/specs/mobile-phase2-spike-PROTOCOLE.md`. **Non exécutable
+    en sandbox** (device + egress LBC requis) → geste humain/device.
+  - **Techno recommandée** (post-spike) : **React Native + Expo** (cohérence TS,
+    WebView qui débloque LBC, durable sur stores). Flutter écarté.
+  - **Push notifications = Phase 3 DISTINCTE**, jamais fondue dans le jour 1 : seul
+    lot qui casse les invariants « anonyme / sans état » (auth, PII, persistance,
+    pHash) — cap d'architecture + RGPD majeur, mêmes bloqueurs que §9.6.
+  - **Prérequis bloquant avant toute publication store** : poser un **usage limit
+    OpenAI hard** (voir §9.4) — geste humain console OpenAI, non automatisable depuis
+    le repo.
+  - Analyse complète + questions : `docs/specs/mobile-phase2-app-ANALYSE.md`.
 
 ---
 
@@ -516,6 +545,10 @@ code → le pipeline à 5 rôles ne se justifie pas, cf. règle right-sizing
 `.claude/commands/feature.md`).
 - **Action** : sur `platform.openai.com → Settings → Limits`, poser un **usage
   limit hard** (ex. 20 €) + alerte douce à 80 %. ~5 min, aucune dépendance.
+- **Promu prérequis BLOQUANT (GATE 1 mobile, 2026-06-23)** : à poser **avant toute
+  publication store** de l'app mobile (§0 Phase 2) — un succès de lancement ferait
+  déraper la facture (analyse multimodale + travel-times). Geste humain console
+  OpenAI, non automatisable depuis le repo ; reste donc ⬜ à faire côté humain.
 
 ### 9.5 [agent contenu] Génération SEO long-tail — ⏸️ Différé
 **Statut : ⏸️ Différé.** Spec : `docs/specs/9.5-ANALYSE.md`.

@@ -1,0 +1,103 @@
+# Spike on-device — extraction texte + galerie photo via WebView (Phase 2 mobile)
+
+> Statut : PROTOCOLE prêt à exécuter — NON exécuté. Décidé en GATE 1 (2026-06-23,
+> cf. `CONTEXT.md` §0 « App mobile — Phase 2 »). Ce spike lève le **risque
+> technique n°1** et **conditionne le choix de techno** (Q2 de
+> `mobile-phase2-app-ANALYSE.md`). Il ne peut PAS tourner dans le sandbox de
+> l'atelier (pas de device, egress LBC hors allowlist) : c'est un geste
+> humain/device.
+
+## 1. Objectif
+
+Prouver — ou infirmer — qu'une app mobile peut, **on-device**, extraire d'une
+annonce immobilière ouverte par l'utilisateur :
+1. le **texte** de l'annonce (titre + description) ;
+2. les **URLs des photos** de la galerie (http(s) publiques),
+
+afin de les POSTer à `/analyze` en mode `raw_text` + `image_urls` (contrat livré
+en Phase 1). Le backend est déjà prêt ; tout le risque est côté extraction
+client.
+
+## 2. Hypothèse à valider
+
+Dans une **WebView contrôlée** chargeant l'URL d'annonce, une **injection JS**
+peut lire `document` (texte via `innerText`, images via `<img>`/`srcset`) et
+renvoyer le résultat à la couche native, malgré les protections du portail
+(lazy-load, anti-bot, overlays consentement, cross-origin).
+
+## 3. Corpus de test
+
+3 à 5 annonces **réelles** LeBonCoin (cible principale), variées :
+- une avec **beaucoup de photos** (>15, pour tester le cap d'entrée 50 et le
+  lazy-load) ;
+- une avec **peu de photos** (1-3) ;
+- une **maison** et un **appartement** (layouts/DOM différents) ;
+- si possible une annonce d'un **second portail** (SeLoger ou Bien'ici) pour
+  juger la généralité de l'approche.
+
+Conserver les URLs testées et un comptage manuel des photos réellement affichées
+(vérité terrain).
+
+## 4. Procédure
+
+1. Monter un harnais minimal avec **`react-native-webview`** (Expo) — c'est aussi
+   l'option techno favorite, donc le spike sert de preuve ET de socle. Optionnel :
+   répliquer en **Capacitor** pour comparer la robustesse de l'injection.
+2. Charger l'URL d'annonce dans la WebView.
+3. Gérer le **consentement/cookies** (détecter et cliquer l'overlay si présent).
+4. Déclencher le **lazy-load** : scroller programmatiquement jusqu'en bas (ou
+   itérer sur le carrousel de photos) avant de collecter.
+5. Injecter le JS de collecte (`injectedJavaScript` + `window.ReactNativeWebView.postMessage`) :
+   - texte : `document.querySelector(<sélecteur description>)?.innerText` avec
+     repli sur `document.body.innerText` ;
+   - images : parcourir `<img>`, extraire `src` + la plus grande candidate de
+     `srcset`, **filtrer** au domaine CDN d'images du portail, **dédupliquer** en
+     préservant l'ordre.
+6. Renvoyer `{ text, image_urls[] }` au natif via `onMessage`.
+7. POSTer à `/analyze` (`raw_text` + `image_urls`) sur un backend de test et
+   vérifier que `photo_status` est bien renseigné (preuve de bout en bout).
+
+## 5. Critères de réussite / échec (falsifiables)
+
+**Réussite** (le natif RN/Expo Tier 1 est viable, Q2 = RN/Expo) si, sur **≥ 4/5**
+annonces :
+- le **texte** récupéré contient titre + description complète ;
+- les **image_urls** récupérées correspondent à la galerie affichée (±, après
+  dédup), sont des **http(s) publiques** (donc compatibles `_is_safe_url` et le
+  fetch vision OpenAI), et ≥ 80 % des photos visibles sont captées ;
+- l'aller-retour `/analyze` renvoie un `photo_status` cohérent.
+
+**Échec / signal d'alerte** (à remonter, peut imposer RN obligatoire ou rouvrir
+la stratégie) :
+- l'injection JS est **bloquée cross-origin** ou par anti-bot / mur de login ;
+- les photos sont servies en **`blob:`/`data:`/canvas** (pas d'URL http(s)
+  réutilisable) → l'approche `image_urls` ne marche pas, il faudrait uploader des
+  octets (autre contrat backend, hors Phase 1) ;
+- le lazy-load ne se déclenche pas sans gestes utilisateur réels ;
+- comportement **divergent entre portails** rendant l'approche non générale.
+
+## 6. Ce que le résultat décide
+
+- **Si réussite en wrapper (Capacitor)** : un wrapper peut suffire (moins cher),
+  mais arbitrer le risque Apple 4.2 (cf. analyse Q2-b).
+- **Si réussite seulement en RN** : RN/Expo devient obligatoire (Q2-a).
+- **Si échec image_urls (blob/canvas)** : la Phase 1 ne suffit pas pour ce
+  portail ; rouvrir l'analyse (upload d'octets = nouveau contrat backend, nouveau
+  chantier — ne PAS l'improviser).
+
+## 7. Garde-fous (RGPD / anti-patterns CONTEXT §11)
+
+- Extraction **uniquement** sur l'annonce que l'utilisateur a explicitement
+  ouverte/partagée — **pas de crawl**, pas de collecte de masse.
+- **Aucun stockage** des photos ni du texte côté app au-delà de la requête ;
+  image_urls transmises au backend, jamais loggées (déjà garanti côté serveur).
+- **Pas de redistribution** d'annonce (anti-pattern §11) : on analyse, on ne
+  republie pas.
+- Respecter `robots.txt` / CGU dans l'esprit ; le spike lit le DOM rendu pour
+  l'utilisateur lui-même, ne contourne pas une authentification.
+
+## 8. Hors périmètre du spike
+
+Construire l'app complète, le partage natif (share extension), l'OCR, la géoloc,
+le design. Le spike prouve **uniquement** la faisabilité de l'extraction
+texte + image_urls on-device.
