@@ -154,6 +154,8 @@ détail par `rule` le démasque :
 photos du bien. **Règle retenue : ne garder que `rule=ad-large`** (galerie), dédup
 par chemin. Enjeu de **justesse**, pas que de coût : sans ce filtre on enverrait à
 OpenAI des photos d'AUTRES annonces → `photo_status` faux.
+**Confirmé sur 2 annonces** : `ad-large` = 9 (page « 1/9 ») puis 6 (page « 1/6 »),
+soit exactement le compteur de galerie affiché. Niveau 1 clos.
 ⚠️ Réserve : ces noms de `rule` viennent du site **desktop**. Le site **mobile**
 (dans la WebView, Niveau 2) peut les nommer autrement → la mini-app affiche
 désormais le détail par `rule` pour le constater de visu. À terme (spec app), une
