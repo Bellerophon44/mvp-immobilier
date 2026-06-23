@@ -14,7 +14,7 @@ from app.geocode import geocode_address
 from app.routing import compute_travel_times
 from app.metz_local import _POI, _MODE_LABELS, _fmt_dist
 from app.rate_limit import rate_limiter
-from app.url_fetch import fetch_listing, extract_image_urls
+from app.url_fetch import fetch_listing, extract_image_urls, _is_safe_url
 from db.session import init_db, SessionLocal
 from db.models import Comparable, Feedback, Event, ListingPriceSnapshot
 from ingestion.save import (
@@ -80,6 +80,10 @@ class AnalyzeRequest(BaseModel):
     # Adresse saisie par l'utilisateur (alternative manuelle au géocodage de la
     # couche C) : affine le feedback local (quartier déduit, adresse affichée).
     address: Optional[str] = None
+    # URLs d'images fournies par le client (app mobile en mode raw_text, ou
+    # override en mode url) pour le screening photo. Jamais loggees, jamais
+    # stockees, jamais re-fetchees serveur (RGPD, CLAUDE §6bis).
+    image_urls: Optional[list[str]] = None
 
 
 class AnalyzeResponse(BaseModel):
@@ -586,6 +590,34 @@ def comparables_maintenance(
     return result
 
 
+# Cap d'ENTREE sur les URLs client, distinct du cap aval MAX_IMAGES=15 de
+# photo_evidence : il borne le budget de traitement (dedup/filtrage) AVANT le
+# pipeline, sans toucher photo_evidence (hors perimetre).
+MAX_INPUT_IMAGE_URLS = 50
+
+
+def _sanitize_client_image_urls(image_urls: Optional[list[str]]) -> list[str]:
+    """Nettoie les URLs d'images recues du client (mode raw_text ou override
+    URL). Ordre fige : nettoyage -> dedup ordre preserve -> filtrage
+    `_is_safe_url` -> troncature a MAX_INPUT_IMAGE_URLS. On FILTRE les URLs
+    invalides (on ne rejette jamais le body : pas de 422 pour une galerie). Une
+    liste vide signifie "pas d'images" (traitee comme None par l'appelant)."""
+    if not image_urls:
+        return []
+    seen: set[str] = set()
+    cleaned: list[str] = []
+    for item in image_urls:
+        if not isinstance(item, str):
+            continue
+        url = item.strip()
+        if not url or url in seen:
+            continue
+        seen.add(url)
+        cleaned.append(url)
+    safe = [url for url in cleaned if _is_safe_url(url)]
+    return safe[:MAX_INPUT_IMAGE_URLS]
+
+
 @app.post("/analyze", response_model=AnalyzeResponse)
 def analyze(
     payload: AnalyzeRequest,
@@ -607,10 +639,16 @@ def analyze(
             detail="Veuillez fournir soit le texte de l'annonce, soit une URL.",
         )
 
+    # Compteur uniquement (jamais les valeurs d'URL) : RGPD, CLAUDE §6bis.
+    client_image_urls = _sanitize_client_image_urls(payload.image_urls)
+    logger.info("ANALYZE image_urls: n_client=%d", len(client_image_urls))
+
     image_urls = None
     if payload.raw_text and payload.raw_text.strip():
         logger.info("ANALYZE branch: using raw_text")
         raw_content = payload.raw_text
+        # En mode raw_text, les URLs client sont la seule source d'images (D1).
+        image_urls = client_image_urls or None
     else:
         logger.info("ANALYZE branch: fetching URL")
         url = payload.url or ""
@@ -627,7 +665,11 @@ def analyze(
         raw_content = fetched["text"]
         # Les URLs d'images servent uniquement au screening photo en transit ;
         # elles ne sont jamais incluses dans la reponse /analyze (anti-pattern #3).
-        image_urls = extract_image_urls(fetched.get("html") or "", url) or None
+        if client_image_urls:
+            # D1 : les URLs client REMPLACENT l'extraction HTML (pas de fusion).
+            image_urls = client_image_urls
+        else:
+            image_urls = extract_image_urls(fetched.get("html") or "", url) or None
 
     try:
         return run_full_analysis(
