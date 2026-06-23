@@ -139,8 +139,30 @@ Annonce LBC réelle (appartement, Metz Sablon), script console :
 - La page s'est chargée **sans captcha** dans un navigateur normal (cohérent : le
   mur DataDome cible les bots, pas un vrai navigateur).
 
+**Finding majeur — filtrer par hôte SUR-collecte.** 2ᵉ annonce : 28 images
+distinctes sur `img.leboncoin.fr` alors que la galerie en comptait bien moins. Le
+détail par `rule` le démasque :
+
+| `rule` | annonce 1 | annonce 2 | nature |
+|---|---|---|---|
+| `ad-large` | 9 | 6 | **galerie réelle** (varie avec l'annonce) |
+| `ad-image` | 14 | 14 | **annonces similaires** (bloc reco, taille constante) |
+| `ad-thumb` | 1 | 1 | vignette de couverture |
+| `bo-thumb` | 1 | 1 | logo agence |
+
+`ad-image` constant à 14 = carrousel de recommandations → ce ne sont PAS les
+photos du bien. **Règle retenue : ne garder que `rule=ad-large`** (galerie), dédup
+par chemin. Enjeu de **justesse**, pas que de coût : sans ce filtre on enverrait à
+OpenAI des photos d'AUTRES annonces → `photo_status` faux.
+⚠️ Réserve : ces noms de `rule` viennent du site **desktop**. Le site **mobile**
+(dans la WebView, Niveau 2) peut les nommer autrement → la mini-app affiche
+désormais le détail par `rule` pour le constater de visu. À terme (spec app), une
+sélection **scopée au conteneur DOM de la galerie** sera plus robuste qu'un nom de
+`rule` en dur.
+
 ➡️ La moitié amont (extraction) est **prouvée en navigateur**. Reste à confirmer
 le **même comportement dans la WebView in-app** (Niveau 2) — seul contexte où
-l'injection est cross-origin et où DataDome pourrait réagir différemment.
+l'injection est cross-origin et où DataDome / les noms de `rule` pourraient
+différer.
 
 ### Niveau 2 — WebView in-app (Expo) : ⬜ à exécuter sur device.

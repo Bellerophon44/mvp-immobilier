@@ -43,28 +43,33 @@ const buildExtractor = (hosts) => `
       }).filter(function (u) {
         return u && hosts.some(function (h) { return u.indexOf(h) !== -1; });
       });
-      // LBC sert la MÊME photo sous plusieurs tailles (?rule=ad-thumb/ad-large/
-      // ad-image) + des assets non-bien (logo agence en ?rule=bo-*). On déduplique
-      // par chemin d'image (= 1 entrée par photo réelle) et on normalise en
-      // ad-large ; on exclut les rules "bo-" (back-office : logos/avatars agence).
+      // Finding du spike (Niveau 1, desktop) : filtrer par hôte seul SUR-collecte.
+      // Le même bien apparaît en plusieurs tailles (rule=ad-thumb/ad-large/ad-image)
+      // ET la page embarque les "annonces similaires" (bloc reco, ~14 vignettes en
+      // rule=ad-image) + le logo agence (rule=bo-*). La GALERIE réelle = rule=ad-large.
+      // On expose AUSSI le détail par rule : sur le site MOBILE (cette WebView), les
+      // noms de rules peuvent différer du desktop — on veut le voir, pas le deviner.
+      var byRule = {};
       var seen = {};
-      var photos = [];
+      var gallery = [];
       raw.forEach(function (u) {
         try {
           var parsed = new URL(u);
-          var rule = parsed.searchParams.get('rule') || '';
-          if (rule.indexOf('bo') === 0) return;
+          var rule = parsed.searchParams.get('rule') || '(aucune)';
           var id = parsed.origin + parsed.pathname;
-          if (seen[id]) return;
-          seen[id] = true;
-          photos.push(parsed.origin + parsed.pathname + '?rule=ad-large');
+          byRule[rule] = (byRule[rule] || 0) + 1;
+          if (rule === 'ad-large' && !seen[id]) {
+            seen[id] = true;
+            gallery.push(parsed.origin + parsed.pathname + '?rule=ad-large');
+          }
         } catch (e) { /* URL non parsable : ignorée */ }
       });
       window.ReactNativeWebView.postMessage(JSON.stringify({
         ok: true,
         textLength: texte.length,
         textSample: texte.slice(0, 800),
-        photos: photos
+        byRule: byRule,
+        photos: gallery
       }));
     }, 1500);
   } catch (e) {
@@ -137,7 +142,11 @@ export default function App() {
           <View>
             <Text style={styles.h}>Texte : {result.textLength} caractères</Text>
             <Text style={styles.sample}>{result.textSample}</Text>
-            <Text style={styles.h}>Photos trouvées : {result.photos.length}</Text>
+            <Text style={styles.h}>Images par rule (diagnostic) :</Text>
+            {Object.entries(result.byRule || {}).map(([r, n]) => (
+              <Text key={r} style={styles.sample}>{r} → {n}</Text>
+            ))}
+            <Text style={styles.h}>Galerie (rule=ad-large) : {result.photos.length}</Text>
             {result.photos.map((u, i) => (
               <Text key={i} style={styles.url} numberOfLines={1}>{i + 1}. {u}</Text>
             ))}
