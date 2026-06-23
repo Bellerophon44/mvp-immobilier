@@ -151,11 +151,15 @@
   - **Périmètre Tier 1 uniquement** (parcours `/analyze` raw_text + `image_urls`,
     partage natif depuis les apps immo, OCR, géoloc). **Le backend est déjà prêt
     (Phase 1) : 0 backend nouveau pour Tier 1.**
-  - **Spike on-device d'abord** (~1-3 j) : prouver l'extraction texte + galerie
-    LeBonCoin via WebView + injection JS AVANT de figer la techno (risque technique
-    n°1). Protocole : `docs/specs/mobile-phase2-spike-PROTOCOLE.md`. **Non exécutable
-    en sandbox** (device + egress LBC requis) → geste humain/device.
-  - **Techno recommandée** (post-spike) : **React Native + Expo** (cohérence TS,
+  - **Spike on-device ✅ FAIT (2026-06-23) — risque technique n°1 LEVÉ.** Niveau 1
+    (navigateur) + Niveau 2 (WebView in-app, Expo Go sur iPhone réel) : la WebView
+    charge LBC **sans captcha** (accueil + annonce), l'injection JS marche, et la
+    galerie est récupérée (`rule=ad-large` > 0). Findings pour la spec : filtrer
+    `ad-large` (exclure `ad-image`=annonces similaires, `bo-*`=logos, `pp-small`) ;
+    le share intent fournit texte+URL → extraire la 1ʳᵉ URL ; auto-scroller pour le
+    lazy-load. Protocole + verdict : `docs/specs/mobile-phase2-spike-PROTOCOLE.md`
+    §9-10. Harnais jetable : `spikes/lbc-extraction/`.
+  - **Techno tranchée par le spike** : **React Native + Expo** (cohérence TS,
     WebView qui débloque LBC, durable sur stores). Flutter écarté.
   - **Push notifications = Phase 3 DISTINCTE**, jamais fondue dans le jour 1 : seul
     lot qui casse les invariants « anonyme / sans état » (auth, PII, persistance,
