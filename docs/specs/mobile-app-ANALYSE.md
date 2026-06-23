@@ -226,6 +226,30 @@ OpenAI (ou un `curl` sans cookie/referer) arrive à les télécharger. **Oui →
 option 1 suffit** (coût faible). **Non → prévoir l'upload d'octets (option 2)**
 dès le départ.
 
+Outillage : `backend/tools/probe_lbc_images.py` + workflow manuel
+`.github/workflows/probe-lbc-images.yml` (input = URLs, secret `OPENAI_API_KEY`).
+
+### Résultat du spike (2026-06-23) — OPTION 1 TRANCHÉE
+Spike A exécuté via le workflow (4 URLs d'images LBC réelles, `detail:high`) :
+
+| Mesure | Résultat |
+|---|---|
+| Fetch direct (bare / UA / UA+Referer, IP datacenter) | **200 image/jpeg, 4/4** y compris *bare* |
+| OpenAI a vu une vraie photo | **4/4** |
+| Blocage/placeholder | 0/4 |
+| Infetchable par OpenAI | 0/4 |
+
+Le **CDN image `img.leboncoin.fr` est ouvert** (URLs non signées, simple
+`?rule=ad-large`, pas de verrou Referer) — confirme la dissociation page/CDN : le
+mur DataDome est sur la **page d'annonce**, pas sur le **CDN d'images**.
+
+➡️ **Décision : Option 1 par défaut.** En mode `raw_text`, l'app extrait aussi les
+`src` de la galerie et les envoie en `image_urls` ; OpenAI les fetche comme
+aujourd'hui. Coût minimal, **RGPD inchangé** (URLs en transit, pas d'upload
+d'octets, pas de re-fetch serveur de la page). L'option 2 n'est **pas** nécessaire
+pour LBC ; elle reste un repli **conditionnel par source** (si une source sert un
+jour des URLs signées/expirantes — re-tester avec le probe).
+
 ---
 
 ## 6. Chantier notifications push : re-list / baisse de prix
@@ -311,9 +335,9 @@ c'est un cap — décision produit, pas qu'un chiffrage.
    (Tier 1) ; push (chantier 4) en phase 2.
 3. **Cascade texte** : valider A→B3→C ; confirmer l'acceptabilité UX de la WebView
    (chargement + captcha éventuel).
-4. **Cascade photo** : lancer le **test de fetch des URLs d'images LBC par OpenAI**
-   → décide option 1 (URLs) vs option 2 (octets). Acter le glissement RGPD si
-   option 2.
+4. **Cascade photo** : ✅ TRANCHÉ (spike A, 2026-06-23) — **Option 1** (envoi des
+   `image_urls`, OpenAI fetche, RGPD inchangé). Option 2 (octets) écartée pour
+   LBC, gardée en repli conditionnel par source. Cf. §5 « Résultat du spike ».
 5. **Chantier 4 — cap d'architecture** : accepter ou non la fin des invariants
    (auth/PII, stockage d'empreintes, persistance d'analyses). Si oui, livrer A
    d'abord, pHash ensuite, B puis C.
