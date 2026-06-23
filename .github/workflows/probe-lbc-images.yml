@@ -1,0 +1,90 @@
+name: Probe images LBC (fetchabilite par OpenAI)
+
+# Spike A (docs/specs/mobile-app-ANALYSE.md section 5) : tranche option 1 (URLs)
+# vs option 2 (octets) de la cascade photo mobile. Manuel uniquement : on fournit
+# de VRAIES URLs d'images d'annonce (recuperees depuis un navigateur/telephone)
+# et le runner CI (egress ouvert + secret OPENAI_API_KEY) teste si OpenAI arrive
+# a les telecharger. Aucune entree de prod touchee, aucun deploiement.
+on:
+  workflow_dispatch:
+    inputs:
+      urls:
+        description: "URLs d'images d'annonce, separees par des espaces ou des virgules"
+        required: true
+        type: string
+      detail:
+        description: "Resolution transmise au modele de vision"
+        required: false
+        type: choice
+        default: "high"
+        options:
+          - high
+          - low
+          - auto
+
+permissions:
+  contents: read
+
+concurrency:
+  group: probe-lbc-images-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      # Garde du secret AVANT l'appel : echec explicite, jamais de faux vert.
+      # On ne logge que la presence/absence du secret, jamais sa valeur.
+      - name: Verifier le secret OPENAI_API_KEY
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [ -z "$OPENAI_API_KEY" ]; then
+            echo "Secret OPENAI_API_KEY absent : impossible de tester la fetchabilite par OpenAI."
+            exit 1
+          fi
+          echo "Secret OPENAI_API_KEY present."
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install backend deps
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # L'input arrive en une ligne (espaces et/ou virgules) ; on le normalise en
+      # une URL par ligne pour --file. tr remplace virgules et espaces par des
+      # sauts de ligne ; grep retire les lignes vides.
+      - name: Materialiser les URLs
+        env:
+          URLS_INPUT: ${{ inputs.urls }}
+        run: |
+          printf '%s' "$URLS_INPUT" | tr ', ' '\n\n' | grep -v '^$' > backend/probe_urls.txt
+          echo "Nombre d'URLs :"
+          wc -l < backend/probe_urls.txt
+
+      - name: Run probe
+        working-directory: backend
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          python -m tools.probe_lbc_images \
+            --file probe_urls.txt \
+            --detail "${{ inputs.detail }}" \
+            --json-out probe_report.json
+
+      - name: Upload JSON report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: probe-lbc-images-report
+          path: backend/probe_report.json
+          if-no-files-found: ignore
