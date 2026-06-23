@@ -120,6 +120,17 @@ rapport de cohérence dans un écran lisible.
 ## 3. Architecture cible
 
 ### 3.1 Arborescence proposée (`mobile/`, sous réserve D-EMPLACEMENT)
+
+> NOTE D'IMPLÉMENTATION (2026-06-23, cœur logique livré) : le cœur de logique pure
+> a été implémenté **à plat sous `mobile/src/lib/`** (`extractUrl.ts`, `gallery.ts`,
+> `analyzeBody.ts`, `config.ts`, `analyzeApi.ts`, `types.ts`), tests Jest homonymes
+> à côté (testMatch `src/**/*.test.ts`). C'est l'emplacement RÉEL faisant foi ;
+> l'arbo ci-dessous reste indicative pour les composants RN à venir (screens,
+> `injectedScript`). **Exigence pour la suite : `injectedScript` (extraction côté
+> WebView) DOIT réutiliser `filterGallery` de `src/lib/gallery.ts` comme source
+> unique de vérité** (le matching de host strict et la dédup y sont testés) — ne PAS
+> redupliquer la logique de filtrage dans le JS injecté.
+
 ```
 mobile/
 ├── app.json / app.config.ts   # config Expo SDK 54 (name, slug, scheme, plugins)

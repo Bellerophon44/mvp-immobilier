@@ -4,5 +4,5 @@
  * etre lue au moment de l'appel et rester testable.
  */
 export function getApiUrl(): string {
-  throw new Error('NOT_IMPLEMENTED: getApiUrl');
+  return process.env.EXPO_PUBLIC_API_URL ?? '';
 }
