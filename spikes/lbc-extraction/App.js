@@ -27,6 +27,15 @@ import { WebView } from 'react-native-webview';
 // portail, ajouter son hôte d'images ici (ex. SeLoger : v.seloger.com / cdn...).
 const IMAGE_HOSTS = ['img.leboncoin.fr'];
 
+// Le partage natif (iOS/Android) fournit du TEXTE + une URL, pas une URL nue
+// (ex. "Voici une annonce ... sur leboncoin: https://..."). On extrait donc la
+// première URL http(s) du champ avant de charger la WebView. Finding Niveau 2 :
+// c'est exactement ce que la vraie app devra faire avec l'intent de partage.
+const firstUrl = (s) => {
+  const m = (s || '').match(/https?:\/\/[^\s]+/i);
+  return m ? m[0] : null;
+};
+
 // Script injecté à la demande (bouton « Extraire »). On scrolle d'abord en bas
 // pour déclencher le lazy-load, on attend, puis on collecte texte + images et on
 // renvoie le tout au natif via postMessage.
@@ -116,7 +125,11 @@ export default function App() {
           autoCorrect={false}
           placeholder="Colle l'URL d'une annonce LeBonCoin"
         />
-        <Button title="Charger" onPress={() => { setResult(null); setLoadedUrl(url); }} />
+        <Button title="Charger" onPress={() => {
+          const u = firstUrl(url);
+          if (!u) { setStatus('Aucune URL http(s) trouvee dans le champ.'); return; }
+          setResult(null); setLoadedUrl(u);
+        }} />
       </View>
 
       <View style={styles.webBox}>
