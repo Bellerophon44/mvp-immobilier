@@ -43,12 +43,28 @@ const buildExtractor = (hosts) => `
       }).filter(function (u) {
         return u && hosts.some(function (h) { return u.indexOf(h) !== -1; });
       });
-      var uniques = raw.filter(function (u, idx) { return raw.indexOf(u) === idx; });
+      // LBC sert la MÊME photo sous plusieurs tailles (?rule=ad-thumb/ad-large/
+      // ad-image) + des assets non-bien (logo agence en ?rule=bo-*). On déduplique
+      // par chemin d'image (= 1 entrée par photo réelle) et on normalise en
+      // ad-large ; on exclut les rules "bo-" (back-office : logos/avatars agence).
+      var seen = {};
+      var photos = [];
+      raw.forEach(function (u) {
+        try {
+          var parsed = new URL(u);
+          var rule = parsed.searchParams.get('rule') || '';
+          if (rule.indexOf('bo') === 0) return;
+          var id = parsed.origin + parsed.pathname;
+          if (seen[id]) return;
+          seen[id] = true;
+          photos.push(parsed.origin + parsed.pathname + '?rule=ad-large');
+        } catch (e) { /* URL non parsable : ignorée */ }
+      });
       window.ReactNativeWebView.postMessage(JSON.stringify({
         ok: true,
         textLength: texte.length,
         textSample: texte.slice(0, 800),
-        photos: uniques
+        photos: photos
       }));
     }, 1500);
   } catch (e) {

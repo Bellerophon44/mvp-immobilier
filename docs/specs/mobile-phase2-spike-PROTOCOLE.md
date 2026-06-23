@@ -120,3 +120,27 @@ la stratégie) :
 Construire l'app complète, le partage natif (share extension), l'OCR, la géoloc,
 le design. Le spike prouve **uniquement** la faisabilité de l'extraction
 texte + image_urls on-device.
+
+## 9. Résultats
+
+### Niveau 1 — navigateur desktop (2026-06-23) : ✅ CONCLUANT
+Annonce LBC réelle (appartement, Metz Sablon), script console :
+- **Texte** : 5741 caractères, complet (titre, prix 212 000 €, 93 m², prix/m²,
+  quartier, agence) → extraction texte triviale via `document.body.innerText`.
+- **Photos** : toutes sur `img.leboncoin.fr`, **non signées** (`?rule=ad-large`),
+  conformes au constat Spike A.
+- **Finding** : LBC sert la **même photo sous plusieurs tailles** (`ad-thumb`/
+  `ad-large`/`ad-image`) → 25 URLs brutes pour ~9 photos réelles ; présence d'un
+  asset `?rule=bo-*` = **logo agence** (à exclure). D'où la règle de nettoyage
+  retenue (et appliquée dans `spikes/lbc-extraction/App.js`) : **dédupliquer par
+  chemin d'image, normaliser en `ad-large`, exclure les rules `bo-`**. Cette règle
+  devra être reprise dans la spec de l'app (et éventuellement validée côté backend,
+  mais le cap d'entrée 50 + dédup y absorbent déjà les doublons).
+- La page s'est chargée **sans captcha** dans un navigateur normal (cohérent : le
+  mur DataDome cible les bots, pas un vrai navigateur).
+
+➡️ La moitié amont (extraction) est **prouvée en navigateur**. Reste à confirmer
+le **même comportement dans la WebView in-app** (Niveau 2) — seul contexte où
+l'injection est cross-origin et où DataDome pourrait réagir différemment.
+
+### Niveau 2 — WebView in-app (Expo) : ⬜ à exécuter sur device.
