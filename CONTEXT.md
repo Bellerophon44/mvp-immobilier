@@ -163,6 +163,39 @@
   (Artisans = `robots.txt` interdit ; SOREC = JS-only). Décision humaine en
   attente. Détail : `docs/specs/increment3-couronne-{ANALYSE,RESULTATS-RECON}.md`,
   `backend/CLAUDE.md` §11bis.
+- **App mobile — Phase 1 (câblage backend) ✅ EN PRODUCTION (2026-06-23).**
+  `POST /analyze` accepte un champ optionnel `image_urls: list[str]` routé vers
+  le screening photo existant (`run_full_analysis(..., image_urls=...)`) y compris
+  en mode `raw_text`, pour qu'un client mobile fournisse ses propres URLs de photos
+  (extraction on-device) sans dépendre de l'extraction HTML serveur. Additif,
+  rétro-compatible, **non-scoré** ; sûreté : filtrage `_is_safe_url` (whitelist
+  http/https + rejet localhost/IP privées), cap d'entrée 50 distinct du cap aval
+  `MAX_IMAGES=15`, ordre figé (nettoyage → dédup → filtrage → troncature) ; RGPD :
+  URLs jamais loggées (compteur seul). Parcours staging-first (PR #141 → `staging`,
+  promotion #142 → `main`). Specs : `docs/specs/mobile-phase1-image-urls-{ANALYSE,SPEC}.md`.
+- **App mobile — Phase 2 (l'app elle-même) ⬜ DÉCIDÉE, NON DÉMARRÉE (GATE 1 du
+  2026-06-23).** Décision actée d'en faire le prochain grand chantier (auparavant
+  absente de cette doc, d'où ce report). Arbitrages humains GATE 1 :
+  - **Périmètre Tier 1 uniquement** (parcours `/analyze` raw_text + `image_urls`,
+    partage natif depuis les apps immo, OCR, géoloc). **Le backend est déjà prêt
+    (Phase 1) : 0 backend nouveau pour Tier 1.**
+  - **Spike on-device ✅ FAIT (2026-06-23) — risque technique n°1 LEVÉ.** Niveau 1
+    (navigateur) + Niveau 2 (WebView in-app, Expo Go sur iPhone réel) : la WebView
+    charge LBC **sans captcha** (accueil + annonce), l'injection JS marche, et la
+    galerie est récupérée (`rule=ad-large` > 0). Findings pour la spec : filtrer
+    `ad-large` (exclure `ad-image`=annonces similaires, `bo-*`=logos, `pp-small`) ;
+    le share intent fournit texte+URL → extraire la 1ʳᵉ URL ; auto-scroller pour le
+    lazy-load. Protocole + verdict : `docs/specs/mobile-phase2-spike-PROTOCOLE.md`
+    §9-10. Harnais jetable : `spikes/lbc-extraction/`.
+  - **Techno tranchée par le spike** : **React Native + Expo** (cohérence TS,
+    WebView qui débloque LBC, durable sur stores). Flutter écarté.
+  - **Push notifications = Phase 3 DISTINCTE**, jamais fondue dans le jour 1 : seul
+    lot qui casse les invariants « anonyme / sans état » (auth, PII, persistance,
+    pHash) — cap d'architecture + RGPD majeur, mêmes bloqueurs que §9.6.
+  - **Garde-fou coût déjà en place** : l'usage limit OpenAI hard existe déjà
+    (§9.4) — pas un bloqueur, juste à re-vérifier (montant) avant un lancement à
+    plus fort trafic.
+  - Analyse complète + questions : `docs/specs/mobile-phase2-app-ANALYSE.md`.
 
 ---
 
@@ -539,12 +572,16 @@ de dégradation (PR #55). **Alerte complète différée.** Specs :
   garantit que le marqueur `LLM call failed` reste émis et explicite — tout
   monitoring futur s'appuiera dessus. Coût nul, aucun changement de comportement.
 
-### 9.4 [workflow] Alertes coût OpenAI — ⬜ À faire (hors atelier)
-**Statut : ⬜ À faire.** Volontairement **hors atelier** (pure config UI, pas de
-code → le pipeline à 5 rôles ne se justifie pas, cf. règle right-sizing
-`.claude/commands/feature.md`).
-- **Action** : sur `platform.openai.com → Settings → Limits`, poser un **usage
-  limit hard** (ex. 20 €) + alerte douce à 80 %. ~5 min, aucune dépendance.
+### 9.4 [workflow] Alertes coût OpenAI — ✅ En place (hors atelier)
+**Statut : ✅ Fait (en place de longue date, documenté tardivement ici).**
+Volontairement **hors atelier** (pure config UI, pas de code → le pipeline à
+5 rôles ne se justifie pas, cf. règle right-sizing `.claude/commands/feature.md`).
+- **En place** : sur `platform.openai.com → Settings → Limits`, un **usage limit
+  hard** + alerte douce sont configurés (garde-fou financier §3.3). Couvre aussi la
+  clé CI dédiée (item référencé en §0 « Harnais d'évals »).
+- **Note GATE 1 mobile (2026-06-23)** : ce garde-fou étant déjà actif, il ne
+  constitue **pas** un bloqueur pour la publication store de l'app mobile (§0
+  Phase 2) — simplement à re-vérifier (montant adapté au trafic) le moment venu.
 
 ### 9.5 [agent contenu] Génération SEO long-tail — ⏸️ Différé
 **Statut : ⏸️ Différé.** Spec : `docs/specs/9.5-ANALYSE.md`.

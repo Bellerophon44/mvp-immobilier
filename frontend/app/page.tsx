@@ -291,9 +291,9 @@ function SecondaryRow() {
       borderTop: "1px solid var(--stone-line)",
     }}>
       {[
-        { n: "01", t: "Pilier prix", d: "Médiane du quartier et écart calculés sur les comparables messins." },
-        { n: "02", t: "Pilier sémantique", d: "L'annonce est-elle claire ? Quels signaux manquent ?" },
-        { n: "03", t: "Pilier global", d: "Score 0 – 100 et verdict en une phrase." },
+        { n: "01", t: "Prix vs marché", d: "Médiane du quartier et écart, calculés sur ≥ 3 comparables messins. (40 points)" },
+        { n: "02", t: "Transparence", d: "L'annonce est-elle claire et complète ? Quels signaux manquent ? (30 points)" },
+        { n: "03", t: "Risques", d: "Points d'attention et incertitudes à lever avant la visite. (30 points)" },
       ].map((c) => (
         <div key={c.n}>
           <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--stone)", letterSpacing: "0.06em", marginBottom: 8 }}>
@@ -846,11 +846,12 @@ export default function HomePage() {
   // seulement si l'API ne fournit pas encore `points` (anciennes réponses).
   const priceScore = pricePillar?.points
     ?? (pricePillar ? priceVerdictToScore(pricePillar.verdict) : 0);
-  const semanticScore =
-    (transparencyPillar?.points
-      ?? (transparencyPillar ? Math.round(transparencyVerdictToScore(transparencyPillar.verdict) * 30 / 25) : 0)) +
-    (riskPillar?.points
-      ?? (riskPillar ? Math.round(riskVerdictToScore(riskPillar.verdict) * 30 / 25) : 0));
+  // Trois piliers affiches separement (prix 40 / transparence 30 / risque 30),
+  // alignes sur le mobile et sur le scoring backend. Somme = score global.
+  const transparencyScore = transparencyPillar?.points
+    ?? (transparencyPillar ? Math.round(transparencyVerdictToScore(transparencyPillar.verdict) * 30 / 25) : 0);
+  const riskScore = riskPillar?.points
+    ?? (riskPillar ? Math.round(riskVerdictToScore(riskPillar.verdict) * 30 / 25) : 0);
 
   const verdictSummary = transparencyPillar?.explanation || pricePillar?.explanation || "";
 
@@ -1009,21 +1010,29 @@ export default function HomePage() {
               confidence={result.confidence}
             />
 
-            {/* Pillar bars */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+            {/* Pillar bars : 3 piliers (prix 40 / transparence 30 / risque 30),
+                grille responsive qui s'empile sur petit ecran. */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 16 }}>
               <PillarBar
-                name="Pilier prix"
+                name="Prix vs marché"
                 score={priceScore}
                 max={40}
                 color={verdictColor(pricePillar?.verdict || "")}
                 legend={pricePillar?.verdict || ""}
               />
               <PillarBar
-                name="Pilier sémantique"
-                score={semanticScore}
-                max={60}
+                name="Transparence"
+                score={transparencyScore}
+                max={30}
+                color={verdictColor(transparencyPillar?.verdict || "")}
+                legend={transparencyPillar?.verdict || ""}
+              />
+              <PillarBar
+                name="Risques"
+                score={riskScore}
+                max={30}
                 color={verdictColor(riskPillar?.verdict || "")}
-                legend={riskPillar ? `Risques : ${riskPillar.verdict.toLowerCase()}` : ""}
+                legend={riskPillar?.verdict || ""}
               />
             </div>
 
