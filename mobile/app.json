@@ -7,6 +7,12 @@
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
+    "owner": "coherence44",
+    "extra": {
+      "eas": {
+        "projectId": "beb5fbb6-f827-4737-91aa-35dc1d0702a4"
+      }
+    },
     "icon": "./assets/icon.png",
     "splash": {
       "image": "./assets/splash-icon.png",
