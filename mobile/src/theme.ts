@@ -88,3 +88,20 @@ export function verdictMeta(score: number): VerdictMeta {
   if (score >= 35) return { label: 'Prudence', color: colors.brick };
   return { label: 'Déconseillé', color: colors.brickDeep };
 }
+
+// Couleur derivee du LIBELLE de verdict renvoye par le backend
+// (Coherence forte / A creuser / Risque eleve / Coherence faible, seuils 80/60/40),
+// et NON du score : les seuils de couleur de verdictMeta (75/55/35) divergent de
+// ceux du backend, ce qui colorait p.ex. « A creuser » a 76 en vert. On garantit
+// ainsi que le mot et sa couleur disent la meme chose. Repli neutre si inconnu.
+export function verdictColorFromLabel(verdict: string): string {
+  const v = verdict
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '');
+  if (v.includes('forte')) return colors.moss;
+  if (v.includes('creuser')) return colors.ochre;
+  if (v.includes('risque')) return colors.brick;
+  if (v.includes('faible')) return colors.brickDeep;
+  return colors.ink;
+}

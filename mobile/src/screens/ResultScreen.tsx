@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { ApiResult, ApiPillar, LocalClaim, LocalFact } from '../lib/types';
 import { ScoreDonut } from '../components/ScoreDonut';
-import { colors, spacing, radii, fontSize, fontFamily, verdictMeta } from '../theme';
+import { colors, spacing, radii, fontSize, fontFamily, verdictMeta, verdictColorFromLabel } from '../theme';
 
 /**
  * Ecran de resultat : rend l'ApiResult renvoye par /analyze. SPEC
@@ -34,13 +34,14 @@ export function ResultScreen({
   result: ApiResult;
   onBack: () => void;
 }) {
-  const verdictColor = verdictMeta(result.global_score).color;
+  // Couleur derivee du verdict BACKEND (pas du score) : mot et couleur concordent.
+  const verdictColor = verdictColorFromLabel(result.verdict);
 
   return (
     <SafeAreaView style={styles.root}>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.hero}>
-          <ScoreDonut score={result.global_score} />
+          <ScoreDonut score={result.global_score} color={verdictColor} />
           <View style={styles.heroText}>
             <Text style={styles.eyebrow}>Score de cohérence</Text>
             <Text style={[styles.verdict, { color: verdictColor }]}>{result.verdict}</Text>

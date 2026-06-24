@@ -10,16 +10,20 @@ export function ScoreDonut({
   score = 0,
   size = 148,
   stroke = 7,
+  color,
 }: {
   score?: number;
   size?: number;
   stroke?: number;
+  // Couleur de l'arc. Si non fournie, repli sur verdictMeta(score) ; le resultat
+  // passe la couleur derivee du verdict backend pour que mot et couleur concordent.
+  color?: string;
 }) {
   const r = (size - stroke * 2) / 2;
   const c = 2 * Math.PI * r;
   const clamped = Math.max(0, Math.min(100, score));
   const offset = c - (clamped / 100) * c;
-  const color = verdictMeta(score).color;
+  const arcColor = color ?? verdictMeta(score).color;
   const center = size / 2;
 
   return (
@@ -31,7 +35,7 @@ export function ScoreDonut({
           cy={center}
           r={r}
           fill="none"
-          stroke={color}
+          stroke={arcColor}
           strokeWidth={stroke}
           strokeLinecap="round"
           strokeDasharray={c}
