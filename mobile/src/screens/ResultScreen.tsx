@@ -74,11 +74,11 @@ export function ResultScreen({
         </Section>
 
         {result.actions.highlights && result.actions.highlights.length > 0 ? (
-          <ActionList title="Points forts" items={result.actions.highlights} />
+          <ActionList title="Points forts" items={result.actions.highlights} accent={colors.moss} />
         ) : null}
 
-        <ActionList title="Questions à poser" items={result.actions.questions} />
-        <ActionList title="Pistes de négociation" items={result.actions.negotiation} />
+        <ActionList title="Questions à poser" items={result.actions.questions} accent={colors.ochre} />
+        <ActionList title="Pistes de négociation" items={result.actions.negotiation} accent={colors.brick} />
 
         {result.local_context ? (
           <View style={styles.cachet}>
@@ -128,14 +128,16 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-function ActionList({ title, items }: { title: string; items: string[] }) {
+// accent : couleur semantique du lisere (Points forts = vert, Questions = ambre,
+// Pistes de negociation = rouge), pour que la marge porte le sens de la section.
+function ActionList({ title, items, accent }: { title: string; items: string[]; accent: string }) {
   if (!items.length) return null;
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>{title}</Text>
       {items.map((it, i) => (
         <View key={i} style={styles.listRow}>
-          <View style={styles.listMark} />
+          <View style={[styles.listMark, { backgroundColor: accent }]} />
           <Text style={styles.listText}>{it}</Text>
         </View>
       ))}
