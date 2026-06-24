@@ -1,0 +1,12 @@
+node_modules/
+coverage/
+
+# Env / secrets (jamais committe ; voir .env.example)
+.env
+.env.*
+!.env.example
+
+# Expo
+.expo/
+dist/
+web-build/
