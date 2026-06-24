@@ -5,6 +5,13 @@
 > [`/CONTEXT.md`](../CONTEXT.md) à la racine du repo (source de vérité).
 > Ce fichier-ci se concentre sur l'état technique courant du backend.
 >
+> **MàJ chiffres 2026-06-21 :** base prod relevée à **29 682 comparables** (≈29,7k,
+> via `/admin/comparables/stats` + `/coverage`) — le « ~17,7k » plus bas en §7 était
+> périmé. Couverture réelle par commune et provenance des chiffres above-the-fold
+> dans **`/CONTEXT.md` §0 (entrée datée 2026-06-21)**. Au passage : 17 quartiers de
+> Metz dans `frontend/lib/districts.ts` (et non 16), bandeau de preuve de la home
+> rafraîchi (PR #131 → staging, #132 → main).
+>
 > **Dernière mise à jour :** 2026-06-18 (**screening photo réglé** : `MAX_IMAGES`
 > 6 → **15** et `detail` `"low"` → **`"high"`** dans `app/photo_evidence.py`,
 > PR #124 → `staging`, promotion #125 → `main`, deploy Fly prod OK. But : moins
@@ -397,10 +404,11 @@ immuable (repli `collected_at` pour les lignes prod héritées), `last_seen_at` 
 
 État : **5 sources** actives (bienici, benedic, laveine_immo, idemmo,
 immoheytienne). Depuis le **balayage par tranches de surface** de bien'ici (juin
-2026, cf. §8), un run collecte **~17,4k annonces bien'ici** (toutes tailles, dont
-~2,6k maisons) + ~350 des agences → base prod **~17,7k comparables** (vs ~1,1k
-avant). Couverture des 12-16 quartiers messins largement au-dessus du seuil
-d'affinage pour toutes les tailles. La ville est stockée sous forme canonique
+2026, cf. §8), un run collecte **~17,4k annonces bien'ici Metz** (toutes tailles)
++ la couronne et ~350 des agences → base prod **~29,7k comparables** (29 682 au
+2026-06-21 ; vs ~1,1k avant les tranches de surface). Couverture des **17 quartiers**
+messins (`frontend/lib/districts.ts`) largement au-dessus du seuil d'affinage pour
+toutes les tailles ; répartition par commune dans `/CONTEXT.md` §0 (2026-06-21). La ville est stockée sous forme canonique
 (`canonical_city`) ; un garde-fou prix/m² [800-12000] est appliqué à l'ingestion
 (`ingestion/save.py`) à toutes les sources. `jobs/push_comparables` **filtre les
 items invalides** (ville manquante…) et **ne s'arrête plus sur un batch en échec**
@@ -462,7 +470,8 @@ protections anti-bot des frontaux.
   - Bande de plausibilité prix/m² : **800-12000 €/m²** (éjecte parkings,
     erreurs de saisie, biens hors marché)
   - Normalisation casse ville via `_normalize_city`
-- Renvoie ~830 comparables propres pour Metz par run
+- Renvoie ~17,8k comparables Metz par run complet (balayage par tranches de
+  surface ; c'était ~830 du temps de la pagination simple plafonnée)
 
 ### Source 2 : `laveine_immo` (complément)
 `scrapers/sources/site_local.py` — scraper HTML de https://www.laveine.immo

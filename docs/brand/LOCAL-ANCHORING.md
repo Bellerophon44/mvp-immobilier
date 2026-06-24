@@ -36,8 +36,10 @@ l'autorité notariale et l'ancrage messin, mais signaler « app robuste et moder
 - **Wording affirmé** : H1 « Le marché immobilier messin, lu *quartier par
   quartier*. » + sous-titre attaquant l'asymétrie du livre foncier (du Sablon à
   Queuleu…).
-- **Preuve chiffrée above-the-fold** en or Jaumont (`ProofBand`) : *17 000+
-  comparables · 16 quartiers · collecte hebdomadaire*, + la ligne de méthode
+- **Preuve chiffrée above-the-fold** en or Jaumont (`ProofBand`) : *29 000+
+  comparables · 17 quartiers · Metz et ses 10 communes de couronne* (rafraîchi
+  2026-06-21 ; auparavant « 17 000+ · 16 quartiers · collecte hebdomadaire »),
+  + la ligne de méthode
   « Nous vérifions une cohérence. Nous n'estimons pas un prix. ». **Que des chiffres
   de méthode/donnée, jamais de traction** (pas de logos clients, pas de note, pas
   de « milliers d'acheteurs »). → l'**or Jaumont** monte en grade : couleur de la
@@ -49,9 +51,12 @@ l'autorité notariale et l'ancrage messin, mais signaler « app robuste et moder
 - **Signaux « garage » retirés** : crédit « Illustration » supprimé ; « MVP · …
   uniquement » → **« Édition Metz · Moselle »** dans le footer.
 
-⚠️ **À fiabiliser avant qu'ils ne se périment** : « 17 000+ » et « collecte
-hebdomadaire » (idéalement branchés sur un endpoint de comptage). « 16 quartiers »
-= `frontend/lib/districts.ts`, vérifié.
+✅ **Rafraîchis 2026-06-21** depuis la base prod (`/admin/comparables/stats` +
+`/coverage`) : « 29 000+ » (total réel 29 682), « 17 quartiers »
+(= `frontend/lib/districts.ts`), « 11 — Metz et sa couronne » (`_METRO_CITIES`,
+seules communes ≥ 198 comparables). **Toujours codés en dur** — idéalement les
+brancher sur un endpoint de comptage pour qu'ils ne se périment plus. Détail et
+provenance : `/CONTEXT.md` §0 (entrée datée 2026-06-21).
 
 ## Livré dans ce lot (premier lot d'ancrage)
 

@@ -131,7 +131,7 @@ sérieusement considérée. Personne ne capte ça ; voir SOM.
 | Niveau | Définition retenue | Valeur (base) | Étiquette |
 |---|---|---|---|
 | **TAM** (usage) | Moments d'analyse d'annonce/an, **Moselle** | ~100 000-130 000 | [dérivé §1.3] |
-| **SAM** | Idem restreint à **Metz Métropole** (cœur de couverture data, ~17,7k comparables, quartiers peuplés) | ~17 000-54 000 ; base ~32 000 | [dérivé §1.3 ; couverture data source: CONTEXT.md §0] |
+| **SAM** | Idem restreint à **Metz Métropole** (cœur de couverture data, ~29,7k comparables au 2026-06-21, quartiers peuplés) | ~17 000-54 000 ; base ~32 000 | [dérivé §1.3 ; couverture data source: CONTEXT.md §0, 2026-06-21] |
 | **SOM 12 mois** | Part réellement capturée par un MVP gratuit, non monétisé, ~0 budget, sans SEO mûr | **prud. ~0,5 % → base ~2 % → amb. ~6 %** du SAM | [HYPOTHÈSE — voir funnel §2] |
 
 **SOM 12 mois en actes d'analyse (Metz Métropole, base) :**

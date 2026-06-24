@@ -149,14 +149,18 @@ const GRAIN =
 // docs/strategy/REBRAND-2026.md). On n'affiche QUE des chiffres vrais de
 // méthode/donnée (jamais de traction : pas de logos clients, pas de note, pas de
 // « milliers d'acheteurs »). L'or Jaumont devient la couleur de la donnée.
-// À RECONFIRMER avant promotion prod : « 16 quartiers » = frontend/lib/districts.ts ;
-// « 17 000+ » = plancher de la base prod (~17,7k, CONTEXT.md §0) ; « 7 j » =
-// collecte hebdomadaire (collect.yml). Idéalement brancher sur un endpoint de
-// comptage pour que ces chiffres ne se périment pas.
+// VÉRIFIÉ 2026-06-21 via les endpoints admin /comparables/stats + /coverage :
+// « 29 000+ » = plancher de la base prod (total réel 29 682) ; « 17 » = longueur
+// exacte de METZ_DISTRICTS (frontend/lib/districts.ts) ; « 11 » = Metz + sa
+// couronne (_METRO_CITIES), seules communes à ≥ 198 comparables — le périmètre
+// où l'analyse prix est statistiquement fiable (les 3 communes hors couronne à
+// ≥ 10 comparables ne tiennent qu'à une seule agence, écartées à dessein).
+// Idéalement brancher sur un endpoint de comptage pour que ces chiffres ne se
+// périment pas.
 const PROOF_POINTS: { num: string; label: string }[] = [
-  { num: "17 000+", label: "comparables messins en base" },
-  { num: "16", label: "quartiers de Metz couverts" },
-  { num: "7 j", label: "données rafraîchies chaque semaine" },
+  { num: "29 000+", label: "comparables messins en base" },
+  { num: "17", label: "quartiers de Metz couverts" },
+  { num: "11", label: "Metz et ses 10 communes de couronne" },
 ];
 
 function ProofBand() {
@@ -341,7 +345,7 @@ function LocalEdgeSection() {
         Un T3 à Queuleu et un T3 au Sablon n&apos;ont ni le même marché, ni le même
         prix au m². Une médiane à l&apos;échelle de Metz lisse ces écarts et trompe.
         Nous reconstituons le marché à partir des annonces réelles du secteur,
-        retenons les comparables à surface proche (±20 %, au moins trois), et
+        retenons les comparables à caractéristiques proches, et
         situons votre annonce dans ce contexte — pas dans une moyenne nationale.
       </p>
       <a href="/methode" style={{

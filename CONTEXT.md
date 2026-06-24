@@ -14,6 +14,33 @@
 
 ## 0. État actuel (2026-06-04) — snapshot de vérité
 
+> **MàJ données 2026-06-21** — chiffres rafraîchis depuis la base **prod** via
+> `GET /admin/comparables/stats` + `GET /admin/comparables/coverage` (la prochaine
+> session part de CES chiffres, pas du « ~17,7k » de juin, périmé) :
+> - **Total : 29 682 comparables** (~29,7k).
+> - **Couverture par commune ≥ 198 comparables = la couronne (`_METRO_CITIES`, 11
+>   communes)** : Metz 17 906 · Montigny-lès-Metz 4 439 · Marly 1 731 ·
+>   Woippy 1 422 · Longeville-lès-Metz 1 055 · Saint-Julien-lès-Metz 905 ·
+>   Le Ban-Saint-Martin 805 · Scy-Chazelles 461 · Augny 280 · Plappeville 263 ·
+>   Lessy 198. (Metz seul ≈ 60 % de la base : 15 118 appart / 2 788 maisons.)
+> - **Seuil ≥ 10 comparables : 14 communes** = les 11 de couronne + Forbach 16,
+>   Saint-Avold 11, Thionville 12 (ces 3 hors couronne sont minces, une **seule**
+>   agence benedic). **Seuil ≥ 20 : exactement les 11 de couronne.** ~90 communes
+>   au total figurent en base, la plupart avec 1 à 8 biens (Moselle dispersée).
+> - **Quartiers de Metz : 17** (= longueur de `frontend/lib/districts.ts`). Le
+>   « 16 » cité dans plusieurs docs est **périmé** : Sainte-Thérèse a été ajoutée
+>   (issue #100 A). Liste : Centre-Ville, Ancienne Ville, Nouvelle Ville, Les Îles,
+>   Sablon, Sainte-Thérèse, Queuleu, Plantières, Bellecroix, Borny, Magny,
+>   Vallières, Devant-les-Ponts, La Patrotte, Outre-Seille, Grange-aux-Bois,
+>   Technopôle.
+> - **Bandeau de preuve de la home** (`frontend/app/page.tsx`, `PROOF_POINTS`) mis
+>   à jour en conséquence : **« 29 000+ comparables » · « 17 quartiers de Metz » ·
+>   « 11 — Metz et ses 10 communes de couronne »** (ce 3ᵉ chiffre remplace l'ancien
+>   « 7 j / collecte hebdomadaire »). Livré PR #131 → `staging` puis #132 → `main`.
+> - *Hygiène data à assainir en maintenance* : doublons de normalisation repérés
+>   dans `coverage` (Le-Ban-Saint-Martin / Le-Ban-St-Martin / Ban-Saint-Martin ;
+>   Metz-Vallieres ; Marly-Frescaty ; Montoy-Flanville / Ogy-Montoy-Flanville).
+
 ### Stack réelle
 - **Backend** : Python 3.12, FastAPI sur **Fly.io** (`backend-frosty-sound-441-docker`,
   région cdg, Docker explicite, volume SQLite `/data`, auto-stop). **Pas de Railway.**
@@ -33,9 +60,10 @@
 ### Données & pilier prix (le gros du travail récent)
 - **5 scrapers** réels et actifs : `bienici` (API JSON, **balayage par tranches de
   surface**), `benedic`, `idemmo`, `immoheytienne`, `laveine_immo` (HTML).
-- Base prod **~17,7k comparables** (vs « DB vide » en §4.3, désormais faux), toutes
-  tailles, ~2,6k maisons. DPE ~82 % / année ~37 % / étage-ascenseur ~60 % / code
-  postal ~100 % (bien'ici).
+- Base prod **~29,7k comparables** (29 682 au 2026-06-21, vérifié via
+  `/admin/comparables/stats` ; vs « DB vide » en §4.3, désormais faux), toutes
+  tailles. DPE ~82 % / année ~37 % / étage-ascenseur ~60 % / code postal ~100 %
+  (bien'ici). Répartition par commune : voir l'entrée datée **2026-06-21** en tête de §0.
 - Le **pilier « Prix vs marché »** fonctionne : cascade
   `quartier → secteur → ville` (×bande DPE), fenêtre surface ±20 %, quartiles,
   filtre périmètre par **code postal (dépt 57)**, signal explicatif non-estimatif
@@ -483,7 +511,8 @@ class Comparable(Base):
 
 ### 9.1 [agent ingestion] Alimenter la base des comparables — ✅ Fait
 **Statut : ✅ Fait.** 5 scrapers actifs (bienici, benedic, idemmo, immoheytienne,
-laveine_immo), base prod **~17,7k comparables**, collecte CI hebdo (`collect.yml`)
+laveine_immo), base prod **~29,7k comparables** (29 682 au 2026-06-21, cf. §0),
+collecte CI hebdo (`collect.yml`)
 + harnais de diagnostic en PR (`diagnose-scrapers.yml`). Voir `backend/CLAUDE.md`
 §8-9. Le pilier « Prix vs marché » est passé de « Indéterminé » à opérationnel.
 - **Version cible** (rappel) : cron + modules `scrapers/sources/<site>.py` à
