@@ -1,17 +1,41 @@
 {
   "expo": {
-    "name": "Coherence",
+    "name": "Cohérence",
     "slug": "coherence",
     "scheme": "coherence",
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
+    "owner": "coherence44",
+    "extra": {
+      "eas": {
+        "projectId": "beb5fbb6-f827-4737-91aa-35dc1d0702a4"
+      }
+    },
+    "updates": {
+      "url": "https://u.expo.dev/beb5fbb6-f827-4737-91aa-35dc1d0702a4"
+    },
+    "runtimeVersion": {
+      "policy": "sdkVersion"
+    },
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#F5F1EA"
+    },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "fr.coherencemetz.app"
     },
     "android": {
-      "edgeToEdgeEnabled": true
+      "package": "fr.coherencemetz.app",
+      "edgeToEdgeEnabled": true,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#F5F1EA"
+      }
     }
   }
 }
