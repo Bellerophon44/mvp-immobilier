@@ -1,0 +1,38 @@
+{
+  "cli": {
+    "version": ">= 12.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "channel": "development",
+      "ios": { "simulator": false },
+      "android": { "buildType": "apk" },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://backend-frosty-sound-441-docker.fly.dev"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "channel": "preview",
+      "ios": { "simulator": false },
+      "android": { "buildType": "apk" },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://backend-frosty-sound-441-docker.fly.dev"
+      }
+    },
+    "production": {
+      "channel": "production",
+      "autoIncrement": true,
+      "android": { "buildType": "app-bundle" },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://backend-frosty-sound-441-docker.fly.dev"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}
