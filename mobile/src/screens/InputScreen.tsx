@@ -23,7 +23,13 @@ import { colors, spacing, radii, fontSize, fontFamily } from '../theme';
  * Habillage Coherence : fond parchment, titre serif editorial, carte de collage
  * sur paper a bord stoneLine, bouton primaire brique.
  */
-export function InputScreen({ onSubmit }: { onSubmit: (url: string) => void }) {
+export function InputScreen({
+  onSubmit,
+  onOpenHistory,
+}: {
+  onSubmit: (url: string) => void;
+  onOpenHistory: () => void;
+}) {
   const [value, setValue] = useState('');
   const [error, setError] = useState<string | null>(null);
 
@@ -85,6 +91,16 @@ export function InputScreen({ onSubmit }: { onSubmit: (url: string) => void }) {
             accessibilityRole="button"
           >
             <Text style={styles.ctaLabel}>Analyser</Text>
+          </Pressable>
+
+          {/* Affordance discrete vers l'historique local (lien, pas un CTA :
+              la brique reste l'unique accent d'action principale). */}
+          <Pressable
+            style={styles.historyLink}
+            onPress={onOpenHistory}
+            accessibilityRole="button"
+          >
+            <Text style={styles.historyLinkLabel}>Mes analyses</Text>
           </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -161,5 +177,17 @@ const styles = StyleSheet.create({
     fontSize: fontSize.base,
     color: colors.paper,
     letterSpacing: 0.2,
+  },
+  historyLink: {
+    alignSelf: 'center',
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.s3,
+  },
+  historyLinkLabel: {
+    fontFamily: fontFamily.sansMedium,
+    fontSize: fontSize.sm,
+    color: colors.ink3,
+    textDecorationLine: 'underline',
   },
 });

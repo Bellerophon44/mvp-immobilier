@@ -18,13 +18,21 @@ import {
 import { InputScreen } from './src/screens/InputScreen';
 import { WebViewScreen } from './src/screens/WebViewScreen';
 import { ResultScreen } from './src/screens/ResultScreen';
+import { HistoryScreen } from './src/screens/HistoryScreen';
 import { ApiResult } from './src/lib/types';
+import { saveAnalysis } from './src/lib/history';
+import { SqliteHistoryStore } from './src/lib/historyStoreSqlite';
 import { Wordmark } from './src/components/Wordmark';
 import { colors, spacing } from './src/theme';
 
-// Machine a etats minimale (sans react-navigation) reliant les 3 ecrans de la
-// boucle : saisie -> webview -> resultat. SPEC mobile-phase2-tranche1 §4.
-type Screen = 'input' | 'webview' | 'result';
+// Machine a etats minimale (sans react-navigation) reliant les ecrans de la
+// boucle : saisie -> webview -> resultat, + l'historique local. SPEC
+// mobile-phase2-tranche1 §4, mobile-tranche-b-historique §3.
+type Screen = 'input' | 'webview' | 'result' | 'history';
+
+// Adaptateur sqlite instancie UNE seule fois (niveau module) : un seul handle de
+// base partage par la sauvegarde auto (onResult) et l'ecran « Mes analyses ».
+const historyStore = new SqliteHistoryStore();
 
 export default function App() {
   // Garde de chargement : les noms charges ici doivent correspondre aux cles
@@ -64,14 +72,28 @@ export default function App() {
             setUrl(u);
             setScreen('webview');
           }}
+          onOpenHistory={() => setScreen('history')}
         />
       ) : null}
       {screen === 'webview' && url ? (
         <WebViewScreen
           url={url}
-          onResult={(r) => {
+          onResult={(r, title) => {
             setResult(r);
             setScreen('result');
+            // Sauvegarde auto BEST-EFFORT : un echec de store (sqlite) ne doit
+            // jamais empecher l'affichage du resultat (§9 pas 5, AC-B8). Le titre
+            // est deja derive du texte extrait cote WebViewScreen ; le raw_text
+            // n'arrive jamais ici (invariant §11.3).
+            void saveAnalysis(historyStore, {
+              url,
+              title,
+              result: r,
+              savedAt: Date.now(),
+            }).catch(() => {
+              // why: degradation silencieuse — l'historique est un confort, pas
+              // un bloquant du parcours d'analyse.
+            });
           }}
           onBack={() => setScreen('input')}
         />
@@ -84,6 +106,17 @@ export default function App() {
             setUrl(null);
             setScreen('input');
           }}
+        />
+      ) : null}
+      {screen === 'history' ? (
+        <HistoryScreen
+          store={historyStore}
+          // Reouverture SANS appel reseau : on reaffiche l'ApiResult stocke.
+          onOpen={(stored) => {
+            setResult(stored);
+            setScreen('result');
+          }}
+          onBack={() => setScreen('input')}
         />
       ) : null}
     </View>

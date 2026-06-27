@@ -12,6 +12,7 @@ import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import { buildInjectedScript } from '../webview/injectedScript';
 import { filterGallery } from '../lib/gallery';
 import { analyzeListing } from '../lib/analyzeApi';
+import { deriveTitle } from '../lib/history';
 import { ApiResult } from '../lib/types';
 import { Wordmark } from '../components/Wordmark';
 import { colors, spacing, radii, fontSize, fontFamily } from '../theme';
@@ -41,13 +42,20 @@ interface ExtractMessage {
  * resultat. Toute erreur (firstUrl en amont, extraction, analyse) -> message
  * lisible (le message de analyzeListing porte le detail backend).
  */
+/**
+ * onResult remonte l'ApiResult ET un `title` court DEJA derive du texte extrait
+ * (via deriveTitle de src/lib, source unique de verite). Le texte brut de
+ * l'annonce ne quitte JAMAIS cet ecran : seul le libelle court derive transite
+ * vers App pour la sauvegarde historique (invariant §11.3, le raw_text n'est
+ * jamais persiste).
+ */
 export function WebViewScreen({
   url,
   onResult,
   onBack,
 }: {
   url: string;
-  onResult: (result: ApiResult) => void;
+  onResult: (result: ApiResult, title: string) => void;
   onBack: () => void;
 }) {
   const webRef = useRef<WebView>(null);
@@ -72,10 +80,13 @@ export function WebViewScreen({
       return;
     }
     const gallery = filterGallery(data.rawImageUrls ?? []);
+    // Titre derive ICI, depuis le texte extrait, AVANT que ce texte ne soit jete :
+    // seul le libelle court remonte a App ; le raw_text n'est jamais persiste.
+    const title = deriveTitle(data.text);
     try {
       const result = await analyzeListing(data.text, gallery);
       setLoading(false);
-      onResult(result);
+      onResult(result, title);
     } catch (e) {
       setLoading(false);
       setError("Échec de l'analyse : " + (e instanceof Error ? e.message : String(e)));
