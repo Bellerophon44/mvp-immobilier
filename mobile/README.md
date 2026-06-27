@@ -31,6 +31,7 @@ Sans elle, l'appel `/analyze` echoue (URL vide).
 
 1. Copier l'exemple : `cp .env.example .env`
 2. Renseigner l'URL racine du backend dans `.env`, par exemple :
+   - prod : `EXPO_PUBLIC_API_URL=https://backend-frosty-sound-441-docker.fly.dev`
    - staging : `EXPO_PUBLIC_API_URL=https://coherence-staging.fly.dev`
    - local : `EXPO_PUBLIC_API_URL=http://<ip-lan>:8080`
 
@@ -63,3 +64,67 @@ npm run typecheck  # tsc --noEmit
 
 Les ecrans (`.tsx`) ne sont pas couverts par Jest (verifies manuellement sur
 device, cf. SPEC §5.B).
+
+## Identite visuelle
+
+Le theme (`src/theme.ts`) reprend a l'identique les tokens du design system web
+(`frontend/app/globals.css`) : palette Metz (encre, parchemin, brique, or de
+Jaumont), echelle typo, polices **Instrument Serif** (titres) / **Geist** (corps)
+/ **Geist Mono** (chiffres) chargees via `@expo-google-fonts`. Composants de marque
+portes en `react-native-svg` : `Wordmark` (losange brique) et `ScoreDonut`. Regle :
+l'or de Jaumont est **reserve au cachet « contexte local »** ; la brique est le seul
+accent d'action. La couleur du verdict derive du **libelle renvoye par le backend**
+(`verdictColorFromLabel`), pas du score (sinon mot et couleur divergent aux seuils).
+
+## Distribution (EAS)
+
+Projet Expo : `@coherence44/coherence` (projectId dans `app.json`). Profils dans
+`eas.json` (`development` / `preview` / `production`) ; `EXPO_PUBLIC_API_URL` (prod)
+est injectee **au build** via `eas.json` (donc un build n'a PAS besoin de `.env`).
+
+- **Apercu en Expo Go (sans serveur de dev)** — `eas update` publie un bundle
+  ouvrable dans Expo Go (runtime `exposdk:54.0.0`, `runtimeVersion.policy =
+  sdkVersion`) :
+  ```bash
+  eas update --branch preview --message "..."
+  ```
+  ⚠️ Contrairement a `eas build`, **`eas update` n'utilise PAS le `env` de
+  `eas.json`** : il lit le `.env` / l'environnement **au moment de l'export**. Sans
+  `EXPO_PUBLIC_API_URL` present a cet instant, le bundle publie appelle une URL vide
+  → « Network request failed » a l'analyse. Toujours avoir le `.env` (ou exporter la
+  variable) avant `eas update`.
+- **Build Android (APK autonome, gratuit, sans compte)** :
+  ```bash
+  eas build -p android --profile preview
+  ```
+  Donne un `.apk` a telecharger/installer (vraie icone, sans Expo Go). ✅ Construit
+  et valide sur device.
+- **Build iOS (app sur iPhone)** : necessite un **compte Apple Developer (99 $/an)**
+  — il n'existe pas de build iOS cloud gratuit (le « 7 jours » d'Apple est local via
+  Xcode/Mac). Une fois le compte **actif** : `eas device:create` (enregistre
+  l'iPhone) puis `eas build -p ios --profile preview` (EAS cree certificat + profil
+  via l'Apple ID). **Statut : en attente** de l'inscription Apple (bloquee a la
+  verif d'identite — en France, fournir passeport/CNI plutot que le permis).
+- **Sans Git installe sur la machine** (ex. Windows + GitHub Desktop) : EAS exige
+  un VCS ; lancer les commandes EAS avec `EAS_NO_VCS=1` (`setx EAS_NO_VCS 1` pour le
+  rendre permanent).
+
+## PWA (alternative web, iPhone 0 €)
+
+Le site web `coherence-metz.fr` est installable (« Sur l'ecran d'accueil ») via le
+manifeste `frontend/app/manifest.ts` + icones + meta iOS. C'est le moyen **gratuit,
+sans Apple** d'avoir Coherence sur iPhone. Limite : un PWA **ne peut pas** faire
+l'extraction WebView de LBC (cross-origin) ni le partage natif — son flux est
+« coller URL/texte → backend ». L'extraction in-app reste le differenciateur de
+l'app native.
+
+## Limites & pieges connus
+
+- **`eas update` + `EXPO_PUBLIC_*`** : voir l'avertissement ci-dessus (`.env` requis
+  a l'export). A fiabiliser via les **variables d'env cote serveur Expo**
+  (`eas env:create` + `eas update --environment preview`) pour ne plus dependre du
+  `.env` local.
+- **Cache Expo Go** : apres un nouveau `eas update`, Expo Go peut servir l'ancien
+  bundle. Tuer l'app et rouvrir le **groupe d'update precis** ; en dernier recours,
+  reinstaller Expo Go.
+- **iOS** : aucune installation sur iPhone reel sans compte Apple Developer paye.
