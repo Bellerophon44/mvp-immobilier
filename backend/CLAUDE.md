@@ -675,8 +675,10 @@ exactes géocodées, `"quartier"` = repli profil). `AnalyzeRequest` accepte
 - **Pondération du score 40 / 30 / 30** (prix / transparence / risque = 100) :
   `compute_global_score` renvoie un `breakdown` par pilier et le score global est
   **exactement la somme** prix(/40)+transparence(/30)+risque(/30). Le front
-  affiche ces `points` (pilier prix /40 + pilier sémantique /60 = global), il ne
-  recalcule plus de barres divergentes. *(Corrigé 2026-06-04 : avant, transparence
+  affiche ces `points` sur **3 barres distinctes** (prix /40 + transparence /30 +
+  risque /30 = global ; depuis 2026-06-25 côté web ET app mobile — fin du
+  regroupement « prix + sémantique », terme « sémantique » retiré côté public), il
+  ne recalcule plus de barres divergentes. *(Corrigé 2026-06-04 : avant, transparence
   et risque plafonnaient à 25 → max 90, et le front recomputait les barres depuis
   les verdicts → `52 ≠ 10+48`.)* Reste discutable : un bien transparent et peu
   risqué mais fortement sur-positionné plafonne vers 72/100 — sévérité du pilier
