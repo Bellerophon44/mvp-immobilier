@@ -173,9 +173,40 @@
   `MAX_IMAGES=15`, ordre figé (nettoyage → dédup → filtrage → troncature) ; RGPD :
   URLs jamais loggées (compteur seul). Parcours staging-first (PR #141 → `staging`,
   promotion #142 → `main`). Specs : `docs/specs/mobile-phase1-image-urls-{ANALYSE,SPEC}.md`.
-- **App mobile — Phase 2 (l'app elle-même) ⬜ DÉCIDÉE, NON DÉMARRÉE (GATE 1 du
-  2026-06-23).** Décision actée d'en faire le prochain grand chantier (auparavant
-  absente de cette doc, d'où ce report). Arbitrages humains GATE 1 :
+- **App mobile — Phase 2 (l'app elle-même) 🟦 EN COURS — TRANCHE 1 LIVRÉE
+  (2026-06-25).** Le chantier a démarré et la première tranche est déployée /
+  validée sur device. Détail technique : `mobile/README.md`.
+  - **App React Native / Expo SDK 54** sous `mobile/`. Boucle complète : collage
+    d'URL → WebView in-app + extraction on-device (script injecté → texte + URLs
+    d'images brutes) → `filterGallery` (host strict, `rule=ad-large`, dédup, cap 50,
+    **source unique de vérité** côté RN) → `POST /analyze` (`raw_text` + `image_urls`)
+    → écran de résultat. Logique pure (`src/lib`) **testée : 73 tests Jest verts** ;
+    écrans (`src/screens`) = famille B (vérif device). Habillage identité Cohérence
+    (thème repris de `frontend/app/globals.css`, polices Instrument Serif/Geist,
+    `Wordmark`/`ScoreDonut` en `react-native-svg`, or de Jaumont réservé au cachet
+    contexte local) ; couleur du verdict dérivée du **libellé backend** (pas du score).
+  - **Validé sur device** : iPhone (Expo Go) + **Android (APK standalone autonome,
+    avec icône)** — boucle de bout en bout OK.
+  - **Desktop aligné sur les 3 piliers** (prix /40, transparence /30, risques /30,
+    fin du regroupement « Prix + Sémantique » ; terme « sémantique » retiré côté
+    public) — `frontend/app/page.tsx`. PR #143 → `staging`, #144 → `main`.
+  - **PWA ✅ EN PROD** : `coherence-metz.fr` installable sur l'écran d'accueil
+    (manifeste + icônes losange + meta iOS plein écran). Flux PWA = coller URL/texte
+    → backend (pas d'extraction WebView : limite cross-origin web ; c'est le
+    différenciateur de l'app native). PR #145 → `staging`, #146 → `main`.
+  - **Distribution** : EAS configuré (projet Expo `@coherence44/coherence`,
+    `eas.json` profils development/preview/production, `EXPO_PUBLIC_API_URL` injectée
+    au build). `eas update` (canal `preview`) pour aperçu en Expo Go. **APK Android
+    `preview` construit et installé.** **iOS natif (TestFlight / internal) EN ATTENTE
+    de l'inscription Apple Developer (99 $/an)** — bloquée à la vérif d'identité
+    (permis refusé « pas valide pour la région » en France → reprendre avec
+    passeport / CNI, app iPhone *Apple Developer*, région France).
+  - **À FAIRE (tranches suivantes)** : iOS natif une fois le compte Apple actif ;
+    partage natif depuis les apps immo (share intent) ; fiabiliser `eas update` en
+    Expo Go (variable d'env côté serveur Expo, cf. leçon `.claude/lessons.md`) ;
+    historique d'analyses / polish.
+
+  Arbitrages humains GATE 1 (2026-06-23, rappel) :
   - **Périmètre Tier 1 uniquement** (parcours `/analyze` raw_text + `image_urls`,
     partage natif depuis les apps immo, OCR, géoloc). **Le backend est déjà prêt
     (Phase 1) : 0 backend nouveau pour Tier 1.**
