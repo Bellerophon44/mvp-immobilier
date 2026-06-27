@@ -84,15 +84,31 @@ est injectee **au build** via `eas.json` (donc un build n'a PAS besoin de `.env`
 
 - **Apercu en Expo Go (sans serveur de dev)** — `eas update` publie un bundle
   ouvrable dans Expo Go (runtime `exposdk:54.0.0`, `runtimeVersion.policy =
-  sdkVersion`) :
+  sdkVersion`).
+
+  **Chemin fiable (recommande) — env cote serveur Expo.** Contrairement a
+  `eas build`, **`eas update` n'utilise PAS le `env` de `eas.json`** : il lit le
+  `.env` / l'environnement **au moment de l'export**. Pour ne plus dependre d'un
+  `.env` local (cause du « Network request failed », cf. `.claude/lessons.md`
+  2026-06-25), declarer la variable **une seule fois** sur le serveur Expo, puis
+  publier avec `--environment` (le script npm `update:preview` le fait) :
   ```bash
-  eas update --branch preview --message "..."
+  eas login
+  # one-shot : enregistre EXPO_PUBLIC_API_URL cote serveur pour l'env "preview"
+  eas env:create --environment preview \
+    --name EXPO_PUBLIC_API_URL \
+    --value https://backend-frosty-sound-441-docker.fly.dev \
+    --visibility plaintext
+  eas env:list --environment preview        # verifier
+  # ensuite, a chaque apercu :
+  npm run update:preview                     # = eas update --branch preview --environment preview
   ```
-  ⚠️ Contrairement a `eas build`, **`eas update` n'utilise PAS le `env` de
-  `eas.json`** : il lit le `.env` / l'environnement **au moment de l'export**. Sans
-  `EXPO_PUBLIC_API_URL` present a cet instant, le bundle publie appelle une URL vide
-  → « Network request failed » a l'analyse. Toujours avoir le `.env` (ou exporter la
-  variable) avant `eas update`.
+  Le log d'export doit afficher `Loading environment variables from EAS` et la
+  valeur `EXPO_PUBLIC_API_URL`. Plus besoin de `.env` pour `eas update`.
+
+  **Repli local (si pas d'env serveur)** : avoir un `.env` (ou exporter la variable)
+  AVANT `eas update --branch preview` ; sans `EXPO_PUBLIC_API_URL` a cet instant le
+  bundle appelle une URL vide → « Network request failed ».
 - **Build Android (APK autonome, gratuit, sans compte)** :
   ```bash
   eas build -p android --profile preview
@@ -101,13 +117,57 @@ est injectee **au build** via `eas.json` (donc un build n'a PAS besoin de `.env`
   et valide sur device.
 - **Build iOS (app sur iPhone)** : necessite un **compte Apple Developer (99 $/an)**
   — il n'existe pas de build iOS cloud gratuit (le « 7 jours » d'Apple est local via
-  Xcode/Mac). Une fois le compte **actif** : `eas device:create` (enregistre
-  l'iPhone) puis `eas build -p ios --profile preview` (EAS cree certificat + profil
-  via l'Apple ID). **Statut : en attente** de l'inscription Apple (bloquee a la
-  verif d'identite — en France, fournir passeport/CNI plutot que le permis).
+  Xcode/Mac). Procedure complete : voir **Runbook iOS / TestFlight** ci-dessous.
+  **Statut : en attente** de l'inscription Apple (bloquee a la verif d'identite —
+  en France, fournir **passeport** (ou CNI) plutot que le permis ; permis « pas
+  valide pour la region »).
 - **Sans Git installe sur la machine** (ex. Windows + GitHub Desktop) : EAS exige
   un VCS ; lancer les commandes EAS avec `EAS_NO_VCS=1` (`setx EAS_NO_VCS 1` pour le
   rendre permanent).
+
+## Runbook iOS / TestFlight
+
+> A derouler **une fois le compte Apple Developer actif**. Le repo est deja pret
+> cote code (bundleId `fr.coherencemetz.app`, `projectId` lie, profils EAS iOS,
+> icone/splash, `ios.config.usesNonExemptEncryption=false` pour l'export
+> compliance). Aucune permission iOS (camera/photos/geoloc) n'est requise : la
+> boucle actuelle = coller URL → WebView → extraction DOM → `/analyze`, donc aucun
+> `NSUsageDescription` a declarer.
+
+### 1. Enregistrer l'iPhone + build ad-hoc (install directe)
+```bash
+cd mobile
+eas login                       # Apple ID rattache au compte developpeur
+eas device:create               # enregistre l'UDID de l'iPhone (suivre le lien/QR)
+npm run build:ios:preview       # = eas build -p ios --profile preview
+```
+EAS genere automatiquement **certificat + provisioning profile** via l'Apple ID
+(repondre « yes » a la creation). A la fin, installer le `.ipa` sur l'iPhone
+enregistre via le lien/QR. Pas de Mac requis.
+
+### 2. TestFlight (test interne propre)
+```bash
+npm run build:ios:prod          # = eas build -p ios --profile production (app-store)
+npm run submit:ios              # = eas submit -p ios --latest  → App Store Connect
+```
+`eas submit` demande, la 1re fois, 3 identifiants **specifiques au compte** (a
+recuperer une fois le compte actif) ; pour les figer et ne plus etre invite,
+completer `eas.json` :
+```jsonc
+// eas.json → "submit": { "production": { ... } }
+"ios": {
+  "appleId": "<email Apple ID developpeur>",
+  "ascAppId": "<App ID numerique, App Store Connect → ton app → General → App Information → Apple ID>",
+  "appleTeamId": "<Team ID, developer.apple.com → Membership details>"
+}
+```
+- L'app doit exister cote **App Store Connect** (creee a la 1re soumission ou
+  manuellement) ; `ascAppId` = son identifiant numerique.
+- Export compliance : deja gere par `usesNonExemptEncryption=false` (pas de
+  question a chaque build). L'app n'utilise que HTTPS standard.
+- `appVersionSource: remote` + `autoIncrement` (profil production) → le numero de
+  build s'incremente tout seul a chaque upload (exigence TestFlight).
+- Apres upload, ajouter les testeurs internes dans App Store Connect → TestFlight.
 
 ## PWA (alternative web, iPhone 0 €)
 
@@ -120,10 +180,10 @@ l'app native.
 
 ## Limites & pieges connus
 
-- **`eas update` + `EXPO_PUBLIC_*`** : voir l'avertissement ci-dessus (`.env` requis
-  a l'export). A fiabiliser via les **variables d'env cote serveur Expo**
-  (`eas env:create` + `eas update --environment preview`) pour ne plus dependre du
-  `.env` local.
+- **`eas update` + `EXPO_PUBLIC_*`** : fiabilise via les **variables d'env cote
+  serveur Expo** (`eas env:create` + `npm run update:preview` qui passe
+  `--environment preview`) — voir « Distribution ». Le repli `.env` local reste
+  valable si l'env serveur n'est pas configure.
 - **Cache Expo Go** : apres un nouveau `eas update`, Expo Go peut servir l'ancien
   bundle. Tuer l'app et rouvrir le **groupe d'update precis** ; en dernier recours,
   reinstaller Expo Go.
