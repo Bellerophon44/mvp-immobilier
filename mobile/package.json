@@ -9,7 +9,11 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "test": "jest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "update:preview": "eas update --branch preview --environment preview",
+    "build:ios:preview": "eas build -p ios --profile preview",
+    "build:ios:prod": "eas build -p ios --profile production",
+    "submit:ios": "eas submit -p ios --latest"
   },
   "devDependencies": {
     "@types/jest": "^29.5.12",
